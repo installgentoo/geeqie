@@ -1524,6 +1524,15 @@ static void vficon_sized_cb(GtkWidget *, GtkAllocation *allocation, gpointer dat
 	vficon_populate_at_new_size(vf, allocation->width, allocation->height, FALSE);
 }
 
+static void vficon_scroll_value_changed_cb(GtkAdjustment *, gpointer data)
+{
+	auto vf = static_cast<ViewFile *>(data);
+
+	if (!VFICON(vf)->thumb_cache_reached || vf->thumbs_running) return;
+
+	vf_thumb_update(vf);
+}
+
 /*
  *-----------------------------------------------------------------------------
  * misc
@@ -1569,6 +1578,88 @@ void vficon_read_metadata_progress_count(const GList *list, gint &count, gint &d
 		}
 }
 
+#define VFICON_THUMB_CACHE_CAP_BYTES (512U * 1024U * 1024U)
+
+struct VfIconThumbCacheEntry
+{
+	FileData *fd;
+	gsize bytes;
+};
+
+static gsize vficon_thumb_pixbuf_bytes(const GdkPixbuf *pixbuf)
+{
+	if (!pixbuf) return 0;
+
+	return static_cast<gsize>(gdk_pixbuf_get_byte_length(pixbuf));
+}
+
+static void vficon_thumb_cache_remove(ViewFile *vf, FileData *fd)
+{
+	auto *entry = static_cast<VfIconThumbCacheEntry *>(g_hash_table_lookup(VFICON(vf)->thumb_cache_index, fd));
+	if (!entry) return;
+
+	g_queue_remove(VFICON(vf)->thumb_cache, entry);
+	VFICON(vf)->thumb_cache_bytes -= entry->bytes;
+	g_hash_table_remove(VFICON(vf)->thumb_cache_index, fd);
+	g_free(entry);
+}
+
+static void vficon_thumb_cache_evict(ViewFile *vf)
+{
+	while (VFICON(vf)->thumb_cache_bytes > VFICON_THUMB_CACHE_CAP_BYTES &&
+	       !g_queue_is_empty(VFICON(vf)->thumb_cache))
+		{
+		auto *entry = static_cast<VfIconThumbCacheEntry *>(g_queue_pop_head(VFICON(vf)->thumb_cache));
+		g_hash_table_remove(VFICON(vf)->thumb_cache_index, entry->fd);
+
+		VFICON(vf)->thumb_cache_bytes -= entry->bytes;
+		if (entry->fd && entry->fd->thumb_pixbuf)
+			{
+			g_object_unref(entry->fd->thumb_pixbuf);
+			entry->fd->thumb_pixbuf = nullptr;
+			vficon_set_thumb_fd(vf, entry->fd);
+			}
+		g_free(entry);
+		}
+}
+
+static void vficon_thumb_cache_add(ViewFile *vf, FileData *fd)
+{
+	if (!fd || !fd->thumb_pixbuf) return;
+	if (g_hash_table_contains(VFICON(vf)->thumb_cache_index, fd)) return;
+
+	auto *entry = g_new0(VfIconThumbCacheEntry, 1);
+	entry->fd = fd;
+	entry->bytes = vficon_thumb_pixbuf_bytes(fd->thumb_pixbuf);
+
+	g_queue_push_tail(VFICON(vf)->thumb_cache, entry);
+	g_hash_table_insert(VFICON(vf)->thumb_cache_index, fd, entry);
+	VFICON(vf)->thumb_cache_bytes += entry->bytes;
+
+	if (!VFICON(vf)->thumb_cache_reached &&
+	    VFICON(vf)->thumb_cache_bytes >= VFICON_THUMB_CACHE_CAP_BYTES)
+		{
+		VFICON(vf)->thumb_cache_reached = TRUE;
+		}
+
+	vficon_thumb_cache_evict(vf);
+}
+
+void vficon_thumb_cache_reset(ViewFile *vf)
+{
+	if (!vf || !VFICON(vf)->thumb_cache) return;
+
+	while (!g_queue_is_empty(VFICON(vf)->thumb_cache))
+		{
+		auto *entry = static_cast<VfIconThumbCacheEntry *>(g_queue_pop_head(VFICON(vf)->thumb_cache));
+		g_free(entry);
+		}
+
+	g_hash_table_remove_all(VFICON(vf)->thumb_cache_index);
+	VFICON(vf)->thumb_cache_bytes = 0;
+	VFICON(vf)->thumb_cache_reached = FALSE;
+}
+
 void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 {
 	GtkTreeModel *store;
@@ -1582,6 +1673,15 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 
 	gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
 	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
+
+	if (fd->thumb_pixbuf)
+		{
+		vficon_thumb_cache_add(vf, fd);
+		}
+	else
+		{
+		vficon_thumb_cache_remove(vf, fd);
+		}
 }
 
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
@@ -1614,16 +1714,12 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 			}
 		}
 
-	/* Then iterate through the entire list to load all of them. */
-	GList *work;
-	for (work = vf->list; work; work = work->next)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-
-		// Note: This implementation differs from view-file-list.cc because sidecar files are not
-		// distinct list elements here, as they are in the list view.
-		if (!fd->thumb_pixbuf) return fd;
-		}
+	/* Only load thumbnails currently visible in the view. */
+	/*
+	 * The previous behavior continued by loading thumbnails from the start of the list:
+	 * for (GList *work = vf->list; work; work = work->next) { ... }
+	 * This has been intentionally disabled to stop loading non-visible thumbnails.
+	 */
 
 	return nullptr;
 }
@@ -2022,6 +2118,7 @@ gboolean vficon_set_fd(ViewFile *vf, FileData *dir_fd)
 
 	g_list_free(vf->list);
 	vf->list = nullptr;
+	vficon_thumb_cache_reset(vf);
 
 	/* NOTE: populate will clear the store for us */
 	ret = vficon_refresh_real(vf, FALSE);
@@ -2045,6 +2142,9 @@ void vficon_destroy_cb(ViewFile *vf)
 
 	g_list_free(vf->list);
 	g_list_free(VFICON(vf)->selection);
+	vficon_thumb_cache_reset(vf);
+	g_queue_free(VFICON(vf)->thumb_cache);
+	g_hash_table_destroy(VFICON(vf)->thumb_cache_index);
 }
 
 ViewFile *vficon_new(ViewFile *vf)
@@ -2055,6 +2155,10 @@ ViewFile *vficon_new(ViewFile *vf)
 	vf->info = g_new0(ViewFileInfoIcon, 1);
 
 	VFICON(vf)->show_text = options->show_icon_names;
+	VFICON(vf)->thumb_cache = g_queue_new();
+	VFICON(vf)->thumb_cache_index = g_hash_table_new(g_direct_hash, g_direct_equal);
+	VFICON(vf)->thumb_cache_bytes = 0;
+	VFICON(vf)->thumb_cache_reached = FALSE;
 
 	store = gtk_list_store_new(1, G_TYPE_POINTER);
 	vf->listview = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
@@ -2078,6 +2182,10 @@ ViewFile *vficon_new(ViewFile *vf)
 
 	g_signal_connect(G_OBJECT(vf->listview), "size_allocate",
 			 G_CALLBACK(vficon_sized_cb), vf);
+
+	GtkAdjustment *adj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(vf->listview));
+	g_signal_connect(G_OBJECT(adj), "value-changed",
+			 G_CALLBACK(vficon_scroll_value_changed_cb), vf);
 
 	gtk_widget_set_events(vf->listview, GDK_POINTER_MOTION_MASK | GDK_BUTTON_RELEASE_MASK |
 			      static_cast<GdkEventMask>(GDK_BUTTON_PRESS_MASK | GDK_LEAVE_NOTIFY_MASK));
