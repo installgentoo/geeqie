@@ -191,7 +191,6 @@ static void thumb_loader_done_cb(ImageLoader *il, gpointer data)
 			pixbuf_scale_aspect(tl->max_w, tl->max_h, pw, ph, w, h);
 
 			if (tl->fd->thumb_pixbuf) g_object_unref(tl->fd->thumb_pixbuf);
-			// Allocates a new GdkPixbuf (and its pixel buffer) for the scaled thumbnail.
 			tl->fd->thumb_pixbuf = gdk_pixbuf_scale_simple(pixbuf, w, h, static_cast<GdkInterpType>(options->thumbnails.quality));
 			}
 		save = TRUE;
@@ -201,7 +200,6 @@ static void thumb_loader_done_cb(ImageLoader *il, gpointer data)
 		if (tl->fd)
 			{
 			if (tl->fd->thumb_pixbuf) g_object_unref(tl->fd->thumb_pixbuf);
-			// Retains the loader-provided pixbuf; the pixbuf's pixel buffer is owned by the loader.
 			tl->fd->thumb_pixbuf = g_object_ref(pixbuf);
 			}
 		save = image_loader_get_shrunk(il);
@@ -349,7 +347,6 @@ gboolean thumb_loader_start(ThumbLoader *tl, FileData *fd)
 	if (!cache_path && options->thumbnails.use_xvpics)
 		{
 		if (tl->fd->thumb_pixbuf) g_object_unref(tl->fd->thumb_pixbuf);
-		// Allocates a new GdkPixbuf from the xv thumbnail data.
 		tl->fd->thumb_pixbuf = get_xv_thumbnail(tl->fd->path, tl->max_w, tl->max_h);
 		if (tl->fd->thumb_pixbuf)
 			{

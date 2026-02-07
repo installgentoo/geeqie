@@ -589,7 +589,6 @@ static void thumb_loader_std_done_cb(ImageLoader *il, gpointer data)
 	if (tl->fd)
 		{
 		if (tl->fd->thumb_pixbuf) g_object_unref(tl->fd->thumb_pixbuf);
-		// Allocates a new GdkPixbuf (and its pixel buffer) for the finalized thumbnail.
 		tl->fd->thumb_pixbuf = thumb_loader_std_finish(tl, pixbuf, image_loader_get_shrunk(il));
 		}
 
