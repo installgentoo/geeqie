@@ -1592,7 +1592,7 @@ gboolean vficon_fd_is_visible(ViewFile *vf, FileData *fd)
 	GtkTreeIter iter;
 	gint col = -1;
 
-	if (!vficon_find_iter(vf, fd, &iter, &col)) return FALSE;
+	if (!vficon_find_iter(vf, fd, &iter, &col)) return TRUE;
 
 	GtkTreeViewColumn *target_column = nullptr;
 	GList *columns = gtk_tree_view_get_columns(GTK_TREE_VIEW(vf->listview));
@@ -1608,10 +1608,10 @@ gboolean vficon_fd_is_visible(ViewFile *vf, FileData *fd)
 		}
 	g_list_free(columns);
 
-	if (!target_column) return FALSE;
+	if (!target_column) return TRUE;
 
 	g_autoptr(GtkTreePath) path = gtk_tree_model_get_path(store, &iter);
-	if (!path) return FALSE;
+	if (!path) return TRUE;
 
 	GdkRectangle visible_rect;
 	GdkRectangle cell_rect;
