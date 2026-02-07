@@ -36,6 +36,11 @@ struct ViewFileInfoIcon
 	gint columns;
 	gint rows;
 
+	GQueue *thumb_cache;
+	GHashTable *thumb_cache_index;
+	gsize thumb_cache_bytes;
+	gboolean thumb_cache_reached;
+
 	GList *selection;
 	FileData *prev_selection;
 
@@ -102,6 +107,7 @@ void vficon_thumb_progress_count(const GList *list, gint &count, gint &done);
 void vficon_read_metadata_progress_count(const GList *list, gint &count, gint &done);
 void vficon_set_thumb_fd(ViewFile *vf, FileData *fd);
 FileData *vficon_thumb_next_fd(ViewFile *vf);
+void vficon_thumb_cache_reset(ViewFile *vf);
 
 FileData *vficon_star_next_fd(ViewFile *vf);
 void vficon_set_star_fd(ViewFile *vf, FileData *fd);
