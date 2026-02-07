@@ -1584,9 +1584,9 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
 }
 
-void vficon_thumb_set_visible_list(ViewFile *vf)
+gboolean vficon_fd_is_visible(ViewFile *vf, FileData *fd)
 {
-	g_clear_pointer(&vf->thumbs_list, g_list_free);
+	if (!fd) return FALSE;
 
 	GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
 	GtkTreeIter iter;
@@ -1602,10 +1602,7 @@ void vficon_thumb_set_visible_list(ViewFile *vf)
 			GList *list;
 			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
 
-			for (GList *work = list; work; work = work->next)
-				{
-				if (work->data) vf->thumbs_list = g_list_prepend(vf->thumbs_list, work->data);
-				}
+			if (g_list_find(list, fd)) return TRUE;
 
 			if (g_autoptr(GtkTreePath) current = gtk_tree_model_get_path(store, &iter);
 			    gtk_tree_path_compare(current, end) >= 0)
@@ -1616,35 +1613,8 @@ void vficon_thumb_set_visible_list(ViewFile *vf)
 			valid = gtk_tree_model_iter_next(store, &iter);
 			}
 		}
-	else if (g_autoptr(GtkTreePath) tpath = nullptr;
-	         gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr) &&
-	         gtk_tree_model_get_iter(store, &iter, tpath))
-		{
-		gboolean valid = TRUE;
 
-		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
-			{
-			GList *list;
-			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-
-			for (GList *work = list; work; work = work->next)
-				{
-				if (work->data) vf->thumbs_list = g_list_prepend(vf->thumbs_list, work->data);
-				}
-
-			valid = gtk_tree_model_iter_next(store, &iter);
-			}
-		}
-
-	vf->thumbs_list = g_list_reverse(vf->thumbs_list);
-
-	if (vf->thumbs_deferred)
-		{
-		for (GList *work = vf->thumbs_list; work; work = work->next)
-			{
-			g_hash_table_remove(vf->thumbs_deferred, work->data);
-			}
-		}
+	return FALSE;
 }
 
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
@@ -1679,16 +1649,13 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 
 	/* Then iterate through the entire list to load all of them. */
 	GList *work;
-	for (work = vf->thumbs_list; work; work = work->next)
+	for (work = vf->list; work; work = work->next)
 		{
 		auto fd = static_cast<FileData *>(work->data);
 
 		// Note: This implementation differs from view-file-list.cc because sidecar files are not
 		// distinct list elements here, as they are in the list view.
-		if (!fd->thumb_pixbuf && (!vf->thumbs_deferred || !g_hash_table_contains(vf->thumbs_deferred, fd)))
-			{
-			return fd;
-			}
+		if (!fd->thumb_pixbuf) return fd;
 		}
 
 	return nullptr;

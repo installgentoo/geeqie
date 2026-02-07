@@ -42,6 +42,7 @@
 #include "metadata.h"
 #include "misc.h"
 #include "options.h"
+#include "pixbuf-util.h"
 #include "thumb.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
@@ -1322,19 +1323,11 @@ static gdouble vf_thumb_progress(ViewFile *vf)
 
 	switch (vf->type)
 	{
-	case FILEVIEW_LIST:
-		vflist_thumb_progress_count(vf->list, count, done);
-		break;
-	case FILEVIEW_ICON:
-		if (vf->thumbs_list)
-			{
-			vficon_thumb_progress_count(vf->thumbs_list, count, done);
-			}
-		break;
+	case FILEVIEW_LIST: vflist_thumb_progress_count(vf->list, count, done); break;
+	case FILEVIEW_ICON: vficon_thumb_progress_count(vf->list, count, done); break;
 	}
 
 	DEBUG_1("thumb progress: %d of %d", done, count);
-	if (count == 0) return 0.0;
 	return static_cast<gdouble>(done) / count;
 }
 
@@ -1387,8 +1380,6 @@ void vf_thumb_cleanup(ViewFile *vf)
 	vf->thumbs_loader = nullptr;
 
 	vf->thumbs_filedata = nullptr;
-	g_clear_pointer(&vf->thumbs_list, g_list_free);
-	g_clear_pointer(&vf->thumbs_deferred, g_hash_table_destroy);
 }
 
 void vf_thumb_stop(ViewFile *vf)
@@ -1428,11 +1419,6 @@ static gboolean vf_thumb_next(ViewFile *vf)
 		return FALSE;
 		}
 
-	if (vf->type == FILEVIEW_ICON && !vf->thumbs_list)
-		{
-		vficon_thumb_set_visible_list(vf);
-		}
-
 	switch (vf->type)
 	{
 	case FILEVIEW_LIST: fd = vflist_thumb_next_fd(vf); break;
@@ -1448,13 +1434,13 @@ static gboolean vf_thumb_next(ViewFile *vf)
 
 	vf->thumbs_filedata = fd;
 
-	if (vf->type == FILEVIEW_ICON && vf->thumbs_list && !g_list_find(vf->thumbs_list, fd))
+	if (vf->type == FILEVIEW_ICON && !vficon_fd_is_visible(vf, fd))
 		{
-		if (!vf->thumbs_deferred)
+		if (!fd->thumb_pixbuf)
 			{
-			vf->thumbs_deferred = g_hash_table_new(g_direct_hash, g_direct_equal);
+			fd->thumb_pixbuf = pixbuf_fallback(fd, options->thumbnails.max_width, options->thumbnails.max_height);
 			}
-		g_hash_table_add(vf->thumbs_deferred, fd);
+		vf_thumb_do(vf, fd);
 		return TRUE;
 		}
 
@@ -1499,7 +1485,6 @@ void vf_thumb_update(ViewFile *vf)
 	vf_thumb_stop(vf);
 
 	if (vf->type == FILEVIEW_LIST && !VFLIST(vf)->thumbs_enabled) return;
-	if (vf->type == FILEVIEW_ICON) vficon_thumb_set_visible_list(vf);
 
 	vf_thumb_status(vf, 0.0, _("Loading thumbs..."));
 	vf->thumbs_running = TRUE;
