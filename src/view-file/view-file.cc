@@ -1467,11 +1467,6 @@ static void vf_thumb_reset_all(ViewFile *vf)
 			fd->thumb_pixbuf = nullptr;
 			}
 		}
-
-	if (vf->type == FILEVIEW_ICON)
-		{
-		vficon_thumb_cache_reset(vf);
-		}
 }
 
 void vf_thumb_update(ViewFile *vf)
