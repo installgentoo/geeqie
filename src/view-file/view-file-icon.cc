@@ -1584,6 +1584,44 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
 }
 
+gboolean vficon_fd_is_visible(ViewFile *vf, FileData *fd)
+{
+	if (!fd) return FALSE;
+
+	GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+	GtkTreeIter iter;
+	gint col = -1;
+
+	if (!vficon_find_iter(vf, fd, &iter, &col)) return TRUE;
+
+	GtkTreeViewColumn *target_column = nullptr;
+	GList *columns = gtk_tree_view_get_columns(GTK_TREE_VIEW(vf->listview));
+	for (GList *work = columns; work; work = work->next)
+		{
+		auto *column = GTK_TREE_VIEW_COLUMN(work->data);
+		gint number = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(column), "column_number"));
+		if (number == col)
+			{
+			target_column = column;
+			break;
+			}
+		}
+	g_list_free(columns);
+
+	if (!target_column) return TRUE;
+
+	g_autoptr(GtkTreePath) path = gtk_tree_model_get_path(store, &iter);
+	if (!path) return TRUE;
+
+	GdkRectangle visible_rect;
+	GdkRectangle cell_rect;
+
+	gtk_tree_view_get_visible_rect(GTK_TREE_VIEW(vf->listview), &visible_rect);
+	gtk_tree_view_get_cell_area(GTK_TREE_VIEW(vf->listview), path, target_column, &cell_rect);
+
+	return gdk_rectangle_intersect(&visible_rect, &cell_rect, nullptr);
+}
+
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
 FileData *vficon_thumb_next_fd(ViewFile *vf)
 {
