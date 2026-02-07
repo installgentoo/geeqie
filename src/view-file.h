@@ -83,6 +83,7 @@ struct ViewFile
 	ThumbLoader *thumbs_loader;
 	FileData *thumbs_filedata;
 	GList *thumbs_list;
+	GHashTable *thumbs_deferred;
 
 	/* marks */
 	gboolean marks_enabled;

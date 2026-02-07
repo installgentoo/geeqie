@@ -1388,6 +1388,7 @@ void vf_thumb_cleanup(ViewFile *vf)
 
 	vf->thumbs_filedata = nullptr;
 	g_clear_pointer(&vf->thumbs_list, g_list_free);
+	g_clear_pointer(&vf->thumbs_deferred, g_hash_table_destroy);
 }
 
 void vf_thumb_stop(ViewFile *vf)
@@ -1446,6 +1447,16 @@ static gboolean vf_thumb_next(ViewFile *vf)
 		}
 
 	vf->thumbs_filedata = fd;
+
+	if (vf->type == FILEVIEW_ICON && vf->thumbs_list && !g_list_find(vf->thumbs_list, fd))
+		{
+		if (!vf->thumbs_deferred)
+			{
+			vf->thumbs_deferred = g_hash_table_new(g_direct_hash, g_direct_equal);
+			}
+		g_hash_table_add(vf->thumbs_deferred, fd);
+		return TRUE;
+		}
 
 	thumb_loader_free(vf->thumbs_loader);
 

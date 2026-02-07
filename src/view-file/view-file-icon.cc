@@ -1637,6 +1637,14 @@ void vficon_thumb_set_visible_list(ViewFile *vf)
 		}
 
 	vf->thumbs_list = g_list_reverse(vf->thumbs_list);
+
+	if (vf->thumbs_deferred)
+		{
+		for (GList *work = vf->thumbs_list; work; work = work->next)
+			{
+			g_hash_table_remove(vf->thumbs_deferred, work->data);
+			}
+		}
 }
 
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
@@ -1677,7 +1685,10 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 
 		// Note: This implementation differs from view-file-list.cc because sidecar files are not
 		// distinct list elements here, as they are in the list view.
-		if (!fd->thumb_pixbuf) return fd;
+		if (!fd->thumb_pixbuf && (!vf->thumbs_deferred || !g_hash_table_contains(vf->thumbs_deferred, fd)))
+			{
+			return fd;
+			}
 		}
 
 	return nullptr;
