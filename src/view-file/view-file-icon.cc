@@ -1569,6 +1569,45 @@ void vficon_read_metadata_progress_count(const GList *list, gint &count, gint &d
 		}
 }
 
+static constexpr guint vficon_thumb_recent_max = 100;
+
+static void vficon_thumb_recent_remove(ViewFile *vf, FileData *fd)
+{
+	if (!vf || !fd || !VFICON(vf)->thumb_recent) return;
+
+	g_queue_remove(VFICON(vf)->thumb_recent, fd);
+}
+
+static void vficon_thumb_recent_evict(ViewFile *vf)
+{
+	while (g_queue_get_length(VFICON(vf)->thumb_recent) > vficon_thumb_recent_max)
+		{
+		auto *fd = static_cast<FileData *>(g_queue_pop_head(VFICON(vf)->thumb_recent));
+		if (fd && fd->thumb_pixbuf)
+			{
+			g_object_unref(fd->thumb_pixbuf);
+			fd->thumb_pixbuf = nullptr;
+			vficon_set_thumb_fd(vf, fd);
+			}
+		}
+}
+
+static void vficon_thumb_recent_track(ViewFile *vf, FileData *fd)
+{
+	if (!vf || !fd || !VFICON(vf)->thumb_recent) return;
+
+	vficon_thumb_recent_remove(vf, fd);
+	g_queue_push_tail(VFICON(vf)->thumb_recent, fd);
+	vficon_thumb_recent_evict(vf);
+}
+
+static void vficon_thumb_recent_reset(ViewFile *vf)
+{
+	if (!vf || !VFICON(vf)->thumb_recent) return;
+
+	g_queue_clear(VFICON(vf)->thumb_recent);
+}
+
 void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 {
 	GtkTreeModel *store;
@@ -1582,6 +1621,15 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 
 	gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
 	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
+
+	if (fd->thumb_pixbuf)
+		{
+		vficon_thumb_recent_track(vf, fd);
+		}
+	else
+		{
+		vficon_thumb_recent_remove(vf, fd);
+		}
 }
 
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
@@ -2024,6 +2072,7 @@ gboolean vficon_set_fd(ViewFile *vf, FileData *dir_fd)
 
 	g_list_free(vf->list);
 	vf->list = nullptr;
+	vficon_thumb_recent_reset(vf);
 
 	/* NOTE: populate will clear the store for us */
 	ret = vficon_refresh_real(vf, FALSE);
@@ -2047,6 +2096,8 @@ void vficon_destroy_cb(ViewFile *vf)
 
 	g_list_free(vf->list);
 	g_list_free(VFICON(vf)->selection);
+	vficon_thumb_recent_reset(vf);
+	g_queue_free(VFICON(vf)->thumb_recent);
 }
 
 ViewFile *vficon_new(ViewFile *vf)
@@ -2057,6 +2108,7 @@ ViewFile *vficon_new(ViewFile *vf)
 	vf->info = g_new0(ViewFileInfoIcon, 1);
 
 	VFICON(vf)->show_text = options->show_icon_names;
+	VFICON(vf)->thumb_recent = g_queue_new();
 
 	store = gtk_list_store_new(1, G_TYPE_POINTER);
 	vf->listview = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));

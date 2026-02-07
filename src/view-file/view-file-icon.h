@@ -36,6 +36,8 @@ struct ViewFileInfoIcon
 	gint columns;
 	gint rows;
 
+	GQueue *thumb_recent;
+
 	GList *selection;
 	FileData *prev_selection;
 
