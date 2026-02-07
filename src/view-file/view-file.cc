@@ -1326,11 +1326,15 @@ static gdouble vf_thumb_progress(ViewFile *vf)
 		vflist_thumb_progress_count(vf->list, count, done);
 		break;
 	case FILEVIEW_ICON:
-		vficon_thumb_progress_count(vf->thumbs_list ? vf->thumbs_list : vf->list, count, done);
+		if (vf->thumbs_list)
+			{
+			vficon_thumb_progress_count(vf->thumbs_list, count, done);
+			}
 		break;
 	}
 
 	DEBUG_1("thumb progress: %d of %d", done, count);
+	if (count == 0) return 0.0;
 	return static_cast<gdouble>(done) / count;
 }
 

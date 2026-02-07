@@ -1646,8 +1646,7 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 
 	/* Then iterate through the entire list to load all of them. */
 	GList *work;
-	GList *list = vf->thumbs_list ? vf->thumbs_list : vf->list;
-	for (work = list; work; work = work->next)
+	for (work = vf->thumbs_list; work; work = work->next)
 		{
 		auto fd = static_cast<FileData *>(work->data);
 
