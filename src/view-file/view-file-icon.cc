@@ -1590,33 +1590,59 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 	/* Only scan the rows in the visible range. */
 	g_autoptr(GtkTreePath) start_path = nullptr;
 	g_autoptr(GtkTreePath) end_path = nullptr;
-	if (!gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path))
+	GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+
+	if (gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path))
 		{
+		GtkTreeIter iter;
+		if (!gtk_tree_model_get_iter(store, &iter, start_path)) return nullptr;
+
+		while (true)
+			{
+			GList *list;
+			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+
+			/** @todo (xsdg): for loop here. */
+			for (; list; list = list->next)
+				{
+				auto fd = static_cast<FileData *>(list->data);
+				if (fd && !fd->thumb_pixbuf) return fd;
+				}
+
+			if (g_autoptr(GtkTreePath) current_path = gtk_tree_model_get_path(store, &iter);
+			    gtk_tree_path_compare(current_path, end_path) == 0)
+				{
+				break;
+				}
+			if (!gtk_tree_model_iter_next(store, &iter)) break;
+			}
+
 		return nullptr;
 		}
 
-	GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-	GtkTreeIter iter;
-	if (!gtk_tree_model_get_iter(store, &iter, start_path)) return nullptr;
-
-	while (true)
+	/* Fallback: use the first visible row and only scan visible rows. */
+	if (g_autoptr(GtkTreePath) tpath = nullptr;
+	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
 		{
-		GList *list;
-		gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+		GtkTreeIter iter;
+		gboolean valid = TRUE;
 
-		/** @todo (xsdg): for loop here. */
-		for (; list; list = list->next)
-			{
-			auto fd = static_cast<FileData *>(list->data);
-			if (fd && !fd->thumb_pixbuf) return fd;
-			}
+		gtk_tree_model_get_iter(store, &iter, tpath);
 
-		if (g_autoptr(GtkTreePath) current_path = gtk_tree_model_get_path(store, &iter);
-		    gtk_tree_path_compare(current_path, end_path) == 0)
+		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
 			{
-			break;
+			GList *list;
+			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+
+			/** @todo (xsdg): for loop here. */
+			for (; list; list = list->next)
+				{
+				auto fd = static_cast<FileData *>(list->data);
+				if (fd && !fd->thumb_pixbuf) return fd;
+				}
+
+			valid = gtk_tree_model_iter_next(store, &iter);
 			}
-		if (!gtk_tree_model_iter_next(store, &iter)) break;
 		}
 
 	return nullptr;
