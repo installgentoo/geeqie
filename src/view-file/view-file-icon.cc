@@ -1635,45 +1635,37 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
 FileData *vficon_thumb_next_fd(ViewFile *vf)
 {
-	/* First see if there are visible files that don't have a loaded thumb... */
-	if (g_autoptr(GtkTreePath) tpath = nullptr;
-	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
+	/* Only scan the rows in the visible range. */
+	g_autoptr(GtkTreePath) start_path = nullptr;
+	g_autoptr(GtkTreePath) end_path = nullptr;
+	if (gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path))
 		{
 		GtkTreeModel *store;
 		GtkTreeIter iter;
-		gboolean valid = TRUE;
 
 		store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-		gtk_tree_model_get_iter(store, &iter, tpath);
+		if (!gtk_tree_model_get_iter(store, &iter, start_path)) return nullptr;
 
-		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
+		while (true)
 			{
 			GList *list;
 			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
 
-			/** @todo (xsdg): for loop here. */
-			for (; list; list = list->next)
-				{
-				auto fd = static_cast<FileData *>(list->data);
-				if (fd && !fd->thumb_pixbuf) return fd;
-				}
+				/** @todo (xsdg): for loop here. */
+				for (; list; list = list->next)
+					{
+					auto fd = static_cast<FileData *>(list->data);
+					if (fd && !fd->thumb_pixbuf) return fd;
+					}
 
-			valid = gtk_tree_model_iter_next(store, &iter);
+			if (g_autoptr(GtkTreePath) current_path = gtk_tree_model_get_path(store, &iter);
+			    gtk_tree_path_compare(current_path, end_path) == 0)
+				{
+				break;
+				}
+			if (!gtk_tree_model_iter_next(store, &iter)) break;
 			}
 		}
-
-	/* Then iterate through the entire list to load all of them. */
-	/* Disabled: only load thumbnails for files visible in the view.
-	GList *work;
-	for (work = vf->list; work; work = work->next)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-
-		// Note: This implementation differs from view-file-list.cc because sidecar files are not
-		// distinct list elements here, as they are in the list view.
-		if (!fd->thumb_pixbuf) return fd;
-		}
-	*/
 
 	return nullptr;
 }
