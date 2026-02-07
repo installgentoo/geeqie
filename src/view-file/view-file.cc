@@ -1427,6 +1427,11 @@ static gboolean vf_thumb_next(ViewFile *vf)
 		return FALSE;
 		}
 
+	if (vf->type == FILEVIEW_ICON && !vf->thumbs_list)
+		{
+		vficon_thumb_set_visible_list(vf);
+		}
+
 	switch (vf->type)
 	{
 	case FILEVIEW_LIST: fd = vflist_thumb_next_fd(vf); break;
