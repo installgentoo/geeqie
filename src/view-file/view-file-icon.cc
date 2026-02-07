@@ -1588,14 +1588,39 @@ void vficon_thumb_set_visible_list(ViewFile *vf)
 {
 	g_clear_pointer(&vf->thumbs_list, g_list_free);
 
-	if (g_autoptr(GtkTreePath) tpath = nullptr;
-	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
+	GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+	GtkTreeIter iter;
+
+	if (g_autoptr(GtkTreePath) start = nullptr, end = nullptr;
+	    gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start, &end) &&
+	    gtk_tree_model_get_iter(store, &iter, start))
 		{
-		GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-		GtkTreeIter iter;
 		gboolean valid = TRUE;
 
-		gtk_tree_model_get_iter(store, &iter, tpath);
+		while (valid)
+			{
+			GList *list;
+			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+
+			for (GList *work = list; work; work = work->next)
+				{
+				if (work->data) vf->thumbs_list = g_list_prepend(vf->thumbs_list, work->data);
+				}
+
+			if (g_autoptr(GtkTreePath) current = gtk_tree_model_get_path(store, &iter);
+			    gtk_tree_path_compare(current, end) >= 0)
+				{
+				break;
+				}
+
+			valid = gtk_tree_model_iter_next(store, &iter);
+			}
+		}
+	else if (g_autoptr(GtkTreePath) tpath = nullptr;
+	         gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr) &&
+	         gtk_tree_model_get_iter(store, &iter, tpath))
+		{
+		gboolean valid = TRUE;
 
 		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
 			{
