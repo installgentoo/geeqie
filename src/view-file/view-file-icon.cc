@@ -1587,18 +1587,68 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
 FileData *vficon_thumb_next_fd(ViewFile *vf)
 {
-	/* Scan the list but only return entries visible in the view. */
-	for (GList *work = vf->list; work; work = work->next)
+	/* Deprecated for icon view thumbnail loading; use vficon_thumb_next_fd_visible(). */
+	return nullptr;
+}
+
+FileData *vficon_thumb_next_fd_visible(ViewFile *vf)
+{
+	/* Only scan the rows in the visible range. */
+	g_autoptr(GtkTreePath) start_path = nullptr;
+	g_autoptr(GtkTreePath) end_path = nullptr;
+	GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+
+	if (gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path))
 		{
-		auto fd = static_cast<FileData *>(work->data);
-
-		if (!fd || fd->thumb_pixbuf) continue;
-
 		GtkTreeIter iter;
-		if (!vficon_find_iter(vf, fd, &iter, nullptr)) continue;
-		if (!tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE)) continue;
+		if (!gtk_tree_model_get_iter(store, &iter, start_path)) return nullptr;
 
-		return fd;
+		while (true)
+			{
+			GList *list;
+			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+
+			/** @todo (xsdg): for loop here. */
+			for (; list; list = list->next)
+				{
+				auto fd = static_cast<FileData *>(list->data);
+				if (fd && !fd->thumb_pixbuf) return fd;
+				}
+
+			if (g_autoptr(GtkTreePath) current_path = gtk_tree_model_get_path(store, &iter);
+			    gtk_tree_path_compare(current_path, end_path) == 0)
+				{
+				break;
+				}
+			if (!gtk_tree_model_iter_next(store, &iter)) break;
+			}
+
+		return nullptr;
+		}
+
+	/* Fallback: use the first visible row and only scan visible rows. */
+	if (g_autoptr(GtkTreePath) tpath = nullptr;
+	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
+		{
+		GtkTreeIter iter;
+		gboolean valid = TRUE;
+
+		gtk_tree_model_get_iter(store, &iter, tpath);
+
+		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
+			{
+			GList *list;
+			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+
+			/** @todo (xsdg): for loop here. */
+			for (; list; list = list->next)
+				{
+				auto fd = static_cast<FileData *>(list->data);
+				if (fd && !fd->thumb_pixbuf) return fd;
+				}
+
+			valid = gtk_tree_model_iter_next(store, &iter);
+			}
 		}
 
 	return nullptr;
