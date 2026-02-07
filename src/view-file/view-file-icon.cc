@@ -1584,6 +1584,36 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
 }
 
+void vficon_thumb_set_visible_list(ViewFile *vf)
+{
+	g_clear_pointer(&vf->thumbs_list, g_list_free);
+
+	if (g_autoptr(GtkTreePath) tpath = nullptr;
+	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
+		{
+		GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+		GtkTreeIter iter;
+		gboolean valid = TRUE;
+
+		gtk_tree_model_get_iter(store, &iter, tpath);
+
+		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
+			{
+			GList *list;
+			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+
+			for (GList *work = list; work; work = work->next)
+				{
+				if (work->data) vf->thumbs_list = g_list_prepend(vf->thumbs_list, work->data);
+				}
+
+			valid = gtk_tree_model_iter_next(store, &iter);
+			}
+		}
+
+	vf->thumbs_list = g_list_reverse(vf->thumbs_list);
+}
+
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
 FileData *vficon_thumb_next_fd(ViewFile *vf)
 {
@@ -1616,7 +1646,8 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 
 	/* Then iterate through the entire list to load all of them. */
 	GList *work;
-	for (work = vf->list; work; work = work->next)
+	GList *list = vf->thumbs_list ? vf->thumbs_list : vf->list;
+	for (work = list; work; work = work->next)
 		{
 		auto fd = static_cast<FileData *>(work->data);
 

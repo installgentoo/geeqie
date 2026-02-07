@@ -1322,8 +1322,12 @@ static gdouble vf_thumb_progress(ViewFile *vf)
 
 	switch (vf->type)
 	{
-	case FILEVIEW_LIST: vflist_thumb_progress_count(vf->list, count, done); break;
-	case FILEVIEW_ICON: vficon_thumb_progress_count(vf->list, count, done); break;
+	case FILEVIEW_LIST:
+		vflist_thumb_progress_count(vf->list, count, done);
+		break;
+	case FILEVIEW_ICON:
+		vficon_thumb_progress_count(vf->thumbs_list ? vf->thumbs_list : vf->list, count, done);
+		break;
 	}
 
 	DEBUG_1("thumb progress: %d of %d", done, count);
@@ -1379,6 +1383,7 @@ void vf_thumb_cleanup(ViewFile *vf)
 	vf->thumbs_loader = nullptr;
 
 	vf->thumbs_filedata = nullptr;
+	g_clear_pointer(&vf->thumbs_list, g_list_free);
 }
 
 void vf_thumb_stop(ViewFile *vf)
@@ -1474,6 +1479,7 @@ void vf_thumb_update(ViewFile *vf)
 	vf_thumb_stop(vf);
 
 	if (vf->type == FILEVIEW_LIST && !VFLIST(vf)->thumbs_enabled) return;
+	if (vf->type == FILEVIEW_ICON) vficon_thumb_set_visible_list(vf);
 
 	vf_thumb_status(vf, 0.0, _("Loading thumbs..."));
 	vf->thumbs_running = TRUE;
