@@ -102,6 +102,7 @@ void vficon_thumb_progress_count(const GList *list, gint &count, gint &done);
 void vficon_read_metadata_progress_count(const GList *list, gint &count, gint &done);
 void vficon_set_thumb_fd(ViewFile *vf, FileData *fd);
 FileData *vficon_thumb_next_fd(ViewFile *vf);
+FileData *vficon_thumb_next_fd_visible(ViewFile *vf);
 
 FileData *vficon_star_next_fd(ViewFile *vf);
 void vficon_set_star_fd(ViewFile *vf, FileData *fd);
