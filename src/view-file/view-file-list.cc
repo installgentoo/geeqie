@@ -39,6 +39,7 @@
 #include "metadata.h"
 #include "misc.h"
 #include "options.h"
+#include "pixbuf-util.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
 #include "ui-tree-edit.h"
@@ -1022,26 +1023,31 @@ FileData *vflist_thumb_next_fd(ViewFile *vf)
 			}
 		}
 
-	/* then find first undone */
+	/* then set fallback thumbs for non-visible undone items */
 
 	if (!fd)
 		{
 		GList *work = vf->list;
-		while (work && !fd)
+		while (work)
 			{
 			auto fd_p = static_cast<FileData *>(work->data);
 			if (!fd_p->thumb_pixbuf)
-				fd = fd_p;
-			else
 				{
-				GList *work2 = fd_p->sidecar_files;
+				fd_p->thumb_pixbuf = pixbuf_fallback(fd_p, options->thumbnails.max_width, options->thumbnails.max_height);
+				vflist_set_thumb_fd(vf, fd_p);
+				}
 
-				while (work2 && !fd)
+			GList *work2 = fd_p->sidecar_files;
+
+			while (work2)
+				{
+				auto fd_sidecar = static_cast<FileData *>(work2->data);
+				if (!fd_sidecar->thumb_pixbuf)
 					{
-					fd_p = static_cast<FileData *>(work2->data);
-					if (!fd_p->thumb_pixbuf) fd = fd_p;
-					work2 = work2->next;
+					fd_sidecar->thumb_pixbuf = pixbuf_fallback(fd_sidecar, options->thumbnails.max_width, options->thumbnails.max_height);
+					vflist_set_thumb_fd(vf, fd_sidecar);
 					}
+				work2 = work2->next;
 				}
 			work = work->next;
 			}
