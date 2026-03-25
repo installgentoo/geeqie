@@ -74,7 +74,7 @@ gboolean ImageLoaderHEIF::write(const guchar *buf, gsize &chunk_size, gsize coun
 
 	ctx = heif_context_alloc();
 
-	error_code = heif_context_read_from_memory_without_copy(ctx, buf, count, nullptr);
+	error_code = heif_context_read_from_memory(ctx, buf, count, nullptr);
 	if (error_code.code)
 		{
 		log_printf("warning: heif reader error: %s\n", error_code.message);
