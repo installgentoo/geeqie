@@ -1436,15 +1436,11 @@ static gboolean vf_thumb_next(ViewFile *vf)
 	vf->thumbs_filedata = fd;
 
 	if (vf->type == FILEVIEW_ICON && vf->thumbs_priority &&
+	    g_hash_table_size(vf->thumbs_priority) > 0 &&
 	    !g_hash_table_contains(vf->thumbs_priority, fd))
 		{
-		g_usleep(100 * 1000);
-		if (!fd->thumb_pixbuf)
-			{
-			fd->thumb_pixbuf = pixbuf_fallback(fd, options->thumbnails.max_width, options->thumbnails.max_height);
-			}
-		vf_thumb_do(vf, fd);
-		return TRUE;
+		vf_thumb_cleanup(vf);
+		return FALSE;
 		}
 
 	thumb_loader_free(vf->thumbs_loader);
