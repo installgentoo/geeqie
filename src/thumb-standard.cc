@@ -69,7 +69,7 @@ struct ExifData;
 
 enum {
 	THUMB_SIZE_NORMAL = 128,
-	THUMB_SIZE_LARGE =  256
+	THUMB_SIZE_LARGE =  128
 };
 
 #define THUMB_MARKER_URI    "tEXt::Thumb::URI"
@@ -595,12 +595,6 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoaderStd *tl, GdkPixbuf *pixbuf,
 			}
 		}
 
-	if (sw <= tl->requested_width && sh <= tl->requested_height)
-		{
-		result = pixbuf;
-		g_object_ref(result);
-		}
-	else
 		{
 		gint thumb_w;
 		gint thumb_h;
