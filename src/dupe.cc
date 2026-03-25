@@ -67,6 +67,7 @@
 
 namespace {
 
+static gboolean dupe_delete_in_progress = FALSE;
 /** column assignment order (simply change them here)
  */
 enum {
@@ -475,6 +476,42 @@ static void dupe_item_free(DupeItem *di)
 	if (di->pixbuf) g_object_unref(di->pixbuf);
 
 	g_free(di);
+}
+
+static void dupe_item_remove(DupeWindow *dw, DupeItem *di);
+static DupeItem *dupe_item_find_path_by_list_unused(const gchar *path, GList *work)
+{
+	while (work)
+		{
+		auto *di = static_cast<DupeItem *>(work->data);
+
+		if (strcmp(di->fd->path, path) == 0) return di;
+
+		work = work->next;
+		}
+
+	return nullptr;
+}
+
+static DupeItem *dupe_item_find_path_unused(DupeWindow *dw, const gchar *path)
+{
+	DupeItem *di;
+
+	di = dupe_item_find_path_by_list_unused(path, dw->list);
+	if (!di && dw->second_set) di = dupe_item_find_path_by_list_unused(path, dw->second_list);
+
+	return di;
+}
+static gboolean dupe_item_remove_by_path_unused(DupeWindow *dw, const gchar *path)
+{
+	DupeItem *di;
+
+	di = dupe_item_find_path_unused(dw, path);
+	if (!di) return FALSE;
+
+	dupe_item_remove(dw, di);
+
+	return TRUE;
 }
 
 /*
@@ -3151,7 +3188,7 @@ static void dupe_menu_view(DupeWindow *dw, DupeItem *di, GtkWidget *listview, gi
 		}
 }
 
-static void dupe_window_remove_selection(DupeWindow *dw, GtkWidget *listview)
+static void dupe_window_remove_selection(DupeWindow *dw, GtkWidget *listview, gboolean do_colors)
 {
 	GtkTreeSelection *selection;
 	GtkTreeModel *store;
@@ -3189,7 +3226,9 @@ static void dupe_window_remove_selection(DupeWindow *dw, GtkWidget *listview)
 
 	g_list_free(list);
 
-	dupe_listview_realign_colors(dw);
+	if (do_colors) {
+		dupe_listview_realign_colors(dw);
+	}
 }
 
 static void dupe_window_edit_selected(DupeWindow *dw, const gchar *key)
@@ -3322,6 +3361,7 @@ static void dupe_menu_rename_cb(GtkWidget *, gpointer data)
 static void dupe_menu_delete_cb(GtkWidget *, gpointer data)
 {
 	auto dw = static_cast<DupeWindow *>(data);
+	dupe_delete_in_progress = TRUE;
 
 	options->file_ops.safe_delete_enable = FALSE;
 	file_util_delete_notify_done(nullptr, dupe_listview_get_selection(dw, dw->listview), dw->window, delete_finished_cb, dw);
@@ -3330,6 +3370,7 @@ static void dupe_menu_delete_cb(GtkWidget *, gpointer data)
 static void dupe_menu_move_to_trash_cb(GtkWidget *, gpointer data)
 {
 	auto dw = static_cast<DupeWindow *>(data);
+	dupe_delete_in_progress = TRUE;
 
 	options->file_ops.safe_delete_enable = TRUE;
 	file_util_delete_notify_done(nullptr, dupe_listview_get_selection(dw, dw->listview), dw->window, delete_finished_cb, dw);
@@ -3353,7 +3394,7 @@ static void dupe_menu_remove_cb(GtkWidget *, gpointer data)
 {
 	auto dw = static_cast<DupeWindow *>(data);
 
-	dupe_window_remove_selection(dw, dw->listview);
+	dupe_window_remove_selection(dw, dw->listview, FALSE);
 }
 
 static void dupe_menu_clear_cb(GtkWidget *, gpointer data)
@@ -3743,7 +3784,7 @@ static void dupe_second_menu_remove_cb(GtkWidget *, gpointer data)
 {
 	auto dw = static_cast<DupeWindow *>(data);
 
-	dupe_window_remove_selection(dw, dw->second_listview);
+	dupe_window_remove_selection(dw, dw->second_listview, FALSE);
 }
 
 static void dupe_second_menu_clear_cb(GtkWidget *, gpointer data)
@@ -4235,7 +4276,7 @@ static gboolean dupe_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, g
 				dupe_menu_view(dw, di, listview, TRUE);
 				break;
 			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
-				dupe_window_remove_selection(dw, listview);
+				dupe_window_remove_selection(dw, listview, FALSE);
 				break;
 			case 'C': case 'c':
 				if (!on_second)
@@ -5050,7 +5091,9 @@ static void dupe_notify_cb(FileData *fd, NotifyType type, gpointer data)
 		case FILEDATA_CHANGE_COPY:
 			break;
 		case FILEDATA_CHANGE_DELETE:
-			/* Update the UI only once, after the operation finishes */
+			if (!dupe_delete_in_progress) {
+				while (dupe_item_remove_by_path_unused(dw, fd->path));
+			}
 			break;
 		case FILEDATA_CHANGE_UNSPECIFIED:
 		case FILEDATA_CHANGE_WRITE_METADATA:
@@ -5075,10 +5118,12 @@ static void delete_finished_cb(gboolean success, const gchar *, gpointer data)
 
 	if (!success)
 		{
+		dupe_delete_in_progress = FALSE;
 		return;
 		}
 
-	dupe_window_remove_selection(dw, dw->listview);
+	dupe_window_remove_selection(dw, dw->listview, TRUE);
+	dupe_delete_in_progress = FALSE;
 }
 
 /*
