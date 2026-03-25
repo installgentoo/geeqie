@@ -654,9 +654,21 @@ static void cache_manager_render_folder(CacheOpsData *cd, FileData *dir_fd)
 
 static gboolean cache_manager_render_file(CacheOpsData *cd);
 
+static void cache_manager_render_release_thumb_pixbuf(CacheOpsData *cd)
+{
+	auto tl = reinterpret_cast<ThumbLoader *>(cd->tl);
+
+	if (!tl || !tl->fd || !tl->fd->thumb_pixbuf) return;
+
+	g_object_unref(tl->fd->thumb_pixbuf);
+	tl->fd->thumb_pixbuf = nullptr;
+}
+
 static void cache_manager_render_thumb_done_cb(ThumbLoader *, gpointer data)
 {
 	auto cd = static_cast<CacheOpsData *>(data);
+
+	cache_manager_render_release_thumb_pixbuf(cd);
 
 	thumb_loader_free(reinterpret_cast<ThumbLoader *>(cd->tl));
 	cd->tl = nullptr;
@@ -692,6 +704,7 @@ static gboolean cache_manager_render_file(CacheOpsData *cd)
 			}
 		else
 			{
+			cache_manager_render_release_thumb_pixbuf(cd);
 			thumb_loader_free(reinterpret_cast<ThumbLoader *>(cd->tl));
 			cd->tl = nullptr;
 			}
