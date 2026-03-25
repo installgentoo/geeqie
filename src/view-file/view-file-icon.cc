@@ -1607,6 +1607,7 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 			for (; list; list = list->next)
 				{
 				auto fd = static_cast<FileData *>(list->data);
+				if (fd && vf->thumbs_priority) g_hash_table_add(vf->thumbs_priority, fd);
 				if (fd && !fd->thumb_pixbuf) return fd;
 				}
 
