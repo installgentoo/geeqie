@@ -1585,20 +1585,18 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 }
 
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
-FileData *vficon_thumb_next_fd(ViewFile *vf)
+FileData *vficon_thumb_next_fd(ViewFile *vf, gboolean force_first)
 {
-	/* First see if there are visible files that don't have a loaded thumb... */
-	if (g_autoptr(GtkTreePath) tpath = nullptr;
-	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
+	auto find_undone_in_range = [vf](GtkTreePath *start, GtkTreePath *end) -> FileData *
 		{
 		GtkTreeModel *store;
 		GtkTreeIter iter;
 		gboolean valid = TRUE;
 
 		store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-		gtk_tree_model_get_iter(store, &iter, tpath);
+		if (!gtk_tree_model_get_iter(store, &iter, start)) return nullptr;
 
-		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
+		while (valid)
 			{
 			GList *list;
 			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
@@ -1610,19 +1608,39 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 				if (fd && !fd->thumb_pixbuf) return fd;
 				}
 
+			if (g_autoptr(GtkTreePath) current = gtk_tree_model_get_path(store, &iter);
+			    end && gtk_tree_path_compare(current, end) >= 0)
+				{
+				break;
+				}
+
 			valid = gtk_tree_model_iter_next(store, &iter);
 			}
+		return nullptr;
+		};
+
+	/* Prefer currently visible rows only. */
+	if (g_autoptr(GtkTreePath) start = nullptr, end = nullptr;
+	    gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start, &end))
+		{
+		if (auto *fd = find_undone_in_range(start, end); fd) return fd;
 		}
 
-	/* Then iterate through the entire list to load all of them. */
-	GList *work;
-	for (work = vf->list; work; work = work->next)
+	/* Fallback if visible_range is unavailable. */
+	if (g_autoptr(GtkTreePath) tpath = nullptr;
+	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
 		{
-		auto fd = static_cast<FileData *>(work->data);
+		if (auto *fd = find_undone_in_range(tpath, nullptr); fd) return fd;
+		}
 
-		// Note: This implementation differs from view-file-list.cc because sidecar files are not
-		// distinct list elements here, as they are in the list view.
-		if (!fd->thumb_pixbuf) return fd;
+	/* Optional seed path: allow a single first file when requested. */
+	if (force_first)
+		{
+		for (GList *work = vf->list; work; work = work->next)
+			{
+			auto fd = static_cast<FileData *>(work->data);
+			if (!fd->thumb_pixbuf) return fd;
+			}
 		}
 
 	return nullptr;

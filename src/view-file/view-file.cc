@@ -1421,7 +1421,7 @@ static gboolean vf_thumb_next(ViewFile *vf)
 	switch (vf->type)
 	{
 	case FILEVIEW_LIST: fd = vflist_thumb_next_fd(vf); break;
-	case FILEVIEW_ICON: fd = vficon_thumb_next_fd(vf); break;
+	case FILEVIEW_ICON: fd = vficon_thumb_next_fd(vf, vf->thumbs_filedata == nullptr); break;
 	}
 
 	if (!fd)
