@@ -1857,7 +1857,7 @@ static void layout_grid_setup(LayoutWindow *lw)
 	if (lw->options.tools_float || lw->options.tools_hidden)
 		{
 		gq_gtk_box_pack_start(GTK_BOX(lw->group_box), image_sb, TRUE, TRUE, 0);
-		gtk_widget_show(image_sb);
+		//gtk_widget_show(image_sb);
 
 		layout_tools_setup(lw, tools, files);
 
@@ -1908,7 +1908,7 @@ static void layout_grid_setup(LayoutWindow *lw)
 		gtk_paned_pack2(GTK_PANED(h), w3, TRUE, TRUE);
 		}
 
-	gtk_widget_show(image_sb);
+	//gtk_widget_show(image_sb);
 	gtk_widget_show(tools);
 	gtk_widget_show(files);
 
@@ -1916,13 +1916,13 @@ static void layout_grid_setup(LayoutWindow *lw)
 	gtk_widget_show(h);
 
 	/* fix to have image pane visible when it is left and priority widget */
-	if (lw->options.main_window.hdivider_pos == -1 &&
+	/*if (lw->options.main_window.hdivider_pos == -1 &&
 	    w1 == image_sb &&
 	    !layout_location_vertical(static_cast<LayoutLocation>(priority_location)) &&
 	    layout_location_first(static_cast<LayoutLocation>(priority_location)))
 		{
 		gtk_widget_set_size_request(image_sb, 200, -1);
-		}
+		}*/
 
 	gtk_paned_set_position(GTK_PANED(lw->h_pane), lw->options.main_window.hdivider_pos);
 	gtk_paned_set_position(GTK_PANED(lw->v_pane), lw->options.main_window.vdivider_pos);
@@ -3088,3 +3088,4 @@ LayoutWindow *layout_new_from_default()
 }
 
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
+
