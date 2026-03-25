@@ -1576,9 +1576,28 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 	GList *list;
 
 	if (!g_list_find(vf->list, fd)) return;
-	if (!vficon_find_iter(vf, fd, &iter, nullptr)) return;
-
 	store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+
+	/* Fast path: most thumbnail updates are for currently visible rows. */
+	gboolean found = FALSE;
+	if (g_autoptr(GtkTreePath) tpath = nullptr;
+	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr) &&
+	    gtk_tree_model_get_iter(store, &iter, tpath))
+		{
+		gboolean valid = TRUE;
+		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
+			{
+			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+			if (g_list_find(list, fd))
+				{
+				found = TRUE;
+				break;
+				}
+			valid = gtk_tree_model_iter_next(store, &iter);
+			}
+		}
+
+	if (!found && !vficon_find_iter(vf, fd, &iter, nullptr)) return;
 
 	gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
 	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
@@ -1588,17 +1607,17 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 FileData *vficon_thumb_next_fd(ViewFile *vf)
 {
 	/* First see if there are visible files that don't have a loaded thumb... */
-	if (g_autoptr(GtkTreePath) tpath = nullptr;
-	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
+	if (g_autoptr(GtkTreePath) start_path = nullptr, end_path = nullptr;
+	    gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path))
 		{
 		GtkTreeModel *store;
 		GtkTreeIter iter;
 		gboolean valid = TRUE;
 
 		store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-		gtk_tree_model_get_iter(store, &iter, tpath);
+		if (!gtk_tree_model_get_iter(store, &iter, start_path)) valid = FALSE;
 
-		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
+		while (valid)
 			{
 			GList *list;
 			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
@@ -1607,7 +1626,14 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 			for (; list; list = list->next)
 				{
 				auto fd = static_cast<FileData *>(list->data);
-				if (fd && !fd->thumb_pixbuf) return fd;
+				if (fd && vf->thumbs_priority) g_hash_table_add(vf->thumbs_priority, fd);
+					if (fd && !fd->thumb_pixbuf) return fd;
+					}
+
+			if (g_autoptr(GtkTreePath) current = gtk_tree_model_get_path(store, &iter);
+			    gtk_tree_path_compare(current, end_path) >= 0)
+				{
+				break;
 				}
 
 			valid = gtk_tree_model_iter_next(store, &iter);

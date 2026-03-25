@@ -82,6 +82,10 @@ struct ViewFile
 	gboolean thumbs_running;
 	ThumbLoader *thumbs_loader;
 	FileData *thumbs_filedata;
+	GHashTable *thumbs_priority;
+	guint thumbs_scroll_id;
+	GQueue *thumbs_lru;
+	GHashTable *thumbs_lru_index;
 
 	/* marks */
 	gboolean marks_enabled;
