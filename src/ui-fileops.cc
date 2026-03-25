@@ -30,6 +30,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 #include <glib-object.h>
 #include <gtk/gtk.h>
@@ -555,7 +556,26 @@ gboolean copy_file(const gchar *s, const gchar *t)
 
 	/* First we write to a temporary file, then we rename it on success,
 	   and attributes from original file are copied */
-	g_autofree gchar *randname = g_strconcat(tl, ".tmp_XXXXXX", NULL);
+
+	const auto safe_filename = [](const gchar* path, const gchar* suffix) {
+		glong max_name_len = 255 - std::strlen(suffix);
+
+		std::unique_ptr<gchar, decltype(&g_free)> dirname{g_path_get_dirname(path), g_free};
+		std::unique_ptr<gchar, decltype(&g_free)> basename{g_path_get_basename(path), g_free};
+
+		if (std::strlen(basename.get()) < max_name_len) {
+			return g_strconcat(path, suffix, NULL);
+		}
+
+		glong max_chars = g_utf8_strlen(basename.get(), max_name_len);
+		basename.reset(g_utf8_substring(basename.get(), 0, max_chars));
+		basename.reset(g_strconcat(basename.get(), suffix, NULL));
+
+		return g_build_filename(dirname.get(), basename.get(), NULL);
+	};
+
+	g_autofree gchar *randname = safe_filename(tl, ".tmp_XXXXXX");
+
 	if (!randname)
 		{
 		return FALSE;
