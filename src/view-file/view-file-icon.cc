@@ -1576,9 +1576,28 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 	GList *list;
 
 	if (!g_list_find(vf->list, fd)) return;
-	if (!vficon_find_iter(vf, fd, &iter, nullptr)) return;
-
 	store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+
+	/* Fast path: most thumbnail updates are for currently visible rows. */
+	gboolean found = FALSE;
+	if (g_autoptr(GtkTreePath) tpath = nullptr;
+	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr) &&
+	    gtk_tree_model_get_iter(store, &iter, tpath))
+		{
+		gboolean valid = TRUE;
+		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
+			{
+			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+			if (g_list_find(list, fd))
+				{
+				found = TRUE;
+				break;
+				}
+			valid = gtk_tree_model_iter_next(store, &iter);
+			}
+		}
+
+	if (!found && !vficon_find_iter(vf, fd, &iter, nullptr)) return;
 
 	gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
 	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
