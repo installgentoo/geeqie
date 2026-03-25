@@ -1240,6 +1240,8 @@ void vf_mark_filter_toggle(ViewFile *vf, gint mark)
 	gtk_toggle_button_set_active(filter_check, !gtk_toggle_button_get_active(filter_check));
 }
 
+static void vf_thumb_scroll_changed_cb(GtkAdjustment *, gpointer data);
+
 ViewFile *vf_new(FileViewType type, FileData *dir_fd)
 {
 	ViewFile *vf;
