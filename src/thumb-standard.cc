@@ -305,8 +305,9 @@ static void thumb_loader_std_save(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 		/* local failures are not stored */
 		if (tl->cache_local) return;
 
-		pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, 1, 1);
-		fail = TRUE;
+		log_printf("warning: thumbnail generation failed (no fail marker file written): source=%s\n",
+		           tl->fd && tl->fd->path ? tl->fd->path : "(null)");
+		return;
 		}
 	else
 		{
