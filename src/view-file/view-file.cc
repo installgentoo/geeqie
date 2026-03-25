@@ -857,9 +857,31 @@ gboolean vf_refresh(ViewFile *vf)
 	return ret;
 }
 
+static void vf_thumb_lru_clear(ViewFile *vf, gboolean release_pixbufs)
+{
+	if (release_pixbufs && vf->thumbs_lru)
+		{
+		for (GList *work = vf->thumbs_lru->head; work; work = work->next)
+			{
+			auto fd = static_cast<FileData *>(work->data);
+			if (fd && fd->thumb_pixbuf)
+				{
+				g_object_unref(fd->thumb_pixbuf);
+				fd->thumb_pixbuf = nullptr;
+				}
+			}
+		}
+
+	g_clear_pointer(&vf->thumbs_lru, g_queue_free);
+	g_clear_pointer(&vf->thumbs_lru_index, g_hash_table_destroy);
+}
+
 gboolean vf_set_fd(ViewFile *vf, FileData *dir_fd)
 {
 	gboolean ret;
+
+	vf_thumb_stop(vf);
+	vf_thumb_lru_clear(vf, FALSE);
 
 	switch (vf->type)
 	{
@@ -892,6 +914,7 @@ static void vf_destroy_cb(GtkWidget *, gpointer data)
 		{
 		g_idle_remove_by_data(vf);
 		}
+	vf_thumb_lru_clear(vf, FALSE);
 	file_data_unref(vf->dir_fd);
 	g_free(vf->info);
 	g_free(vf);
@@ -1323,6 +1346,7 @@ void vf_thumb_set(ViewFile *vf, gboolean enable)
 
 static gboolean vf_thumb_next(ViewFile *vf);
 static gboolean vf_thumb_scroll_idle_cb(gpointer data);
+constexpr guint THUMB_LRU_LIMIT = 360;
 
 static void vf_thumb_scroll_changed_cb(GtkAdjustment *, gpointer data)
 {
@@ -1343,6 +1367,40 @@ static gboolean vf_thumb_scroll_idle_cb(gpointer data)
 
 	vf_thumb_update(vf);
 	return G_SOURCE_REMOVE;
+}
+
+static void vf_thumb_lru_track(ViewFile *vf, FileData *fd)
+{
+	if (vf->type != FILEVIEW_ICON || !fd || !fd->thumb_pixbuf) return;
+
+	if (!vf->thumbs_lru) vf->thumbs_lru = g_queue_new();
+	if (!vf->thumbs_lru_index) vf->thumbs_lru_index = g_hash_table_new(g_direct_hash, g_direct_equal);
+
+	if (g_hash_table_contains(vf->thumbs_lru_index, fd))
+		{
+		if (GList *link = g_queue_find(vf->thumbs_lru, fd); link)
+			{
+			g_queue_unlink(vf->thumbs_lru, link);
+			g_queue_push_head_link(vf->thumbs_lru, link);
+			}
+		return;
+		}
+
+	g_queue_push_head(vf->thumbs_lru, fd);
+	g_hash_table_add(vf->thumbs_lru_index, fd);
+
+	while (vf->thumbs_lru->length > THUMB_LRU_LIMIT)
+		{
+		auto old_fd = static_cast<FileData *>(g_queue_pop_tail(vf->thumbs_lru));
+		if (!old_fd) break;
+
+		g_hash_table_remove(vf->thumbs_lru_index, old_fd);
+		if (old_fd->thumb_pixbuf)
+			{
+			g_object_unref(old_fd->thumb_pixbuf);
+			old_fd->thumb_pixbuf = nullptr;
+			}
+		}
 }
 
 static gdouble vf_thumb_progress(ViewFile *vf)
@@ -1396,6 +1454,7 @@ static void vf_thumb_do(ViewFile *vf, FileData *fd)
 	if (!fd) return;
 
 	vf_set_thumb_fd(vf, fd);
+	vf_thumb_lru_track(vf, fd);
 	vf_thumb_status(vf, vf_thumb_progress(vf), _("Loading thumbs..."));
 }
 
@@ -1473,6 +1532,11 @@ static gboolean vf_thumb_next(ViewFile *vf)
 		return FALSE;
 		}
 
+	if (vf->type == FILEVIEW_ICON && vf->thumbs_priority)
+		{
+		g_hash_table_remove(vf->thumbs_priority, fd);
+		}
+
 	thumb_loader_free(vf->thumbs_loader);
 
 	vf->thumbs_loader = thumb_loader_new(options->thumbnails.max_width, options->thumbnails.max_height);
@@ -1507,6 +1571,8 @@ static void vf_thumb_reset_all(ViewFile *vf)
 			fd->thumb_pixbuf = nullptr;
 			}
 		}
+
+	vf_thumb_lru_clear(vf, FALSE);
 }
 
 void vf_thumb_update(ViewFile *vf)
