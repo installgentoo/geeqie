@@ -83,6 +83,7 @@ struct ViewFile
 	ThumbLoader *thumbs_loader;
 	FileData *thumbs_filedata;
 	GHashTable *thumbs_priority;
+	guint thumbs_scroll_id;
 
 	/* marks */
 	gboolean marks_enabled;
