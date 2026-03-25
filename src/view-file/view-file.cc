@@ -1286,6 +1286,11 @@ ViewFile *vf_new(FileViewType type, FileData *dir_fd)
 	gq_gtk_container_add(vf->scrolled, vf->listview);
 	gtk_widget_show(vf->listview);
 
+	g_signal_connect(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(vf->scrolled)),
+			 "value_changed", G_CALLBACK(vf_thumb_scroll_changed_cb), vf);
+	g_signal_connect(gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(vf->scrolled)),
+			 "value_changed", G_CALLBACK(vf_thumb_scroll_changed_cb), vf);
+
 	if (dir_fd) vf_set_fd(vf, dir_fd);
 
 	return vf;
@@ -1314,6 +1319,28 @@ void vf_thumb_set(ViewFile *vf, gboolean enable)
 
 
 static gboolean vf_thumb_next(ViewFile *vf);
+static gboolean vf_thumb_scroll_idle_cb(gpointer data);
+
+static void vf_thumb_scroll_changed_cb(GtkAdjustment *, gpointer data)
+{
+	auto vf = static_cast<ViewFile *>(data);
+
+	if (vf->type != FILEVIEW_ICON) return;
+
+	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
+	vf->thumbs_scroll_id = g_idle_add(vf_thumb_scroll_idle_cb, vf);
+}
+
+static gboolean vf_thumb_scroll_idle_cb(gpointer data)
+{
+	auto vf = static_cast<ViewFile *>(data);
+	vf->thumbs_scroll_id = 0;
+
+	if (!gtk_widget_get_realized(vf->listview)) return G_SOURCE_REMOVE;
+
+	vf_thumb_update(vf);
+	return G_SOURCE_REMOVE;
+}
 
 static gdouble vf_thumb_progress(ViewFile *vf)
 {
@@ -1379,6 +1406,8 @@ void vf_thumb_cleanup(ViewFile *vf)
 	vf->thumbs_loader = nullptr;
 
 	vf->thumbs_filedata = nullptr;
+	g_clear_pointer(&vf->thumbs_priority, g_hash_table_destroy);
+	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
 }
 
 void vf_thumb_stop(ViewFile *vf)
@@ -1433,6 +1462,14 @@ static gboolean vf_thumb_next(ViewFile *vf)
 
 	vf->thumbs_filedata = fd;
 
+	if (vf->type == FILEVIEW_ICON && vf->thumbs_priority &&
+	    g_hash_table_size(vf->thumbs_priority) > 0 &&
+	    !g_hash_table_contains(vf->thumbs_priority, fd))
+		{
+		vf_thumb_cleanup(vf);
+		return FALSE;
+		}
+
 	thumb_loader_free(vf->thumbs_loader);
 
 	vf->thumbs_loader = thumb_loader_new(options->thumbnails.max_width, options->thumbnails.max_height);
@@ -1474,6 +1511,11 @@ void vf_thumb_update(ViewFile *vf)
 	vf_thumb_stop(vf);
 
 	if (vf->type == FILEVIEW_LIST && !VFLIST(vf)->thumbs_enabled) return;
+	if (vf->type == FILEVIEW_ICON)
+		{
+		g_clear_pointer(&vf->thumbs_priority, g_hash_table_destroy);
+		vf->thumbs_priority = g_hash_table_new(g_direct_hash, g_direct_equal);
+		}
 
 	vf_thumb_status(vf, 0.0, _("Loading thumbs..."));
 	vf->thumbs_running = TRUE;
