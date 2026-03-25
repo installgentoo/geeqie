@@ -1584,6 +1584,21 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
 }
 
+gboolean vficon_fd_is_visible(ViewFile *vf, FileData *fd)
+{
+	GtkTreeIter iter;
+
+	if (!fd) return FALSE;
+
+	/*
+	 * Fall back to visible when geometry is not ready so we do not
+	 * accidentally block thumbnail loading completely.
+	 */
+	if (!vficon_find_iter(vf, fd, &iter, nullptr)) return TRUE;
+
+	return tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE);
+}
+
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
 FileData *vficon_thumb_next_fd(ViewFile *vf)
 {

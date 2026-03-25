@@ -1433,6 +1433,12 @@ static gboolean vf_thumb_next(ViewFile *vf)
 
 	vf->thumbs_filedata = fd;
 
+	if (vf->type == FILEVIEW_ICON && !vficon_fd_is_visible(vf, fd))
+		{
+		vf_thumb_cleanup(vf);
+		return FALSE;
+		}
+
 	thumb_loader_free(vf->thumbs_loader);
 
 	vf->thumbs_loader = thumb_loader_new(options->thumbnails.max_width, options->thumbnails.max_height);
