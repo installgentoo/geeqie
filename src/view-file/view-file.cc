@@ -1436,7 +1436,6 @@ static gboolean vf_thumb_next(ViewFile *vf)
 	vf->thumbs_filedata = fd;
 
 	if (vf->type == FILEVIEW_ICON && vf->thumbs_priority &&
-	    g_hash_table_size(vf->thumbs_priority) > 0 &&
 	    !g_hash_table_contains(vf->thumbs_priority, fd))
 		{
 		g_usleep(10 * 1000);
@@ -1485,7 +1484,13 @@ void vf_thumb_update(ViewFile *vf)
 	vf_thumb_stop(vf);
 
 	if (vf->type == FILEVIEW_LIST && !VFLIST(vf)->thumbs_enabled) return;
-	if (vf->type == FILEVIEW_ICON) vficon_thumb_priority_build(vf);
+	if (vf->type == FILEVIEW_ICON)
+		{
+		g_clear_pointer(&vf->thumbs_priority, g_hash_table_destroy);
+		g_clear_pointer(&vf->thumbs_skipped, g_hash_table_destroy);
+		vf->thumbs_priority = g_hash_table_new(g_direct_hash, g_direct_equal);
+		vf->thumbs_skipped = g_hash_table_new(g_direct_hash, g_direct_equal);
+		}
 
 	vf_thumb_status(vf, 0.0, _("Loading thumbs..."));
 	vf->thumbs_running = TRUE;

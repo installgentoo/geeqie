@@ -1584,38 +1584,6 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
 }
 
-void vficon_thumb_priority_build(ViewFile *vf)
-{
-	g_clear_pointer(&vf->thumbs_priority, g_hash_table_destroy);
-	g_clear_pointer(&vf->thumbs_skipped, g_hash_table_destroy);
-	vf->thumbs_priority = g_hash_table_new(g_direct_hash, g_direct_equal);
-	vf->thumbs_skipped = g_hash_table_new(g_direct_hash, g_direct_equal);
-
-	if (g_autoptr(GtkTreePath) tpath = nullptr;
-	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
-		{
-		GtkTreeModel *store;
-		GtkTreeIter iter;
-		gboolean valid = TRUE;
-
-		store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-		gtk_tree_model_get_iter(store, &iter, tpath);
-
-		while (valid && tree_view_row_is_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE))
-			{
-			GList *list;
-			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-
-			for (GList *work = list; work; work = work->next)
-				{
-				if (work->data) g_hash_table_add(vf->thumbs_priority, work->data);
-				}
-
-			valid = gtk_tree_model_iter_next(store, &iter);
-			}
-		}
-}
-
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
 FileData *vficon_thumb_next_fd(ViewFile *vf)
 {
@@ -1639,6 +1607,7 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 			for (GList *work = list; work; work = work->next)
 				{
 				auto fd = static_cast<FileData *>(work->data);
+				if (fd && vf->thumbs_priority) g_hash_table_add(vf->thumbs_priority, fd);
 				if (fd && !fd->thumb_pixbuf &&
 				    (!vf->thumbs_skipped || !g_hash_table_contains(vf->thumbs_skipped, fd)))
 					{
