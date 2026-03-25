@@ -42,6 +42,7 @@
 #include "metadata.h"
 #include "misc.h"
 #include "options.h"
+#include "pixbuf-util.h"
 #include "thumb.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
@@ -1432,6 +1433,16 @@ static gboolean vf_thumb_next(ViewFile *vf)
 		}
 
 	vf->thumbs_filedata = fd;
+
+	if (vf->type == FILEVIEW_ICON && !vficon_fd_is_visible(vf, fd))
+		{
+		if (!fd->thumb_pixbuf)
+			{
+			fd->thumb_pixbuf = pixbuf_fallback(fd, options->thumbnails.max_width, options->thumbnails.max_height);
+			}
+		vf_thumb_do(vf, fd);
+		return TRUE;
+		}
 
 	thumb_loader_free(vf->thumbs_loader);
 
