@@ -23,6 +23,7 @@
 
 #include <unistd.h>
 
+#include <thread>
 #include <array>
 #include <cstring>
 
@@ -1254,8 +1255,10 @@ static void file_util_fdlg_ok_cb(FileDialog *fdlg, gpointer data)
 
 static void file_util_dest_folder_entry_cb(GtkWidget *, gpointer data)
 {
+	std::thread([=] {
 	auto ud = static_cast<UtilityData *>(data);
 	file_util_dest_folder_update_path(ud);
+	}).detach();
 }
 
 /* format: * = filename without extension, ## = number position, extension is kept */

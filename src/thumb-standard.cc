@@ -1096,87 +1096,42 @@ static void thumb_std_maint_move_step(TMaintMove *tm);
 static gboolean thumb_std_maint_move_idle(gpointer data);
 
 
-static void thumb_std_maint_move_validate_cb(const gchar *, gboolean, gpointer data)
-{
-	auto tm = static_cast<TMaintMove *>(data);
-	GdkPixbuf *pixbuf;
-
-	/* get the original thumbnail pixbuf (unrotated, with original options)
-	   this is called from image_loader done callback, so tm->tl->il must exist*/
-	pixbuf = image_loader_get_pixbuf(tm->tl->il);
-	if (pixbuf)
-		{
-		const gchar *uri;
-		const gchar *mtime_str;
-
-		uri = gdk_pixbuf_get_option(pixbuf, THUMB_MARKER_URI);
-		mtime_str = gdk_pixbuf_get_option(pixbuf, THUMB_MARKER_MTIME);
-
-		if (uri && mtime_str && strcmp(uri, tm->source_uri) == 0)
-			{
-			gchar *pathl;
-
-			/* The validation utility abuses ThumbLoader, and we
-			 * abuse the utility just to load the thumbnail,
-			 * but the loader needs to look sane for the save to complete.
-			 */
-
-			tm->tl->cache_enable = TRUE;
-			tm->tl->cache_hit = FALSE;
-			tm->tl->cache_local = FALSE;
-			file_data_unref(tm->tl->fd);
-			tm->tl->fd = file_data_new_group(tm->dest);
-			tm->tl->source_mtime = strtol(mtime_str, nullptr, 10);
-
-			pathl = path_from_utf8(tm->tl->fd->path);
-			g_free(tm->tl->thumb_uri);
-			tm->tl->thumb_uri = g_filename_to_uri(pathl, nullptr, nullptr);
-			tm->tl->local_uri = filename_from_path(tm->tl->thumb_uri);
-			g_free(pathl);
-
-			g_free(tm->tl->thumb_path);
-			tm->tl->thumb_path = nullptr;
-			tm->tl->thumb_path_local = FALSE;
-
-			DEBUG_1("thumb move attempting save:");
-
-			thumb_loader_std_save(tm->tl, pixbuf);
-			}
-
-		DEBUG_1("thumb move unlink: %s", tm->thumb_path);
-		unlink_file(tm->thumb_path);
-		}
-
-	thumb_std_maint_move_step(tm);
-}
-
 static void thumb_std_maint_move_step(TMaintMove *tm)
 {
-	const gchar *folder;
+	if (tm->dest && tm->source)
+	{
+		DEBUG_1("thumb move attempting rename:");
 
-	tm->pass++;
-	if (tm->pass > 2)
-		{
+		auto* uri = g_filename_to_uri(tm->source, nullptr, nullptr);
+		auto* new_uri = g_filename_to_uri(tm->dest, nullptr, nullptr);
+		auto* thumb_path = thumb_std_cache_path(tm->source, uri, FALSE, THUMB_FOLDER_NORMAL);
+		auto* new_thumb_path = thumb_std_cache_path(tm->dest, new_uri, FALSE, THUMB_FOLDER_NORMAL);
+
+		gboolean success = rename_file(thumb_path, new_thumb_path);
+
+		if (!success)
+			{
+			DEBUG_1("thumb move failed: %s", tm->dest);
+			DEBUG_1("            thumb: %s", new_thumb_path);
+			}
+
+		g_free(uri);
+		g_free(new_uri);
+		g_free(thumb_path);
+		g_free(new_thumb_path);
+
 		g_free(tm->source);
 		g_free(tm->dest);
 		g_free(tm->source_uri);
 		g_free(tm->thumb_path);
 		g_free(tm);
 
-		if (thumb_std_maint_move_list)
-			{
-			g_idle_add_full(G_PRIORITY_LOW, thumb_std_maint_move_idle, nullptr, nullptr);
-			}
+	}
 
-		return;
-		}
-
-	folder = (tm->pass == 1) ? THUMB_FOLDER_NORMAL : THUMB_FOLDER_LARGE;
-
-	g_free(tm->thumb_path);
-	tm->thumb_path = thumb_std_cache_path(tm->source, tm->source_uri, FALSE, folder);
-	tm->tl = thumb_loader_std_thumb_file_validate(tm->thumb_path, 0,
-						      thumb_std_maint_move_validate_cb, tm);
+	if (thumb_std_maint_move_list)
+	{
+	g_idle_add_full(G_PRIORITY_LOW, thumb_std_maint_move_idle, nullptr, nullptr);
+	}
 }
 
 static gboolean thumb_std_maint_move_idle(gpointer)
