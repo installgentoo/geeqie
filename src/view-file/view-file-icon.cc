@@ -1608,8 +1608,7 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 				{
 				auto fd = static_cast<FileData *>(work->data);
 				if (fd && vf->thumbs_priority) g_hash_table_add(vf->thumbs_priority, fd);
-				if (fd && !fd->thumb_pixbuf &&
-				    (!vf->thumbs_skipped || !g_hash_table_contains(vf->thumbs_skipped, fd)))
+				if (fd && !fd->thumb_pixbuf)
 					{
 					return fd;
 					}
@@ -1623,8 +1622,7 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 	for (GList *work = vf->list; work; work = work->next)
 		{
 		auto fd = static_cast<FileData *>(work->data);
-		if (!fd->thumb_pixbuf &&
-		    (!vf->thumbs_skipped || !g_hash_table_contains(vf->thumbs_skipped, fd)))
+		if (!fd->thumb_pixbuf && vf->thumbs_priority && g_hash_table_contains(vf->thumbs_priority, fd))
 			{
 			return fd;
 			}
