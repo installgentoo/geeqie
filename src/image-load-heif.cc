@@ -49,9 +49,9 @@ private:
 	AreaUpdatedCb area_updated_cb;
 	gpointer data;
 
-	GdkPixbuf *pixbuf;
-	gint page_num;
-	gint page_total;
+	GdkPixbuf *pixbuf = nullptr;
+	gint page_num = 0;
+	gint page_total = 1;
 };
 
 void free_buffer(guchar *, gpointer data)
@@ -65,12 +65,25 @@ gboolean ImageLoaderHEIF::write(const guchar *buf, gsize &chunk_size, gsize coun
 
 	try
 		{
+		if (pixbuf)
+			{
+			g_object_unref(pixbuf);
+			pixbuf = nullptr;
+			}
+
 		ctx.read_from_memory_without_copy(buf, count);
 
 		page_total = ctx.get_number_of_top_level_images();
 
 		/* get list of all (top level) image IDs */
 		std::vector<heif_item_id> IDs = ctx.get_list_of_top_level_image_IDs();
+		if (IDs.empty() || page_num < 0 || static_cast<size_t>(page_num) >= IDs.size())
+			{
+			throw heif::Error(heif_error{
+				heif_error_Invalid_input,
+				heif_suberror_No_or_invalid_primary_item,
+				"heif: invalid page index"});
+			}
 
 		heif::ImageHandle handle = ctx.get_image_handle(IDs[page_num]);
 
@@ -103,7 +116,13 @@ void ImageLoaderHEIF::init(AreaUpdatedCb area_updated_cb, SizePreparedCb, gpoint
 {
 	this->area_updated_cb = area_updated_cb;
 	this->data = data;
+	if (pixbuf)
+		{
+		g_object_unref(pixbuf);
+		pixbuf = nullptr;
+		}
 	page_num = 0;
+	page_total = 1;
 }
 
 GdkPixbuf *ImageLoaderHEIF::get_pixbuf()
