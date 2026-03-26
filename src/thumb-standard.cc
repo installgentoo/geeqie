@@ -620,9 +620,6 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoaderStd *tl, GdkPixbuf *pixbuf,
 			}
 		}
 
-	// apply color correction, if required
-	thumb_loader_std_calibrate_pixbuf(tl->fd, result);
-
 	if (pixbuf_thumb) g_object_unref(pixbuf_thumb);
 	if (rotated) g_object_unref(rotated);
 

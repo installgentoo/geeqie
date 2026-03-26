@@ -678,8 +678,8 @@ guchar *heif_color_profile(FileData *fd, guint *profile_len)
 {
 	struct heif_context* ctx;
 	struct heif_error error_code;
-	struct heif_image_handle* handle;
-	struct heif_color_profile_nclx *nclxcp;
+	struct heif_image_handle* handle = nullptr;
+	struct heif_color_profile_nclx *nclxcp = nullptr;
 	gint profile_type;
 	guchar *profile;
 	cmsUInt32Number size;
@@ -703,7 +703,6 @@ guchar *heif_color_profile(FileData *fd, guint *profile_len)
 		return nullptr;
 		}
 
-	nclxcp = heif_nclx_color_profile_alloc();
 	profile_type = heif_image_handle_get_color_profile_type(handle);
 
 	if (profile_type == heif_color_profile_type_prof)
@@ -715,14 +714,14 @@ guchar *heif_color_profile(FileData *fd, guint *profile_len)
 		if (error_code.code)
 			{
 			log_printf("warning: heif reader error: %s\n", error_code.message);
+			heif_image_handle_release(handle);
 			heif_context_free(ctx);
-			heif_nclx_color_profile_free(nclxcp);
 			return nullptr;
 			}
 
 		DEBUG_1("heif color profile type: prof");
+		heif_image_handle_release(handle);
 		heif_context_free(ctx);
-		heif_nclx_color_profile_free(nclxcp);
 
 		return static_cast<guchar *>(data);
 		}
@@ -731,15 +730,17 @@ guchar *heif_color_profile(FileData *fd, guint *profile_len)
 	if (error_code.code)
 		{
 		log_printf("warning: heif reader error: %s\n", error_code.message);
+		heif_image_handle_release(handle);
 		heif_context_free(ctx);
-		heif_nclx_color_profile_free(nclxcp);
+		if (nclxcp) heif_nclx_color_profile_free(nclxcp);
 		return nullptr;
 		}
 
 	profile = nclx_to_lcms_profile(nclxcp, profile_len);
 
+	heif_image_handle_release(handle);
 	heif_context_free(ctx);
-	heif_nclx_color_profile_free(nclxcp);
+	if (nclxcp) heif_nclx_color_profile_free(nclxcp);
 
 	return profile;
 }
