@@ -277,12 +277,6 @@ static void layout_menu_new_cb(GtkAction *, gpointer data)
 	layout_exit_fullscreen(lw);
 }
 
-static void layout_menu_open_cb(GtkAction *widget, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	layout_exit_fullscreen(lw);
-}
-
 static void layout_menu_search_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -1784,48 +1778,6 @@ static void layout_color_menu_input_cb()
  * recent menu
  *-----------------------------------------------------------------------------
  */
-
-static void layout_menu_collection_recent_update(LayoutWindow *lw)
-{
-	GtkWidget *menu;
-	GtkWidget *recent;
-	GtkWidget *item;
-	GList *list;
-	gint n;
-
-	if (!lw->ui_manager) return;
-
-	list = history_list_get_by_key("recent");
-	n = 0;
-
-	menu = gtk_menu_new();
-
-	while (list)
-		{
-		const gchar *filename = filename_from_path(static_cast<gchar *>(list->data));
-		gchar *name;
-		gboolean free_name = FALSE;
-
-			{
-			name = const_cast<gchar *>(filename);
-			}
-
-		item = menu_item_add_simple(menu, name, nullptr, lw);
-		if (free_name) g_free(name);
-		g_object_set_data(G_OBJECT(item), "recent_index", GINT_TO_POINTER(n));
-		list = list->next;
-		n++;
-		}
-
-	if (n == 0)
-		{
-		menu_item_add(menu, _("Empty"), nullptr, nullptr);
-		}
-
-	recent = gq_gtk_ui_manager_get_widget(lw->ui_manager, "/MainMenu/FileMenu/OpenRecent");
-	gtk_menu_item_set_submenu(GTK_MENU_ITEM(recent), menu);
-	gtk_widget_set_sensitive(recent, (n != 0));
-}
 
 void layout_recent_update_all()
 {
