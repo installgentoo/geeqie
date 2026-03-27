@@ -509,11 +509,6 @@ FullScreenData *fullscreen_start(GtkWidget *window, ImageWindow *imd,
 		image_copy_from_image(fs->imd, fs->normal_imd);
 		}
 
-	if (options->stereo.enable_fsmode)
-		{
-		image_stereo_set(fs->imd, options->stereo.fsmode);
-		}
-
 	gtk_widget_show(fs->window);
 
 	/* for hiding the mouse */
@@ -560,10 +555,6 @@ void fullscreen_stop(FullScreenData *fs)
 		if (options->hide_window_in_fullscreen)
 			{
 			gtk_widget_show(fs->normal_window);
-			}
-		if (options->stereo.enable_fsmode)
-			{
-			image_stereo_set(fs->normal_imd, options->stereo.mode);
 			}
 		}
 

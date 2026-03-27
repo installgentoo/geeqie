@@ -1066,19 +1066,6 @@ void layout_image_set_ignore_alpha(LayoutWindow *lw, gboolean ignore_alpha)
 }
 
 /* stereo */
-gint layout_image_stereo_pixbuf_get(LayoutWindow *lw)
-{
-	if (!layout_valid(&lw)) return 0;
-
-	return image_stereo_pixbuf_get(lw->image);
-}
-
-void layout_image_stereo_pixbuf_set(LayoutWindow *lw, gint stereo_mode)
-{
-	if (!layout_valid(&lw)) return;
-
-	image_stereo_pixbuf_set(lw->image, static_cast<StereoPixbufData>(stereo_mode));
-}
 
 const gchar *layout_image_get_path(LayoutWindow *lw)
 {

@@ -64,7 +64,6 @@ constexpr PixbufInline inline_pixbuf_data[] = {
 	{ PIXBUF_INLINE_ICON_180,               "gq-icon-rotate-180" },
 	{ PIXBUF_INLINE_ICON_BOOK,              "gq-icon-book" },
 	{ PIXBUF_INLINE_ICON_CONFIG,            "gq-icon-config" },
-	{ PIXBUF_INLINE_ICON_DRAW_RECTANGLE,    "gq-icon-draw-rectangle" },
 	{ PIXBUF_INLINE_ICON_EXIF,              "gq-icon-exif" },
 	{ PIXBUF_INLINE_ICON_EXPOSURE,          "gq-icon-exposure" },
 	{ PIXBUF_INLINE_ICON_FLOAT,             "gq-icon-float" },

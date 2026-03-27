@@ -446,11 +446,6 @@ static void layout_menu_exif_rotate_cb(GtkToggleAction *action, gpointer data)
 	layout_image_reset_orientation(lw);
 }
 
-static void layout_menu_select_rectangle_cb(GtkToggleAction *action, gpointer)
-{
-	options->draw_rectangle = gq_gtk_toggle_action_get_active(action);
-}
-
 static void layout_menu_split_pane_sync_cb(GtkToggleAction *action, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -670,35 +665,6 @@ static void layout_menu_connect_zoom_1_4_cb(GtkAction *, gpointer data)
 	auto lw = static_cast<LayoutWindow *>(data);
 
 	layout_image_zoom_set(lw, -4.0, TRUE);
-}
-
-static void layout_menu_zoom_to_rectangle_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint x1;
-	gint x2;
-	gint y1;
-	gint y2;
-
-	image_get_rectangle(x1, y1, x2, y2);
-
-	auto *pr = reinterpret_cast<PixbufRenderer *>(lw->image->pr);
-
-	gint image_width = x2 - x1;
-	gint image_height = y2 - y1;
-
-	gdouble zoom_width = static_cast<gdouble>(pr->vis_width) / image_width;
-	gdouble zoom_height = static_cast<gdouble>(pr->vis_height) / image_height;
-
-	const GdkRectangle rect = pr_coords_map_orientation_reverse(pr->orientation,
-	                                                            {x1, y1, image_width, image_height},
-	                                                            pr->image_width, pr->image_height);
-
-	gint center_x = (rect.width / 2) + rect.x;
-	gint center_y = (rect.height / 2) + rect.y;
-
-	layout_image_zoom_set(lw, zoom_width > zoom_height ? zoom_height : zoom_width, FALSE);
-	image_scroll_to_point(lw->image, center_x, center_y, 0.5, 0.5);
 }
 
 static void layout_menu_split_cb(GtkRadioAction *action, GtkRadioAction *, gpointer data)
@@ -1057,36 +1023,6 @@ static void layout_menu_hide_bars_cb(GtkToggleAction *action, gpointer data)
 }
 
 
-static void layout_menu_stereo_mode_next_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint mode = layout_image_stereo_pixbuf_get(lw);
-
-	/* 0->1, 1->2, 2->3, 3->1 - disable auto, then cycle */
-	mode = mode % 3 + 1;
-
-	GtkAction *radio = gq_gtk_action_group_get_action(lw->action_group, "StereoAuto");
-	gq_gtk_radio_action_set_current_value(GTK_RADIO_ACTION(radio), mode);
-
-	/*
-	this is called via fallback in layout_menu_stereo_mode_cb
-	layout_image_stereo_pixbuf_set(lw, mode);
-	*/
-
-}
-
-static void layout_menu_stereo_mode_cb(GtkRadioAction *action, GtkRadioAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint mode = gq_gtk_radio_action_get_current_value(action);
-	layout_image_stereo_pixbuf_set(lw, mode);
-}
-
-static void layout_menu_draw_rectangle_aspect_ratio_cb(GtkRadioAction *action, GtkRadioAction *, gpointer)
-{
-	options->rectangle_draw_aspect_ratio = static_cast<RectangleDrawAspectRatio>(gq_gtk_radio_action_get_current_value(action));
-}
-
 static void layout_menu_help_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -1294,13 +1230,6 @@ static void layout_menu_about_cb(GtkAction *, gpointer data)
 
 	layout_exit_fullscreen(lw);
 	show_about_window(lw);
-}
-
-static void layout_menu_crop_selection_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	start_editor_from_file("org.geeqie.image-crop.desktop", lw->image->image_fd);
 }
 
 static void layout_menu_log_window_cb(GtkAction *, gpointer data)
@@ -2175,7 +2104,6 @@ static void layout_menu_window_delete_cb(GtkWidget *, gpointer data)
  */
 static GtkActionEntry menu_entries[] = {
   { "About",                 GQ_ICON_ABOUT,                     N_("_About"),                                           nullptr,               N_("About"),                                           CB(layout_menu_about_cb) },
-  { "AspectRatioMenu",       nullptr,                           N_("Aspect Ratio"),                                     nullptr,               N_("Aspect Ratio"),                                    nullptr },
   { "Back",                  GQ_ICON_GO_PREV,                   N_("_Back"),                                            nullptr,               N_("Back in folder history"),                          CB(layout_menu_back_cb) },
   { "CloseWindow",           GQ_ICON_CLOSE,                     N_("C_lose window"),                                    "<control>W",          N_("Close window"),                                    CB(layout_menu_close_cb) },
   { "ColorMenu",             nullptr,                           N_("_Color Management"),                                nullptr,               nullptr,                                               nullptr },
@@ -2200,7 +2128,6 @@ static GtkActionEntry menu_entries[] = {
   { "CopyImage",             nullptr,                           N_("_Copy image to clipboard"),                         nullptr,               N_("Copy image to clipboard"),                         CB(layout_menu_copy_image_cb) },
   { "CopyPath",              nullptr,                           N_("_Copy to clipboard"),                               nullptr,               N_("Copy to clipboard"),                               CB(layout_menu_copy_path_cb) },
   { "CopyPathUnquoted",      nullptr,                           N_("_Copy to clipboard (unquoted)"),                    nullptr,               N_("Copy to clipboard (unquoted)"),                    CB(layout_menu_copy_path_unquoted_cb) },
-  { "CropRectangle",         nullptr,                           N_("Crop Rectangle"),                                   nullptr,               N_("Crop Rectangle"),                                  CB(layout_menu_crop_selection_cb) },
   { "CutPath",               nullptr,                           N_("_Cut to clipboard"),                                "<control>X",          N_("Cut to clipboard"),                                CB(layout_menu_cut_path_cb) },
   { "DeleteAlt1",            GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "Delete",              N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_key_cb) },
   { "DeleteAlt2",            GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "KP_Delete",           N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_key_cb) },
@@ -2286,8 +2213,6 @@ static GtkActionEntry menu_entries[] = {
   { "SplitNextPane",         nullptr,                           N_("_Next Pane"),                                       "<alt>Right",          N_("Next Split Pane"),                                 CB(layout_menu_split_pane_next_cb) },
   { "SplitPreviousPane",     nullptr,                           N_("_Previous Pane"),                                   "<alt>Left",           N_("Previous Split Pane"),                             CB(layout_menu_split_pane_prev_cb) },
   { "SplitUpPane",           nullptr,                           N_("_Up Pane"),                                         "<alt>Up",             N_("Up Split Pane"),                                   CB(layout_menu_split_pane_updown_cb) },
-  { "StereoCycle",           nullptr,                           N_("_Cycle through stereo modes"),                      nullptr,               N_("Cycle through stereo modes"),                      CB(layout_menu_stereo_mode_next_cb) },
-  { "StereoMenu",            nullptr,                           N_("Stere_o"),                                          nullptr,               nullptr,                                               nullptr },
   { "Up",                    GQ_ICON_GO_UP,                     N_("_Up"),                                              nullptr,               N_("Up one folder"),                                   CB(layout_menu_up_cb) },
   { "ViewInNewWindow",       nullptr,                           N_("_View in new window"),                              "<control>V",          N_("View in new window"),                              CB(layout_menu_view_in_new_window_cb) },
   { "ViewMenu",              nullptr,                           N_("_View"),                                            nullptr,               nullptr,                                               CB(layout_menu_view_menu_cb)  },
@@ -2309,13 +2234,11 @@ static GtkActionEntry menu_entries[] = {
   { "ZoomIn",                GQ_ICON_ZOOM_IN,                   N_("Zoom _in"),                                         "equal",               N_("Zoom in"),                                         CB(layout_menu_zoom_in_cb) },
   { "ZoomMenu",              nullptr,                           N_("_Zoom"),                                            nullptr,               nullptr,                                               nullptr },
   { "ZoomOutAlt1",           GQ_ICON_ZOOM_OUT,                  N_("Zoom _out"),                                        "KP_Subtract",         N_("Zoom out"),                                        CB(layout_menu_zoom_out_cb) },
-  { "ZoomToRectangle",       nullptr,                           N_("Zoom to rectangle"),                                nullptr,               N_("Zoom to rectangle"),                               CB(layout_menu_zoom_to_rectangle_cb) },
   { "ZoomOut",               GQ_ICON_ZOOM_OUT,                  N_("Zoom _out"),                                        "minus",               N_("Zoom out"),                                        CB(layout_menu_zoom_out_cb) }
 };
 
 static GtkToggleActionEntry menu_toggle_entries[] = {
   { "Animate",                 nullptr,                              N_("_Animation"),               "A",               N_("Toggle animation"),              CB(layout_menu_animate_cb),                  FALSE  },
-  { "DrawRectangle",           PIXBUF_INLINE_ICON_DRAW_RECTANGLE,    N_("Draw Rectangle"),           nullptr,           N_("Draw Rectangle"),                CB(layout_menu_select_rectangle_cb),         FALSE  },
   { "ExifRotate",              GQ_ICON_ROTATE_LEFT,                  N_("_Exif rotate"),             "<alt>X",          N_("Toggle Exif rotate"),            CB(layout_menu_exif_rotate_cb),              FALSE  },
   { "FloatTools",              PIXBUF_INLINE_ICON_FLOAT,             N_("_Float file list"),         "L",               N_("Float file list"),               CB(layout_menu_float_cb),                    FALSE  },
   { "Grayscale",               PIXBUF_INLINE_ICON_GRAYSCALE,         N_("Toggle _grayscale"),        "<shift>G",        N_("Toggle grayscale"),              CB(layout_menu_alter_desaturate_cb),         FALSE  },
@@ -2369,20 +2292,6 @@ static GtkRadioActionEntry menu_histogram_mode[] = {
   { "HistogramModeLog",  nullptr,  N_("_Log Histogram"),     nullptr,  N_("Log Histogram"),     1 },
 };
 
-static GtkRadioActionEntry menu_stereo_mode_entries[] = {
-  { "StereoAuto",   nullptr,  N_("_Auto"),          nullptr,  N_("Stereo Auto"),          STEREO_PIXBUF_DEFAULT },
-  { "StereoCross",  nullptr,  N_("_Cross"),         nullptr,  N_("Stereo Cross"),         STEREO_PIXBUF_CROSS },
-  { "StereoOff",    nullptr,  N_("_Off"),           nullptr,  N_("Stereo Off"),           STEREO_PIXBUF_NONE },
-  { "StereoSBS",    nullptr,  N_("_Side by Side"),  nullptr,  N_("Stereo Side by Side"),  STEREO_PIXBUF_SBS }
-};
-
-static GtkRadioActionEntry menu_draw_rectangle_aspect_ratios[] = {
-  { "CropNone",        nullptr, N_("None"), nullptr, N_("None"), RECTANGLE_DRAW_ASPECT_RATIO_NONE },
-  { "CropOneOne",      nullptr, N_("1:1"),  nullptr, N_("1:1"),  RECTANGLE_DRAW_ASPECT_RATIO_ONE_ONE },
-  { "CropFourThree",   nullptr, N_("4:3"),  nullptr, N_("4:3"),  RECTANGLE_DRAW_ASPECT_RATIO_FOUR_THREE },
-  { "CropThreeTwo",    nullptr, N_("3:2"),  nullptr, N_("3:2"),  RECTANGLE_DRAW_ASPECT_RATIO_THREE_TWO },
-  { "CropSixteenNine", nullptr, N_("16:9"), nullptr, N_("16:9"), RECTANGLE_DRAW_ASPECT_RATIO_SIXTEEN_NINE }
-};
 #undef CB
 
 static gchar *menu_translate(const gchar *path, gpointer)
@@ -2616,12 +2525,6 @@ void layout_actions_setup(LayoutWindow *lw)
 	gq_gtk_action_group_add_radio_actions(lw->action_group,
 					   menu_histogram_mode, G_N_ELEMENTS(menu_histogram_mode),
 					   0, G_CALLBACK(layout_menu_histogram_mode_cb), lw);
-	gq_gtk_action_group_add_radio_actions(lw->action_group,
-					   menu_stereo_mode_entries, G_N_ELEMENTS(menu_stereo_mode_entries),
-					   0, G_CALLBACK(layout_menu_stereo_mode_cb), lw);
-	gq_gtk_action_group_add_radio_actions(lw->action_group,
-					   menu_draw_rectangle_aspect_ratios, G_N_ELEMENTS(menu_draw_rectangle_aspect_ratios),
-					   0, G_CALLBACK(layout_menu_draw_rectangle_aspect_ratio_cb), lw);
 
 
 	lw->ui_manager = gq_gtk_ui_manager_new();
@@ -3246,9 +3149,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	action = gq_gtk_action_group_get_action(lw->action_group, "SplitPaneSync");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.split_pane_sync);
 
-	action = gq_gtk_action_group_get_action(lw->action_group, "CropNone");
-	gq_gtk_radio_action_set_current_value(GTK_RADIO_ACTION(action), options->rectangle_draw_aspect_ratio);
-
 	action = gq_gtk_action_group_get_action(lw->action_group, "FloatTools");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.tools_float);
 
@@ -3279,9 +3179,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	action = gq_gtk_action_group_get_action(lw->action_group, "OverUnderExposed");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), options->overunderexposed);
 
-	action = gq_gtk_action_group_get_action(lw->action_group, "DrawRectangle");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), options->draw_rectangle);
-
 	action = gq_gtk_action_group_get_action(lw->action_group, "RectangularSelection");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), options->collections.rectangular_selection);
 
@@ -3302,9 +3199,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "ConnectZoomMenu");
 	gq_gtk_action_set_sensitive(action, lw->split_mode != SPLIT_NONE);
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "StereoAuto");
-	gq_gtk_radio_action_set_current_value(GTK_RADIO_ACTION(action), layout_image_stereo_pixbuf_get(lw));
 
 	layout_util_sync_color(lw);
 	layout_image_set_ignore_alpha(lw, lw->options.ignore_alpha);

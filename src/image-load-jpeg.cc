@@ -254,12 +254,8 @@ gboolean ImageLoaderJpeg::write(const guchar *buf, gsize &chunk_size, gsize coun
 	guchar *dptr;
 	guchar *dptr2;
 	guint rowstride;
-	guchar *stereo_buf2 = nullptr;
-	guint stereo_length = 0;
 
 	struct error_handler_data jerr;
-
-	stereo = FALSE;
 
 	MPOData *mpo = jpeg_get_mpo_data(buf, count);
 	if (mpo && mpo->num_images > 1)
@@ -284,21 +280,11 @@ gboolean ImageLoaderJpeg::write(const guchar *buf, gsize &chunk_size, gsize coun
 					}
 				}
 			}
-
-		if (idx1 >= 0 && idx2 >= 0)
-			{
-			stereo = TRUE;
-			stereo_buf2 = const_cast<unsigned char *>(buf) + mpo->images[idx2].offset;
-			stereo_length = mpo->images[idx2].length;
-			buf = const_cast<unsigned char *>(buf) + mpo->images[idx1].offset;
-			count = mpo->images[idx1].length;
-			}
 		}
 	jpeg_mpo_data_free(mpo);
 
 	/* setup error handler */
 	cinfo.err = jpeg_std_error (&jerr.pub);
-	if (stereo) cinfo2.err = jpeg_std_error (&jerr.pub);
 	jerr.pub.error_exit = fatal_error_handler;
 	jerr.pub.output_message = output_message_handler;
 
@@ -311,7 +297,6 @@ gboolean ImageLoaderJpeg::write(const guchar *buf, gsize &chunk_size, gsize coun
 		 * We need to clean up the JPEG object, close the input file, and return.
 		*/
 		jpeg_destroy_decompress(&cinfo);
-		if (stereo) jpeg_destroy_decompress(&cinfo2);
 		return FALSE;
 		}
 
@@ -322,71 +307,33 @@ gboolean ImageLoaderJpeg::write(const guchar *buf, gsize &chunk_size, gsize coun
 
 	jpeg_read_header(&cinfo, TRUE);
 
-	if (stereo)
-		{
-		jpeg_create_decompress(&cinfo2);
-		set_mem_src(&cinfo2, stereo_buf2, stereo_length);
-		jpeg_read_header(&cinfo2, TRUE);
-
-		if (cinfo.image_width != cinfo2.image_width ||
-		    cinfo.image_height != cinfo2.image_height)
-			{
-			DEBUG_1("stereo data with different size");
-			jpeg_destroy_decompress(&cinfo2);
-			stereo = FALSE;
-			}
-		}
-
-
-	requested_width = stereo ? cinfo.image_width * 2: cinfo.image_width;
+	requested_width = cinfo.image_width;
 	requested_height = cinfo.image_height;
 	size_prepared_cb(nullptr, requested_width, requested_height, data);
 
 	cinfo.scale_num = 1;
 	for (cinfo.scale_denom = 2; cinfo.scale_denom <= 8; cinfo.scale_denom *= 2) {
 		jpeg_calc_output_dimensions(&cinfo);
-		if (cinfo.output_width < (stereo ? requested_width / 2 : requested_width) || cinfo.output_height < requested_height) {
+		if (cinfo.output_width < requested_width || cinfo.output_height < requested_height) {
 			cinfo.scale_denom /= 2;
 			break;
 		}
 	}
 	jpeg_calc_output_dimensions(&cinfo);
-	if (stereo)
-		{
-		cinfo2.scale_num = cinfo.scale_num;
-		cinfo2.scale_denom = cinfo.scale_denom;
-		jpeg_calc_output_dimensions(&cinfo2);
-		jpeg_start_decompress(&cinfo2);
-		}
 
 
 	jpeg_start_decompress(&cinfo);
 
 
-	if (stereo)
-		{
-		if (cinfo.output_width != cinfo2.output_width ||
-		    cinfo.output_height != cinfo2.output_height ||
-		    cinfo.out_color_components != cinfo2.out_color_components)
-			{
-			DEBUG_1("stereo data with different output size");
-			jpeg_destroy_decompress(&cinfo2);
-			stereo = FALSE;
-			}
-		}
-
-
 	pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
 				     cinfo.out_color_components == 4 ? TRUE : FALSE,
-	                 8, stereo ? cinfo.output_width * 2: cinfo.output_width, cinfo.output_height);
+	                 8, cinfo.output_width, cinfo.output_height);
 
 	if (!pixbuf)
 		{
 		jpeg_destroy_decompress (&cinfo);
-		if (stereo) jpeg_destroy_decompress (&cinfo2);
 		return FALSE;
 		}
-	if (stereo) g_object_set_data(G_OBJECT(pixbuf), "stereo_data", GINT_TO_POINTER(STEREO_PIXBUF_CROSS));
 	area_prepared_cb(nullptr, data);
 
 	rowstride = gdk_pixbuf_get_rowstride(pixbuf);
@@ -399,21 +346,10 @@ gboolean ImageLoaderJpeg::write(const guchar *buf, gsize &chunk_size, gsize coun
 		guint scanline = cinfo.output_scanline;
 		image_loader_jpeg_read_scanline(&cinfo, &dptr, rowstride);
 		area_updated_cb(nullptr, 0, scanline, cinfo.output_width, cinfo.rec_outbuf_height, data);
-		if (stereo)
-			{
-			guint scanline = cinfo2.output_scanline;
-			image_loader_jpeg_read_scanline(&cinfo2, &dptr2, rowstride);
-			area_updated_cb(nullptr, cinfo.output_width, scanline, cinfo2.output_width, cinfo2.rec_outbuf_height, data);
-			}
 		}
 
 	jpeg_finish_decompress(&cinfo);
 	jpeg_destroy_decompress(&cinfo);
-	if (stereo)
-		{
-		jpeg_finish_decompress(&cinfo);
-		jpeg_destroy_decompress(&cinfo);
-		}
 
 	chunk_size = count;
 	return TRUE;

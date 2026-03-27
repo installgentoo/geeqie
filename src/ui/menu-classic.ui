@@ -67,16 +67,6 @@
         <menuitem action="SaveMetadata"/>
         <placeholder name="PropertiesSection"/>
         <separator/>
-        <menuitem action="DrawRectangle"/>
-        <menu action="AspectRatioMenu">
-          <menuitem action="CropNone"/>
-          <menuitem action="CropOneOne"/>
-          <menuitem action="CropFourThree"/>
-          <menuitem action="CropThreeTwo"/>
-          <menuitem action="CropSixteenNine"/>
-        </menu>
-        <menuitem action="CropRectangle"/>
-        <separator/>
         <menuitem action="Preferences"/>
         <menuitem action="Plugins"/>
         <menuitem action="LayoutConfig"/>
@@ -132,7 +122,6 @@
           <menuitem action="Zoom50"/>
           <menuitem action="Zoom33"/>
           <menuitem action="Zoom25"/>
-          <menuitem action="ZoomToRectangle"/>
         </menu>
         <menu action="SplitMenu">
           <menuitem action="SplitHorizontal"/>
@@ -147,14 +136,6 @@
           <menuitem action="SplitDownPane"/>
           <separator/>
           <menuitem action="SplitPaneSync"/>
-        </menu>
-        <menu action="StereoMenu">
-          <menuitem action="StereoAuto"/>
-          <menuitem action="StereoSBS"/>
-          <menuitem action="StereoCross"/>
-          <menuitem action="StereoOff"/>
-          <separator/>
-          <menuitem action="StereoCycle"/>
         </menu>
         <menu action="ColorMenu">
           <menuitem action="UseColorProfiles"/>

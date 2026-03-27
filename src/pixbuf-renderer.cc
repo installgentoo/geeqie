@@ -137,7 +137,6 @@ static void pr_zoom_sync(PixbufRenderer *pr, gdouble zoom,
 
 static void pr_signals_connect(PixbufRenderer *pr);
 static void pr_size_cb(GtkWidget *widget, GtkAllocation *allocation, gpointer data);
-static void pr_stereo_temp_disable(PixbufRenderer *pr, gboolean disable);
 
 
 /*
@@ -418,7 +417,6 @@ static void pixbuf_renderer_init(PixbufRenderer *pr)
 
 	pr->zoom = 1.0;
 	pr->scale = 1.0;
-	pr->aspect_ratio = 1.0;
 
 	pr->scroll_reset = ScrollReset::TOPLEFT;
 
@@ -435,8 +433,6 @@ static void pixbuf_renderer_init(PixbufRenderer *pr)
 
 	pr->norm_center_x = 0.5;
 	pr->norm_center_y = 0.5;
-
-	pr->stereo_mode = PR_STEREO_NONE;
 
 	pr->color.red =0;
 	pr->color.green =0;
@@ -1144,7 +1140,6 @@ void pixbuf_renderer_set_tiles(PixbufRenderer *pr, gint width, gint height,
 	pr->func_tile_dispose = func_dispose;
 	pr->func_tile_data = user_data;
 
-	pr_stereo_temp_disable(pr, TRUE);
 	pr_zoom_sync(pr, zoom, static_cast<PrZoomFlags>(PR_ZOOM_FORCE | PR_ZOOM_NEW), 0, 0);
 }
 
@@ -1638,9 +1633,9 @@ static gboolean pr_zoom_clamp(PixbufRenderer *pr, gdouble zoom,
 
 		if ((pr->zoom_expand && !sizeable) || w > max_w || h > max_h)
 			{
-			if (static_cast<gdouble>(max_w) / w > static_cast<gdouble>(max_h) / h / pr->aspect_ratio)
+			if (static_cast<gdouble>(max_w) / w > static_cast<gdouble>(max_h) / h)
 				{
-				scale = static_cast<gdouble>(max_h) / h / pr->aspect_ratio;
+				scale = static_cast<gdouble>(max_h) / h;
 				h = max_h;
 				w = w * scale + 0.5;
 				if (w > max_w) w = max_w;
@@ -1649,7 +1644,7 @@ static gboolean pr_zoom_clamp(PixbufRenderer *pr, gdouble zoom,
 				{
 				scale = static_cast<gdouble>(max_w) / w;
 				w = max_w;
-				h = h * scale * pr->aspect_ratio + 0.5;
+				h = h * scale + 0.5;
 				if (h > max_h) h = max_h;
 				}
 
@@ -1684,13 +1679,13 @@ static gboolean pr_zoom_clamp(PixbufRenderer *pr, gdouble zoom,
 		{
 		scale = zoom;
 		w = w * scale;
-		h = h * scale * pr->aspect_ratio;
+		h = h * scale;
 		}
 	else /* zoom out */
 		{
 		scale = 1.0 / (0.0 - zoom);
 		w = w * scale;
-		h = h * scale * pr->aspect_ratio;
+		h = h * scale;
 		}
 
 	pr->zoom = zoom;
@@ -1743,12 +1738,12 @@ static void pr_zoom_sync(PixbufRenderer *pr, gdouble zoom,
 			case ScrollReset::NOCHANGE:
 				/* maintain old scroll position */
 				pr->x_scroll = (static_cast<gdouble>(pr->image_width) * old_center_x * pr->scale) - pr->vis_width / 2.0;
-				pr->y_scroll = (static_cast<gdouble>(pr->image_height) * old_center_y * pr->scale * pr->aspect_ratio) - pr->vis_height / 2.0;
+				pr->y_scroll = (static_cast<gdouble>(pr->image_height) * old_center_y * pr->scale) - pr->vis_height / 2.0;
 				break;
 			case ScrollReset::CENTER:
 				/* center new image */
 				pr->x_scroll = (static_cast<gdouble>(pr->image_width) / 2.0 * pr->scale) - pr->vis_width / 2.0;
-				pr->y_scroll = (static_cast<gdouble>(pr->image_height) / 2.0 * pr->scale * pr->aspect_ratio) - pr->vis_height / 2.0;
+				pr->y_scroll = (static_cast<gdouble>(pr->image_height) / 2.0 * pr->scale) - pr->vis_height / 2.0;
 				break;
 			case ScrollReset::TOPLEFT:
 			default:
@@ -1764,12 +1759,12 @@ static void pr_zoom_sync(PixbufRenderer *pr, gdouble zoom,
 		if (center_point)
 			{
 			pr->x_scroll = old_cx / old_scale * pr->scale - (px - pr->x_offset);
-			pr->y_scroll = old_cy / old_scale * pr->scale * pr->aspect_ratio - (py - pr->y_offset);
+			pr->y_scroll = old_cy / old_scale * pr->scale - (py - pr->y_offset);
 			}
 		else
 			{
 			pr->x_scroll = old_cx / old_scale * pr->scale - (pr->vis_width / 2.0);
-			pr->y_scroll = old_cy / old_scale * pr->scale * pr->aspect_ratio - (pr->vis_height / 2.0);
+			pr->y_scroll = old_cy / old_scale * pr->scale - (pr->vis_height / 2.0);
 			}
 		}
 
@@ -1789,23 +1784,6 @@ static void pr_size_sync(PixbufRenderer *pr, gint new_width, gint new_height)
 
 	gint new_viewport_width = new_width;
 	gint new_viewport_height = new_height;
-
-	if (!pr->stereo_temp_disable)
-		{
-		if (pr->stereo_mode & PR_STEREO_HORIZ)
-			{
-			new_viewport_width = new_width / 2;
-			}
-		else if (pr->stereo_mode & PR_STEREO_VERT)
-			{
-			new_viewport_height = new_height / 2;
-			}
-		else if (pr->stereo_mode & PR_STEREO_FIXED)
-			{
-			new_viewport_width = pr->stereo_fixed_width;
-			new_viewport_height = pr->stereo_fixed_height;
-			}
-		}
 
 	if (pr->window_width == new_width && pr->window_height == new_height &&
 	    pr->viewport_width == new_viewport_width && pr->viewport_height == new_viewport_height) return;
@@ -1935,7 +1913,7 @@ void pixbuf_renderer_scroll_to_point(PixbufRenderer *pr, gint x, gint y,
 	ay = static_cast<gdouble>(pr->vis_height) * y_align;
 
 	px = static_cast<gdouble>(x) * pr->scale - (pr->x_scroll + ax);
-	py = static_cast<gdouble>(y) * pr->scale * pr->aspect_ratio - (pr->y_scroll + ay);
+	py = static_cast<gdouble>(y) * pr->scale - (pr->y_scroll + ay);
 
 	pixbuf_renderer_scroll(pr, px, py);
 }
@@ -2019,8 +1997,6 @@ static gboolean pr_mouse_motion_cb(GtkWidget *widget, GdkEventMotion *event, gpo
 		accel = 1;
 		}
 
-	/* do the scroll - not when drawing rectangle*/
-	if (!options->draw_rectangle)
 		{
 		pixbuf_renderer_scroll(pr, (pr->drag_last_x - event->x) * accel,
 					(pr->drag_last_y - event->y) * accel);
@@ -2176,225 +2152,11 @@ static void pr_signals_connect(PixbufRenderer *pr)
 
 /*
  *-------------------------------------------------------------------
- * stereo support
- *-------------------------------------------------------------------
- */
-
-enum {
-	COLOR_BYTES = 3,   /* rgb */
-	RC = 0,            /* Red-Cyan */
-	GM = 1,            /* Green-Magenta */
-	YB = 2            /* Yellow-Blue */
-};
-
-static void pr_create_anaglyph_color(GdkPixbuf *pixbuf, GdkPixbuf *right, gint x, gint y, gint w, gint h, guint mode)
-{
-	gint srs;
-	gint drs;
-	guchar *s_pix;
-	guchar *d_pix;
-	guchar *sp;
-	guchar *dp;
-	guchar *spi;
-	guchar *dpi;
-	gint i;
-	gint j;
-
-	srs = gdk_pixbuf_get_rowstride(right);
-	s_pix = gdk_pixbuf_get_pixels(right);
-	spi = s_pix + (x * COLOR_BYTES);
-
-	drs = gdk_pixbuf_get_rowstride(pixbuf);
-	d_pix = gdk_pixbuf_get_pixels(pixbuf);
-	dpi =  d_pix + x * COLOR_BYTES;
-
-	for (i = y; i < y + h; i++)
-		{
-		sp = spi + (i * srs);
-		dp = dpi + (i * drs);
-		for (j = 0; j < w; j++)
-			{
-			switch(mode)
-				{
-				case RC:
-					dp[0] = sp[0]; /* copy red channel */
-					break;
-				case GM:
-					dp[1] = sp[1];
-					break;
-				case YB:
-					dp[0] = sp[0];
-					dp[1] = sp[1];
-					break;
-				default:
-					break;
-				}
-			sp += COLOR_BYTES;
-			dp += COLOR_BYTES;
-			}
-		}
-}
-
-static void pr_create_anaglyph_gray(GdkPixbuf *pixbuf, GdkPixbuf *right, gint x, gint y, gint w, gint h, guint mode)
-{
-	gint srs;
-	gint drs;
-	guchar *s_pix;
-	guchar *d_pix;
-	guchar *sp;
-	guchar *dp;
-	guchar *spi;
-	guchar *dpi;
-	gint i;
-	gint j;
-	const double gc[3] = {0.299, 0.587, 0.114};
-
-	srs = gdk_pixbuf_get_rowstride(right);
-	s_pix = gdk_pixbuf_get_pixels(right);
-	spi = s_pix + (x * COLOR_BYTES);
-
-	drs = gdk_pixbuf_get_rowstride(pixbuf);
-	d_pix = gdk_pixbuf_get_pixels(pixbuf);
-	dpi =  d_pix + x * COLOR_BYTES;
-
-	for (i = y; i < y + h; i++)
-		{
-		sp = spi + (i * srs);
-		dp = dpi + (i * drs);
-		for (j = 0; j < w; j++)
-			{
-			guchar g1 = dp[0] * gc[0] + dp[1] * gc[1] + dp[2] * gc[2];
-			guchar g2 = sp[0] * gc[0] + sp[1] * gc[1] + sp[2] * gc[2];
-			switch(mode)
-				{
-				case RC:
-					dp[0] = g2; /* red channel from sp */
-					dp[1] = g1; /* green and blue from dp */
-					dp[2] = g1;
-					break;
-				case GM:
-					dp[0] = g1;
-					dp[1] = g2;
-					dp[2] = g1;
-					break;
-				case YB:
-					dp[0] = g2;
-					dp[1] = g2;
-					dp[2] = g1;
-					break;
-				default:
-					break;
-				}
-			sp += COLOR_BYTES;
-			dp += COLOR_BYTES;
-			}
-		}
-}
-
-static void pr_create_anaglyph_dubois(GdkPixbuf *pixbuf, GdkPixbuf *right, gint x, gint y, gint w, gint h, guint mode)
-{
-	gint srs;
-	gint drs;
-	guchar *s_pix;
-	guchar *d_pix;
-	guchar *sp;
-	guchar *dp;
-	guchar *spi;
-	guchar *dpi;
-	gint i;
-	gint j;
-	gint k;
-	double pr_dubois_matrix[3][6];
-	static const double pr_dubois_matrix_RC[3][6] = {
-		{ 0.456,  0.500,  0.176, -0.043, -0.088, -0.002},
-		{-0.040, -0.038, -0.016,  0.378,  0.734, -0.018},
-		{-0.015, -0.021, -0.005, -0.072, -0.113,  1.226}};
-	static const double pr_dubois_matrix_GM[3][6] = {
-		{-0.062, -0.158, -0.039,  0.529,  0.705,  0.024},
-		{ 0.284,  0.668,  0.143, -0.016, -0.015, -0.065},
-		{-0.015, -0.027,  0.021,  0.009,  0.075,  0.937}};
-	static const double pr_dubois_matrix_YB[3][6] = {
-		{ 1.000, -0.193,  0.282, -0.015, -0.116, -0.016},
-		{-0.024,  0.855,  0.064,  0.006,  0.058, -0.016},
-		{-0.036, -0.163,  0.021,  0.089,  0.174,  0.858}};
-
-	switch(mode)
-		{
-		case RC:
-			memcpy(pr_dubois_matrix, pr_dubois_matrix_RC, sizeof pr_dubois_matrix);
-			break;
-		case GM:
-			memcpy(pr_dubois_matrix, pr_dubois_matrix_GM, sizeof pr_dubois_matrix);
-			break;
-		case YB:
-			memcpy(pr_dubois_matrix, pr_dubois_matrix_YB, sizeof pr_dubois_matrix);
-			break;
-		default:
-			break;
-		}
-
-	srs = gdk_pixbuf_get_rowstride(right);
-	s_pix = gdk_pixbuf_get_pixels(right);
-	spi = s_pix + (x * COLOR_BYTES);
-
-	drs = gdk_pixbuf_get_rowstride(pixbuf);
-	d_pix = gdk_pixbuf_get_pixels(pixbuf);
-	dpi =  d_pix + x * COLOR_BYTES;
-
-	for (i = y; i < y + h; i++)
-		{
-		sp = spi + (i * srs);
-		dp = dpi + (i * drs);
-		for (j = 0; j < w; j++)
-			{
-			double res[3];
-			for (k = 0; k < 3; k++)
-				{
-				const double *m = pr_dubois_matrix[k];
-				res[k] = sp[0] * m[0] + sp[1] * m[1] + sp[2] * m[2] + dp[0] * m[3] + dp[1] * m[4] + dp[2] * m[5];
-				if (res[k] < 0.0) res[k] = 0;
-				if (res[k] > 255.0) res[k] = 255.0;
-				}
-			dp[0] = res[0];
-			dp[1] = res[1];
-			dp[2] = res[2];
-			sp += COLOR_BYTES;
-			dp += COLOR_BYTES;
-			}
-		}
-}
-
-void pr_create_anaglyph(guint mode, GdkPixbuf *pixbuf, GdkPixbuf *right, gint x, gint y, gint w, gint h)
-{
-	if (mode & PR_STEREO_ANAGLYPH_RC)
-		pr_create_anaglyph_color(pixbuf, right, x, y, w, h, RC);
-	else if (mode & PR_STEREO_ANAGLYPH_GM)
-		pr_create_anaglyph_color(pixbuf, right, x, y, w, h, GM);
-	else if (mode & PR_STEREO_ANAGLYPH_YB)
-		pr_create_anaglyph_color(pixbuf, right, x, y, w, h, YB);
-	else if (mode & PR_STEREO_ANAGLYPH_GRAY_RC)
-		pr_create_anaglyph_gray(pixbuf, right, x, y, w, h, RC);
-	else if (mode & PR_STEREO_ANAGLYPH_GRAY_GM)
-		pr_create_anaglyph_gray(pixbuf, right, x, y, w, h, GM);
-	else if (mode & PR_STEREO_ANAGLYPH_GRAY_YB)
-		pr_create_anaglyph_gray(pixbuf, right, x, y, w, h, YB);
-	else if (mode & PR_STEREO_ANAGLYPH_DB_RC)
-		pr_create_anaglyph_dubois(pixbuf, right, x, y, w, h, RC);
-	else if (mode & PR_STEREO_ANAGLYPH_DB_GM)
-		pr_create_anaglyph_dubois(pixbuf, right, x, y, w, h, GM);
-	else if (mode & PR_STEREO_ANAGLYPH_DB_YB)
-		pr_create_anaglyph_dubois(pixbuf, right, x, y, w, h, YB);
-}
-
-/*
- *-------------------------------------------------------------------
  * public
  *-------------------------------------------------------------------
  */
 static void pr_pixbuf_size_sync(PixbufRenderer *pr)
 {
-	pr->stereo_pixbuf_offset_left = 0;
-	pr->stereo_pixbuf_offset_right = 0;
 	if (!pr->pixbuf) return;
 	switch (pr->orientation)
 		{
@@ -2404,31 +2166,11 @@ static void pr_pixbuf_size_sync(PixbufRenderer *pr)
 		case EXIF_ORIENTATION_LEFT_BOTTOM:
 			pr->image_width = gdk_pixbuf_get_height(pr->pixbuf);
 			pr->image_height = gdk_pixbuf_get_width(pr->pixbuf);
-			if (pr->stereo_data == STEREO_PIXBUF_SBS)
-				{
-				pr->image_height /= 2;
-				pr->stereo_pixbuf_offset_right = pr->image_height;
-				}
-			else if (pr->stereo_data == STEREO_PIXBUF_CROSS)
-				{
-				pr->image_height /= 2;
-				pr->stereo_pixbuf_offset_left = pr->image_height;
-				}
 
 			break;
 		default:
 			pr->image_width = gdk_pixbuf_get_width(pr->pixbuf);
 			pr->image_height = gdk_pixbuf_get_height(pr->pixbuf);
-			if (pr->stereo_data == STEREO_PIXBUF_SBS)
-				{
-				pr->image_width /= 2;
-				pr->stereo_pixbuf_offset_right = pr->image_width;
-				}
-			else if (pr->stereo_data == STEREO_PIXBUF_CROSS)
-				{
-				pr->image_width /= 2;
-				pr->stereo_pixbuf_offset_left = pr->image_width;
-				}
 		}
 }
 
@@ -2455,12 +2197,6 @@ static void pr_set_pixbuf(PixbufRenderer *pr, GdkPixbuf *pixbuf, gdouble zoom, P
 		return;
 		}
 
-	if (pr->stereo_mode & PR_STEREO_TEMP_DISABLE)
-		{
-		gint disable = !pr->stereo_data;
-		pr_stereo_temp_disable(pr, disable);
-		}
-
 	pr_pixbuf_size_sync(pr);
 	pr->renderer->update_pixbuf(pr->renderer, flags & PR_ZOOM_LAZY);
 	if (pr->renderer2) pr->renderer2->update_pixbuf(pr->renderer2, flags & PR_ZOOM_LAZY);
@@ -2484,14 +2220,13 @@ void pixbuf_renderer_set_pixbuf(PixbufRenderer *pr, GdkPixbuf *pixbuf, gdouble z
 /**
  * @brief Same as pixbuf_renderer_set_pixbuf but waits with redrawing for pixbuf_renderer_area_changed
  */
-void pixbuf_renderer_set_pixbuf_lazy(PixbufRenderer *pr, GdkPixbuf *pixbuf, gdouble zoom, gint orientation, StereoPixbufData stereo_data)
+void pixbuf_renderer_set_pixbuf_lazy(PixbufRenderer *pr, GdkPixbuf *pixbuf, gdouble zoom, gint orientation)
 {
 	g_return_if_fail(IS_PIXBUF_RENDERER(pr));
 
 	pr_source_tile_unset(pr);
 
 	pr->orientation = orientation;
-	pr->stereo_data = stereo_data;
 	pr_set_pixbuf(pr, pixbuf, zoom, PR_ZOOM_LAZY);
 
 	pr_update_signal(pr);
@@ -2511,28 +2246,6 @@ void pixbuf_renderer_set_orientation(PixbufRenderer *pr, gint orientation)
 	pr->orientation = orientation;
 
 	pr_pixbuf_size_sync(pr);
-	pr_zoom_sync(pr, pr->zoom, PR_ZOOM_FORCE, 0, 0);
-}
-
-/**
- * @brief Sets the format of stereo data in the input pixbuf
- */
-void pixbuf_renderer_set_stereo_data(PixbufRenderer *pr, StereoPixbufData stereo_data)
-{
-	g_return_if_fail(IS_PIXBUF_RENDERER(pr));
-	if (pr->stereo_data == stereo_data) return;
-
-
-	pr->stereo_data = stereo_data;
-
-	if (pr->stereo_mode & PR_STEREO_TEMP_DISABLE)
-		{
-		gint disable = !pr->pixbuf || ! pr->stereo_data;
-		pr_stereo_temp_disable(pr, disable);
-		}
-	pr_pixbuf_size_sync(pr);
-	pr->renderer->update_pixbuf(pr->renderer, FALSE);
-	if (pr->renderer2) pr->renderer2->update_pixbuf(pr->renderer2, FALSE);
 	pr_zoom_sync(pr, pr->zoom, PR_ZOOM_FORCE, 0, 0);
 }
 
@@ -2579,7 +2292,6 @@ void pixbuf_renderer_move(PixbufRenderer *pr, PixbufRenderer *source)
 	pr->post_process_user_data = source->post_process_user_data;
 	pr->post_process_slow = source->post_process_slow;
 	pr->orientation = source->orientation;
-	pr->stereo_data = source->stereo_data;
 
 	if (source->source_tiles_enabled)
 		{
@@ -2638,7 +2350,6 @@ void pixbuf_renderer_copy(PixbufRenderer *pr, PixbufRenderer *source)
 	pr->scroll_reset = ScrollReset::NOCHANGE;
 
 	pr->orientation = source->orientation;
-	pr->stereo_data = source->stereo_data;
 
 	if (source->source_tiles_enabled)
 		{
@@ -2737,80 +2448,6 @@ void pixbuf_renderer_zoom_set_limits(PixbufRenderer *pr, gdouble min, gdouble ma
 		}
 }
 
-static void pr_stereo_set(PixbufRenderer *pr)
-{
-	if (!pr->renderer) pr->renderer = pr_backend_renderer_new(pr);
-
-	pr->renderer->stereo_set(pr->renderer, pr->stereo_mode & ~PR_STEREO_MIRROR_RIGHT & ~PR_STEREO_FLIP_RIGHT);
-
-	if (pr->stereo_mode & (PR_STEREO_HORIZ | PR_STEREO_VERT | PR_STEREO_FIXED))
-		{
-		if (!pr->renderer2) pr->renderer2 = pr_backend_renderer_new(pr);
-		pr->renderer2->stereo_set(pr->renderer2, (pr->stereo_mode & ~PR_STEREO_MIRROR_LEFT & ~PR_STEREO_FLIP_LEFT) | PR_STEREO_RIGHT);
-		}
-	else
-		{
-		if (pr->renderer2) pr->renderer2->free(pr->renderer2);
-		pr->renderer2 = nullptr;
-		}
-	if (pr->stereo_mode & PR_STEREO_HALF)
-		{
-		if (pr->stereo_mode & PR_STEREO_HORIZ) pr->aspect_ratio = 2.0;
-		else if (pr->stereo_mode & PR_STEREO_VERT) pr->aspect_ratio = 0.5;
-		else pr->aspect_ratio = 1.0;
-		}
-	else
-		{
-		pr->aspect_ratio = 1.0;
-		}
-}
-
-void pixbuf_renderer_stereo_set(PixbufRenderer *pr, gint stereo_mode)
-{
-	gboolean redraw = !(pr->stereo_mode == stereo_mode) || pr->stereo_temp_disable;
-	pr->stereo_mode = stereo_mode;
-	if ((stereo_mode & PR_STEREO_TEMP_DISABLE) && pr->stereo_temp_disable) return;
-
-	pr->stereo_temp_disable = FALSE;
-
-	pr_stereo_set(pr);
-
-	if (redraw)
-		{
-		pr_size_sync(pr, pr->window_width, pr->window_height); /* recalculate new viewport */
-		pr_zoom_sync(pr, pr->zoom, static_cast<PrZoomFlags>(PR_ZOOM_FORCE | PR_ZOOM_NEW), 0, 0);
-		}
-}
-
-void pixbuf_renderer_stereo_fixed_set(PixbufRenderer *pr, gint width, gint height, gint x1, gint y1, gint x2, gint y2)
-{
-	pr->stereo_fixed_width = width;
-	pr->stereo_fixed_height = height;
-	pr->stereo_fixed_x_left = x1;
-	pr->stereo_fixed_y_left = y1;
-	pr->stereo_fixed_x_right = x2;
-	pr->stereo_fixed_y_right = y2;
-}
-
-static void pr_stereo_temp_disable(PixbufRenderer *pr, gboolean disable)
-{
-	if (pr->stereo_temp_disable == disable) return;
-	pr->stereo_temp_disable = disable;
-	if (disable)
-		{
-		if (!pr->renderer) pr->renderer = pr_backend_renderer_new(pr);
-		pr->renderer->stereo_set(pr->renderer, PR_STEREO_NONE);
-		if (pr->renderer2) pr->renderer2->free(pr->renderer2);
-		pr->renderer2 = nullptr;
-		pr->aspect_ratio = 1.0;
-		}
-	else
-		{
-		pr_stereo_set(pr);
-		}
-	pr_size_sync(pr, pr->window_width, pr->window_height); /* recalculate new viewport */
-}
-
 /**
  * @brief x_pixel and y_pixel are the pixel coordinates see #pixbuf_renderer_get_mouse_position
  */
@@ -2886,7 +2523,7 @@ gboolean pixbuf_renderer_get_mouse_position(PixbufRenderer *pr, gint *x_pixel_re
 		}
 
 	x_pixel = floor(static_cast<gdouble>(pr->x_mouse - pr->x_offset + pr->x_scroll) / pr->scale);
-	y_pixel = floor(static_cast<gdouble>(pr->y_mouse - pr->y_offset + pr->y_scroll) / pr->scale / pr->aspect_ratio);
+	y_pixel = floor(static_cast<gdouble>(pr->y_mouse - pr->y_offset + pr->y_scroll) / pr->scale);
 	x_pixel_clamped = CLAMP(x_pixel, 0, pr->image_width - 1);
 	y_pixel_clamped = CLAMP(y_pixel, 0, pr->image_height - 1);
 
@@ -2960,9 +2597,9 @@ gboolean pixbuf_renderer_get_visible_rect(PixbufRenderer *pr, GdkRectangle *rect
 		}
 
 	rect->x = static_cast<gint>(static_cast<gdouble>(pr->x_scroll) / pr->scale);
-	rect->y = static_cast<gint>(static_cast<gdouble>(pr->y_scroll) / pr->scale / pr->aspect_ratio);
+	rect->y = static_cast<gint>(static_cast<gdouble>(pr->y_scroll) / pr->scale);
 	rect->width = static_cast<gint>(static_cast<gdouble>(pr->vis_width) / pr->scale);
-	rect->height = static_cast<gint>(static_cast<gdouble>(pr->vis_height) / pr->scale / pr->aspect_ratio);
+	rect->height = static_cast<gint>(static_cast<gdouble>(pr->vis_height) / pr->scale);
 	return TRUE;
 }
 

@@ -32,15 +32,6 @@
 class FileData;
 struct ImageLoader;
 
-enum RectangleDrawAspectRatio
-{
-	RECTANGLE_DRAW_ASPECT_RATIO_NONE = 0,
-	RECTANGLE_DRAW_ASPECT_RATIO_ONE_ONE,
-	RECTANGLE_DRAW_ASPECT_RATIO_FOUR_THREE,
-	RECTANGLE_DRAW_ASPECT_RATIO_THREE_TWO,
-	RECTANGLE_DRAW_ASPECT_RATIO_SIXTEEN_NINE
-};
-
 enum ImageState {
 	IMAGE_STATE_NONE	= 0,
 	IMAGE_STATE_IMAGE	= 1 << 0,
@@ -129,7 +120,6 @@ struct ImageWindow
 	gint orientation;
 	gboolean desaturate;
 	gboolean overunderexposed;
-	gint user_stereo;
 
 	gboolean mouse_wheel_mode;
 };
@@ -207,10 +197,6 @@ gchar *image_zoom_get_as_text(ImageWindow *imd);
 gdouble image_zoom_get_default(ImageWindow *imd);
 
 /* stereo */
-void image_stereo_set(ImageWindow *imd, gint stereo_mode);
-
-StereoPixbufData image_stereo_pixbuf_get(ImageWindow *imd);
-void image_stereo_pixbuf_set(ImageWindow *imd, StereoPixbufData stereo_mode);
 
 void image_prebuffer_set(ImageWindow *imd, FileData *fd);
 
@@ -244,7 +230,6 @@ void image_set_image_as_tiles(ImageWindow *imd, gint width, gint height,
 
 void image_options_sync();
 
-void image_get_rectangle(gint &x1, gint &y1, gint &x2, gint &y2);
 void image_update_title(ImageWindow *imd);
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

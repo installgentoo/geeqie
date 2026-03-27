@@ -53,14 +53,6 @@ static GList *image_list = nullptr;
 static void image_read_ahead_start(ImageWindow *imd);
 static void image_cache_set(ImageWindow *imd, FileData *fd);
 
-// For draw rectangle function
-static gint pixbuf_start_x;
-static gint pixbuf_start_y;
-static gint image_start_x;
-static gint image_start_y;
-static gint rect_x1, rect_x2, rect_y1, rect_y2;
-static gint rect_id = 0;
-
 /*
  *-------------------------------------------------------------------
  * 'signals'
@@ -81,109 +73,12 @@ static void image_click_cb(PixbufRenderer *, GdkEventButton *event, gpointer dat
 		}
 }
 
-static void switch_coords_orientation(ImageWindow *imd, gint x, gint y, gint width, gint height)
-{
-	switch (imd->orientation)
-		{
-		case EXIF_ORIENTATION_TOP_LEFT:
-			/* normal -- nothing to do */
-			rect_x1 = image_start_x;
-			rect_y1 = image_start_y;
-			rect_x2 = x;
-			rect_y2 = y;
-			break;
-		case EXIF_ORIENTATION_TOP_RIGHT:
-			/* mirrored */
-			rect_x1 = width - x;
-			rect_y1 = image_start_y;
-			rect_x2 = width - image_start_x;
-			rect_y2 = y;
-			break;
-		case EXIF_ORIENTATION_BOTTOM_RIGHT:
-			/* upside down */
-			rect_x1 = width - x;
-			rect_y1 = height - y;
-			rect_x2 = width - image_start_x;
-			rect_y2 = height - image_start_y;
-			break;
-		case EXIF_ORIENTATION_BOTTOM_LEFT:
-			/* flipped */
-			rect_x1 = image_start_x;
-			rect_y1 = height - y;
-			rect_x2 = x;
-			rect_y2 = height - image_start_y;
-			break;
-		case EXIF_ORIENTATION_LEFT_TOP:
-			/* left mirrored */
-			rect_x1 = image_start_y;
-			rect_y1 = image_start_x;
-			rect_x2 = y;
-			rect_y2 = x;
-			break;
-		case EXIF_ORIENTATION_RIGHT_TOP:
-			/* rotated -90 (270) */
-			rect_x1 = image_start_y;
-			rect_y1 = width - x;
-			rect_x2 = y;
-			rect_y2 = width - image_start_x;
-			break;
-		case EXIF_ORIENTATION_RIGHT_BOTTOM:
-			/* right mirrored */
-			rect_x1 = height - y;
-			rect_y1 = width - x;
-			rect_x2 = height - image_start_y;
-			rect_y2 = width - image_start_x;
-			break;
-		case EXIF_ORIENTATION_LEFT_BOTTOM:
-			/* rotated 90 */
-			rect_x1 = height - y;
-			rect_y1 = image_start_x;
-			rect_x2 = height - image_start_y;
-			rect_y2 = x;
-			break;
-		default:
-			/* The other values are out of range */
-			break;
-		}
-}
-
 static void image_press_cb(PixbufRenderer *pr, GdkEventButton *event, gpointer data)
 {
 	auto imd = static_cast<ImageWindow *>(data);
 	LayoutWindow *lw;
 	gint x_pixel;
 	gint y_pixel;
-
-	if(options->draw_rectangle)
-		{
-		pixbuf_renderer_get_mouse_position(pr, &x_pixel, &y_pixel);
-
-		pixbuf_start_x = event->x;
-		pixbuf_start_y = event->y;
-
-		if (x_pixel == -1)
-			{
-			image_start_x = 0;
-			}
-		else
-			{
-			image_start_x = x_pixel;
-			}
-
-		if (y_pixel == -1)
-			{
-			image_start_y = 0;
-			}
-		else
-			{
-			image_start_y = y_pixel;
-			}
-		}
-
-	if (rect_id)
-		{
-		pixbuf_renderer_overlay_remove(PIXBUF_RENDERER(imd->pr), rect_id);
-		}
 
 	lw = layout_find_by_image(imd);
 	if (!lw)
@@ -215,110 +110,8 @@ static void image_release_cb(PixbufRenderer *, GdkEventButton *event, gpointer d
 static void image_drag_cb(PixbufRenderer *pr, GdkEventMotion *event, gpointer data)
 {
 	auto imd = static_cast<ImageWindow *>(data);
-	gdouble aspect_ratio = 0.0;
 	gint width;
 	gint height;
-	gint rect_width;
-	gint rect_height;
-	GdkPixbuf *rect_pixbuf;
-	gint x_pixel;
-	gint y_pixel;
-	gint image_x_pixel;
-	gint image_y_pixel;
-
-	if (options->draw_rectangle)
-		{
-		pixbuf_renderer_get_image_size(pr, &width, &height);
-		pixbuf_renderer_get_mouse_position(pr, &x_pixel, &y_pixel);
-
-		if (x_pixel == -1)
-			{
-			image_x_pixel = width;
-			}
-		else
-			{
-			image_x_pixel = x_pixel;
-			}
-
-		if (y_pixel == -1)
-			{
-			image_y_pixel = height;
-			}
-		else
-			{
-			image_y_pixel = y_pixel;
-			}
-
-		if (options->rectangle_draw_aspect_ratio != RECTANGLE_DRAW_ASPECT_RATIO_NONE)
-			{
-			switch (options->rectangle_draw_aspect_ratio)
-				{
-				case RECTANGLE_DRAW_ASPECT_RATIO_ONE_ONE:
-					aspect_ratio = 1.0;
-					break;
-				case RECTANGLE_DRAW_ASPECT_RATIO_FOUR_THREE:
-					aspect_ratio = gdouble(4) / 3;
-					break;
-				case RECTANGLE_DRAW_ASPECT_RATIO_THREE_TWO:
-					aspect_ratio = gdouble(3) / 2;
-					break;
-				case RECTANGLE_DRAW_ASPECT_RATIO_SIXTEEN_NINE:
-					aspect_ratio = gdouble(16) / 9;
-					break;
-				default:
-					aspect_ratio = 1.0;
-				}
-			}
-
-		if (options->rectangle_draw_aspect_ratio != RECTANGLE_DRAW_ASPECT_RATIO_NONE)
-			{
-			if (gdouble(image_x_pixel - image_start_x) / (image_y_pixel - image_start_y) < aspect_ratio)
-				{
-				image_x_pixel = image_start_x + ((image_y_pixel - image_start_y) * aspect_ratio);
-				}
-			else
-				{
-				image_y_pixel = image_start_y + ((image_x_pixel - image_start_x) / aspect_ratio);
-				}
-			}
-
-		switch_coords_orientation(imd, image_x_pixel, image_y_pixel, width, height);
-
-		if (rect_id)
-			{
-			pixbuf_renderer_overlay_remove(PIXBUF_RENDERER(imd->pr), rect_id);
-			}
-
-		rect_width = pr->drag_last_x - pixbuf_start_x;
-		if (rect_width <= 0)
-			{
-			rect_width = 1;
-			}
-		rect_height = pr->drag_last_y - pixbuf_start_y;
-		if (rect_height <= 0)
-			{
-			rect_height = 1;
-			}
-
-		if (options->rectangle_draw_aspect_ratio != RECTANGLE_DRAW_ASPECT_RATIO_NONE)
-			{
-			if (gdouble(rect_width) / rect_height < aspect_ratio)
-				{
-				rect_width = gdouble(rect_height) * aspect_ratio;
-				}
-			else
-				{
-				rect_height = rect_width / aspect_ratio;
-				}
-			}
-
-		rect_pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, rect_width, rect_height);
-		pixbuf_set_rect_fill(rect_pixbuf, 0, 0, rect_width, rect_height, 255, 255, 255, 0);
-		pixbuf_set_rect(rect_pixbuf, 1, 1, rect_width-2, rect_height - 2, 0, 0, 0, 255, 1, 1, 1, 1);
-		pixbuf_set_rect(rect_pixbuf, 0, 0, rect_width, rect_height, 255, 255, 255, 255, 1, 1, 1, 1);
-
-		rect_id = pixbuf_renderer_overlay_add(PIXBUF_RENDERER(imd->pr), rect_pixbuf, pixbuf_start_x, pixbuf_start_y, OVL_NORMAL);
-		}
 
 	pixbuf_renderer_get_scaled_size(pr, &width, &height);
 
@@ -1288,7 +1081,6 @@ GdkPixbuf *image_get_pixbuf(ImageWindow *imd)
 void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboolean lazy)
 {
 	LayoutWindow *lw;
-	StereoPixbufData stereo_data = STEREO_PIXBUF_DEFAULT;
 	/* read_exif and similar functions can actually notice that the file has changed and trigger
 	   a notification that removes the pixbuf from cache and unrefs it. Therefore we must ref it
 	   here before it is taken over by the renderer. */
@@ -1316,15 +1108,6 @@ void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboo
 			}
 		}
 
-	if (pixbuf)
-		{
-		stereo_data = static_cast<StereoPixbufData>(imd->user_stereo);
-		if (stereo_data == STEREO_PIXBUF_DEFAULT)
-			{
-			stereo_data = static_cast<StereoPixbufData>(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(pixbuf), "stereo_data")));
-			}
-		}
-
 	pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), nullptr, nullptr, FALSE);
 	if (imd->cm)
 		{
@@ -1334,13 +1117,12 @@ void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboo
 
 	if (lazy)
 		{
-		pixbuf_renderer_set_pixbuf_lazy(PIXBUF_RENDERER(imd->pr), pixbuf, zoom, imd->orientation, stereo_data);
+		pixbuf_renderer_set_pixbuf_lazy(PIXBUF_RENDERER(imd->pr), pixbuf, zoom, imd->orientation);
 		}
 	else
 		{
 		pixbuf_renderer_set_pixbuf(PIXBUF_RENDERER(imd->pr), pixbuf, zoom);
 		pixbuf_renderer_set_orientation(PIXBUF_RENDERER(imd->pr), imd->orientation);
-		pixbuf_renderer_set_stereo_data(PIXBUF_RENDERER(imd->pr), stereo_data);
 		}
 
 	if (pixbuf) g_object_unref(pixbuf);
@@ -1425,8 +1207,6 @@ void image_move_from_image(ImageWindow *imd, ImageWindow *source)
 	imd->orientation = source->orientation;
 	imd->desaturate = source->desaturate;
 
-	imd->user_stereo = source->user_stereo;
-
 	pixbuf_renderer_move(PIXBUF_RENDERER(imd->pr), PIXBUF_RENDERER(source->pr));
 
 	if (imd->cm || imd->desaturate || imd->overunderexposed)
@@ -1483,8 +1263,6 @@ void image_copy_from_image(ImageWindow *imd, ImageWindow *source)
 
 	imd->orientation = source->orientation;
 	imd->desaturate = source->desaturate;
-
-	imd->user_stereo = source->user_stereo;
 
 	pixbuf_renderer_copy(PIXBUF_RENDERER(imd->pr), PIXBUF_RENDERER(source->pr));
 
@@ -1645,25 +1423,6 @@ gdouble image_zoom_get_default(ImageWindow *imd)
 	}
 
 	return zoom;
-}
-
-/* stereo */
-
-void image_stereo_set(ImageWindow *imd, gint stereo_mode)
-{
-	DEBUG_1("Setting stereo mode %04x for imd %p", stereo_mode, (void *)imd);
-	pixbuf_renderer_stereo_set(PIXBUF_RENDERER(imd->pr), stereo_mode);
-}
-
-StereoPixbufData image_stereo_pixbuf_get(ImageWindow *imd)
-{
-	return static_cast<StereoPixbufData>(imd->user_stereo);
-}
-
-void image_stereo_pixbuf_set(ImageWindow *imd, StereoPixbufData stereo_mode)
-{
-	imd->user_stereo = stereo_mode;
-	image_reload(imd);
 }
 
 /**
@@ -1905,12 +1664,6 @@ static void image_options_set(ImageWindow *imd)
 					NULL);
 
 	pixbuf_renderer_set_parent(PIXBUF_RENDERER(imd->pr), GTK_WINDOW(imd->top_window));
-
-	image_stereo_set(imd, options->stereo.mode);
-	pixbuf_renderer_stereo_fixed_set(PIXBUF_RENDERER(imd->pr),
-					options->stereo.fixed_w, options->stereo.fixed_h,
-					options->stereo.fixed_x1, options->stereo.fixed_y1,
-					options->stereo.fixed_x2, options->stereo.fixed_y2);
 }
 
 /**
@@ -2081,13 +1834,3 @@ ImageWindow *image_new(gboolean frame)
 
 	return imd;
 }
-
-void image_get_rectangle(gint &x1, gint &y1, gint &x2, gint &y2)
-{
-	x1 = rect_x1;
-	y1 = rect_y1;
-	x2 = rect_x2;
-	y2 = rect_y2;
-}
-
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

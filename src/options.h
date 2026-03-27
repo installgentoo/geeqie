@@ -61,7 +61,6 @@ struct ConfOptions
 	gboolean image_l_click_video;
 	gchar *image_l_click_video_editor;
 	gboolean show_icon_names;
-	gboolean draw_rectangle;
 	gboolean overunderexposed;
 	gboolean expand_menu_toolbar;
 
@@ -86,7 +85,6 @@ struct ConfOptions
 	gint dnd_icon_size;
 	DnDAction dnd_default_action;
 	gint clipboard_selection;
-	RectangleDrawAspectRatio rectangle_draw_aspect_ratio;
 
 	gboolean save_window_positions;
 	gboolean use_saved_window_positions_for_new_windows;

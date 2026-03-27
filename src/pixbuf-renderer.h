@@ -101,8 +101,6 @@ struct RendererFuncs
 	void (*overlay_set)(void *renderer, gint id, GdkPixbuf *pixbuf, gint x, gint y);
 	gboolean (*overlay_get)(void *renderer, gint id, GdkPixbuf **pixbuf, gint *x, gint *y);
 
-	void (*stereo_set)(void *renderer, gint stereo_mode); /**< set stereo mode */
-
 	void (*free)(void *renderer);
 };
 
@@ -112,8 +110,6 @@ struct PixbufRenderer
 
 	gint image_width;	/**< image actual dimensions (pixels) */
 	gint image_height;
-	gint stereo_pixbuf_offset_right; /**< offset of the right part of the stereo image in pixbuf */
-	gint stereo_pixbuf_offset_left; /**< offset of the left part of the stereo image in pixbuf */
 
 	GdkPixbuf *pixbuf;
 
@@ -148,8 +144,6 @@ struct PixbufRenderer
 	gdouble zoom_max;
 	gdouble zoom;		/**< zoom we want (0 is auto) */
 	gdouble scale;		/**< zoom we got (should never be 0) */
-
-	gdouble aspect_ratio;   /**< screen pixel aspect ratio (2.0 for 3DTV SBS mode) */
 
 	GdkInterpType zoom_quality;
 	gboolean zoom_2pass;
@@ -209,17 +203,6 @@ struct PixbufRenderer
 
 	gint orientation;
 
-	gint stereo_mode;
-
-	StereoPixbufData stereo_data;
-	gboolean stereo_temp_disable;
-	gint stereo_fixed_width;
-	gint stereo_fixed_height;
-	gint stereo_fixed_x_left;
-	gint stereo_fixed_y_left;
-	gint stereo_fixed_x_right;
-	gint stereo_fixed_y_right;
-
 	RendererFuncs *renderer;
 	RendererFuncs *renderer2;
 
@@ -250,14 +233,12 @@ void pixbuf_renderer_set_parent(PixbufRenderer *pr, GtkWindow *window);
 
 void pixbuf_renderer_set_pixbuf(PixbufRenderer *pr, GdkPixbuf *pixbuf, gdouble zoom);
 
-void pixbuf_renderer_set_pixbuf_lazy(PixbufRenderer *pr, GdkPixbuf *pixbuf, gdouble zoom, gint orientation, StereoPixbufData stereo_data);
+void pixbuf_renderer_set_pixbuf_lazy(PixbufRenderer *pr, GdkPixbuf *pixbuf, gdouble zoom, gint orientation);
 
 
 GdkPixbuf *pixbuf_renderer_get_pixbuf(PixbufRenderer *pr);
 
 void pixbuf_renderer_set_orientation(PixbufRenderer *pr, gint orientation);
-
-void pixbuf_renderer_set_stereo_data(PixbufRenderer *pr, StereoPixbufData stereo_data);
 
 void pixbuf_renderer_set_post_process_func(PixbufRenderer *pr, PixbufRendererPostProcessFunc func, gpointer user_data, gboolean slow);
 
@@ -318,10 +299,6 @@ gboolean pixbuf_renderer_get_pixel_colors(PixbufRenderer *pr, gint x_pixel, gint
 
 void pixbuf_renderer_set_size_early(PixbufRenderer *pr, guint width, guint height);
 
-/* stereo */
-void pixbuf_renderer_stereo_set(PixbufRenderer *pr, gint stereo_mode);
-void pixbuf_renderer_stereo_fixed_set(PixbufRenderer *pr, gint width, gint height, gint x1, gint y1, gint x2, gint y2);
-
 /**
  * @struct SourceTile
  * protected - for renderer use only
@@ -351,8 +328,6 @@ GdkRectangle pr_coords_map_orientation_reverse(gint orientation,
 void pr_scale_region(GdkRectangle &region, gdouble scale);
 
 GList *pr_source_tile_compute_region(PixbufRenderer *pr, gint x, gint y, gint w, gint h, gboolean request);
-
-void pr_create_anaglyph(guint mode, GdkPixbuf *pixbuf, GdkPixbuf *right, gint x, gint y, gint w, gint h);
 
 void pixbuf_renderer_set_ignore_alpha(PixbufRenderer *pr, gint ignore_alpha);
 #endif
