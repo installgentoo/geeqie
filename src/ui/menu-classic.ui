@@ -62,18 +62,7 @@
         <placeholder name="EditSection"/>
         <separator/>
         <menu action="OrientationMenu">
-          <menuitem action="RotateCW"/>
-          <menuitem action="RotateCCW"/>
-          <menuitem action="Rotate180"/>
-          <menuitem action="Mirror"/>
-          <menuitem action="Flip"/>
-          <menuitem action="AlterNone"/>
-          <separator/>
           <menuitem action="ExifRotate"/>
-          <separator/>
-          <menuitem action="WriteRotation"/>
-          <menuitem action="WriteRotationKeepDate"/>
-          <separator/>
         </menu>
         <menuitem action="SaveMetadata"/>
         <placeholder name="PropertiesSection"/>

@@ -118,8 +118,6 @@ struct ImageWindow
 	gint color_profile_from_image;
 	gpointer cm;
 
-	AlterType delay_alter_type;
-
 	FileData *read_ahead_fd;
 	ImageLoader *read_ahead_il;
 
@@ -192,7 +190,6 @@ void image_scroll_to_point(ImageWindow *imd, gint x, gint y,
 			   gdouble x_align, gdouble y_align);
 void image_get_scroll_center(ImageWindow *imd, gdouble *x, gdouble *y);
 void image_set_scroll_center(ImageWindow *imd, gdouble x, gdouble y);
-void image_alter_orientation(ImageWindow *imd, FileData *fd, AlterType type);
 void image_set_desaturate(ImageWindow *imd, gboolean desaturate);
 gboolean image_get_desaturate(ImageWindow *imd);
 void image_set_overunderexposed(ImageWindow *imd, gboolean overunderexposed);

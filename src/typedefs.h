@@ -74,15 +74,6 @@ enum SortType {
 	SORT_CLASS
 };
 
-enum AlterType {
-	ALTER_NONE,		/**< do nothing */
-	ALTER_ROTATE_90,
-	ALTER_ROTATE_90_CC,	/**< counterclockwise */
-	ALTER_ROTATE_180,
-	ALTER_MIRROR,
-	ALTER_FLIP,
-};
-
 enum ImageSplitMode {
 	SPLIT_NONE = 0,
 	SPLIT_VERT,

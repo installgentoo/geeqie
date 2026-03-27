@@ -28,9 +28,6 @@
 #include "pixbuf-util.h"
 #include "ui-menu.h"
 
-static GtkWidget *real_submenu_add_alter(GtkWidget *menu, GCallback func, gpointer data,
-					 GtkAccelGroup *accel_group);
-
 /*
  *-----------------------------------------------------------------------------
  * menu utils
@@ -320,89 +317,4 @@ GtkWidget *submenu_add_zoom(GtkWidget *menu, GCallback func, gpointer data,
 		}
 
 	return submenu;
-}
-
-/*
- *-----------------------------------------------------------------------------
- * altering
- *-----------------------------------------------------------------------------
- */
-
-gchar *alter_type_get_text(AlterType type)
-{
-	switch (type)
-		{
-		case ALTER_ROTATE_90:
-			return _("Rotate clockwise 90°");
-			break;
-		case ALTER_ROTATE_90_CC:
-			return _("Rotate counterclockwise 90°");
-			break;
-		case ALTER_ROTATE_180:
-			return _("Rotate 180°");
-			break;
-		case ALTER_MIRROR:
-			return _("Mirror");
-			break;
-		case ALTER_FLIP:
-			return _("Flip");
-			break;
-		case ALTER_NONE:
-			return _("Original state");
-			break;
-		default:
-			break;
-		}
-
-	return nullptr;
-}
-
-static void submenu_add_alter_item(GtkWidget *menu, GCallback func, AlterType type,
-				   GtkAccelGroup *accel_group, guint accel_key, guint accel_mods)
-{
-	if (accel_group)
-		{
-		add_menu_item(menu, alter_type_get_text(type), accel_group,
-			      accel_key, accel_mods, func, GINT_TO_POINTER((gint)type));
-
-		}
-	else
-		{
-		menu_item_add(menu, alter_type_get_text(type), func, GINT_TO_POINTER((gint)type));
-		}
-}
-
-static GtkWidget *real_submenu_add_alter(GtkWidget *menu, GCallback func, gpointer data,
-					 GtkAccelGroup *accel_group)
-{
-	GtkWidget *submenu;
-
-	submenu = gtk_menu_new();
-	g_object_set_data(G_OBJECT(submenu), "submenu_data", data);
-
-	submenu_add_alter_item(submenu, func, ALTER_ROTATE_90, accel_group, ']', 0);
-	submenu_add_alter_item(submenu, func, ALTER_ROTATE_90_CC, accel_group, '[', 0);
-	submenu_add_alter_item(submenu, func, ALTER_ROTATE_180, accel_group, 'R', GDK_SHIFT_MASK);
-	submenu_add_alter_item(submenu, func, ALTER_MIRROR, accel_group, 'M', GDK_SHIFT_MASK);
-	submenu_add_alter_item(submenu, func, ALTER_FLIP, accel_group, 'F', GDK_SHIFT_MASK);
-	submenu_add_alter_item(submenu, func, ALTER_NONE, accel_group, 'O', GDK_SHIFT_MASK);
-
-	if (menu)
-		{
-		GtkWidget *item;
-
-		item = menu_item_add(menu, _("_Orientation"), nullptr, nullptr);
-		gtk_menu_item_set_submenu(GTK_MENU_ITEM(item), submenu);
-		return item;
-		}
-
-	return submenu;
-}
-
-GtkWidget *submenu_add_alter(GtkWidget *menu, GCallback func, gpointer data)
-{
-	GtkAccelGroup *accel;
-
-	accel = gtk_accel_group_new();
-	return real_submenu_add_alter(menu, func, data, accel); //last accel gr
 }

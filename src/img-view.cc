@@ -94,11 +94,6 @@ hard_coded_window_keys image_window_keys[] = {
 	{static_cast<GdkModifierType>(0), GDK_KEY_Delete, N_("Move to Trash")},
 	{GDK_SHIFT_MASK, GDK_KEY_Delete, N_("Delete")},
 	{GDK_CONTROL_MASK, 'W', N_("Close window")},
-	{GDK_SHIFT_MASK, 'R', N_("Rotate 180°")},
-	{GDK_SHIFT_MASK, 'M', N_("Rotate mirror")},
-	{GDK_SHIFT_MASK, 'F', N_("Rotate flip")},
-	{static_cast<GdkModifierType>(0), ']', N_(" Rotate counterclockwise 90°")},
-	{static_cast<GdkModifierType>(0), '[', N_(" Rotate clockwise 90°")},
 	{static_cast<GdkModifierType>(0), GDK_KEY_Page_Up, N_("Previous")},
 	{static_cast<GdkModifierType>(0), GDK_KEY_KP_Page_Up, N_("Previous")},
 	{static_cast<GdkModifierType>(0), GDK_KEY_BackSpace, N_("Previous")},
@@ -384,15 +379,6 @@ static gboolean view_window_key_press_cb(GtkWidget * (widget), GdkEventKey *even
 		stop_signal = TRUE;
 		switch (event->keyval)
 			{
-			case 'R': case 'r':
-				image_alter_orientation(imd, imd->image_fd, ALTER_ROTATE_180);
-				break;
-			case 'M': case 'm':
-				image_alter_orientation(imd, imd->image_fd, ALTER_MIRROR);
-				break;
-			case 'F': case 'f':
-				image_alter_orientation(imd, imd->image_fd, ALTER_FLIP);
-				break;
 			case 'G': case 'g':
 				image_set_desaturate(imd, !image_get_desaturate(imd));
 				break;
@@ -487,12 +473,6 @@ static gboolean view_window_key_press_cb(GtkWidget * (widget), GdkEventKey *even
 				break;
 			case 'I': case 'i':
 				view_overlay_toggle(vw);
-				break;
-			case ']':
-				image_alter_orientation(imd, imd->image_fd, ALTER_ROTATE_90);
-				break;
-			case '[':
-				image_alter_orientation(imd, imd->image_fd, ALTER_ROTATE_90_CC);
 				break;
 			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
 				if (options->file_ops.enable_delete_key)
@@ -918,18 +898,6 @@ static void view_edit_cb(GtkWidget *widget, gpointer data)
 	file_util_start_editor_from_file(key, image_get_fd(imd), imd->widget);
 }
 
-static void view_alter_cb(GtkWidget *widget, gpointer data)
-{
-	ViewWindow *vw;
-	AlterType type;
-
-	vw = static_cast<ViewWindow *>(submenu_item_get_data(widget));
-	type = static_cast<AlterType>(GPOINTER_TO_INT(data));
-
-	if (!vw) return;
-	image_alter_orientation(vw->imd, vw->imd->image_fd, type);
-}
-
 static void view_zoom_in_cb(GtkWidget *, gpointer data)
 {
 	auto vw = static_cast<ViewWindow *>(data);
@@ -1118,8 +1086,6 @@ static GtkWidget *view_popup_menu(ViewWindow *vw)
 			 G_CALLBACK(view_popup_menu_destroy_cb), editmenu_fd_list);
 	item = submenu_add_edit(menu, nullptr, G_CALLBACK(view_edit_cb), vw, editmenu_fd_list);
 	menu_item_add_divider(item);
-
-	submenu_add_alter(menu, G_CALLBACK(view_alter_cb), vw);
 
 	menu_item_add_icon(menu, _("View in _new window"), GQ_ICON_NEW, G_CALLBACK(view_new_window_cb), vw);
 	item = menu_item_add(menu, _("_Go to directory view"), G_CALLBACK(view_set_layout_path_cb), vw);

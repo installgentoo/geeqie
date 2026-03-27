@@ -412,14 +412,6 @@ static void li_pop_menu_edit_cb(GtkWidget *widget, gpointer data)
 	file_util_start_editor_from_file(key, layout_image_get_fd(lw), lw->window);
 }
 
-static void li_pop_menu_alter_cb(GtkWidget *widget, gpointer data)
-{
-	auto *lw = static_cast<LayoutWindow *>(submenu_item_get_data(widget));
-	auto type = static_cast<AlterType>GPOINTER_TO_INT(data);
-
-	image_alter_orientation(lw->image, lw->image->image_fd, type);
-}
-
 static void li_pop_menu_new_cb(GtkWidget *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -649,7 +641,6 @@ static GtkWidget *layout_image_pop_menu(LayoutWindow *lw)
 	submenu = submenu_add_edit(menu, &item, G_CALLBACK(li_pop_menu_edit_cb), lw, editmenu_fd_list);
 	if (!path) gtk_widget_set_sensitive(item, FALSE);
 	menu_item_add_divider(submenu);
-	item = submenu_add_alter(menu, G_CALLBACK(li_pop_menu_alter_cb), lw);
 
 	item = menu_item_add_icon(menu, _("View in _new window"), GQ_ICON_NEW, G_CALLBACK(li_pop_menu_new_cb), lw);
 	if (!path || fullscreen) gtk_widget_set_sensitive(item, FALSE);
@@ -1010,14 +1001,6 @@ void layout_image_zoom_set_fill_geometry(LayoutWindow *lw, gboolean vertical, gb
 		if (lw->split_images[i] && lw->split_images[i] != lw->image)
 			image_zoom_set_fill_geometry(lw->split_images[i], vertical);
 		}
-}
-
-void layout_image_alter_orientation(LayoutWindow *lw, AlterType type)
-{
-	if (!layout_valid(&lw)) return;
-	if (!lw || !lw->vf) return;
-
-	vf_selection_foreach(lw->vf, [lw, type](FileData *fd_n) { image_alter_orientation(lw->image, fd_n, type); });
 }
 
 void layout_image_reset_orientation(LayoutWindow *lw)

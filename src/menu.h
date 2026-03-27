@@ -42,8 +42,6 @@ GtkWidget *submenu_add_dir_sort(GtkWidget *menu, GCallback func, gpointer data,
 GtkWidget *submenu_add_zoom(GtkWidget *menu, GCallback func, gpointer data,
 			    gboolean include_none, gboolean include_path,
 			    gboolean show_current, ZoomMode mode);
-gchar *alter_type_get_text(AlterType type);
-GtkWidget *submenu_add_alter(GtkWidget *menu, GCallback func, gpointer data);
 
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

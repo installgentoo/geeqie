@@ -422,41 +422,6 @@ static void layout_menu_exit_cb(GtkAction *, gpointer)
 	exit_program();
 }
 
-static void layout_menu_alter_90_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_alter_orientation(lw, ALTER_ROTATE_90);
-}
-
-static void layout_menu_alter_90cc_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_alter_orientation(lw, ALTER_ROTATE_90_CC);
-}
-
-static void layout_menu_alter_180_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_alter_orientation(lw, ALTER_ROTATE_180);
-}
-
-static void layout_menu_alter_mirror_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_alter_orientation(lw, ALTER_MIRROR);
-}
-
-static void layout_menu_alter_flip_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_alter_orientation(lw, ALTER_FLIP);
-}
-
 static void layout_menu_alter_desaturate_cb(GtkToggleAction *action, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -471,13 +436,6 @@ static void layout_menu_alter_ignore_alpha_cb(GtkToggleAction *action, gpointer 
 	if (lw->options.ignore_alpha == gq_gtk_toggle_action_get_active(action)) return;
 
    layout_image_set_ignore_alpha(lw, gq_gtk_toggle_action_get_active(action));
-}
-
-static void layout_menu_alter_none_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_alter_orientation(lw, ALTER_NONE);
 }
 
 static void layout_menu_exif_rotate_cb(GtkToggleAction *action, gpointer data)
@@ -505,67 +463,6 @@ static void layout_menu_select_overunderexposed_cb(GtkToggleAction *action, gpoi
 	auto lw = static_cast<LayoutWindow *>(data);
 
 	layout_image_set_overunderexposed(lw, gq_gtk_toggle_action_get_active(action));
-}
-
-static void layout_menu_write_rotate(GtkToggleAction *, gpointer data, gboolean keep_date)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (!layout_valid(&lw)) return;
-	if (!lw || !lw->vf) return;
-
-	const gchar *keep_date_arg = keep_date ? "-t" : "";
-
-	vf_selection_foreach(lw->vf, [keep_date_arg](FileData *fd_n)
-	{
-		gchar *command = g_strdup_printf("%s/geeqie-rotate -r %d %s \"%s\"",
-		                                 gq_bindir, fd_n->user_orientation, keep_date_arg, fd_n->path);
-		int cmdstatus = runcmd(command);
-		gint run_result = WEXITSTATUS(cmdstatus);
-		if (!run_result)
-			{
-			fd_n->user_orientation = 0;
-			}
-		else
-			{
-			GString *message = g_string_new(_("Operation failed:\n"));
-
-			if (run_result == 1)
-				message = g_string_append(message, _("No file extension\n"));
-			else if (run_result == 3)
-				message = g_string_append(message, _("Cannot create tmp file\n"));
-			else if (run_result == 4)
-				message = g_string_append(message, _("Operation not supported for filetype\n"));
-			else if (run_result == 5)
-				message = g_string_append(message, _("File is not writable\n"));
-			else if (run_result == 6)
-				message = g_string_append(message, _("Exiftran error\n"));
-			else if (run_result == 7)
-				message = g_string_append(message, _("Mogrify error\n"));
-
-			message = g_string_append(message, fd_n->name);
-
-			GenericDialog *gd = generic_dialog_new(_("Image orientation"), "image_orientation", nullptr, TRUE, nullptr, nullptr);
-			generic_dialog_add_message(gd, GQ_ICON_DIALOG_ERROR, _("Image orientation"), message->str, TRUE);
-			generic_dialog_add_button(gd, GQ_ICON_OK, "OK", nullptr, TRUE);
-
-			gtk_widget_show(gd->dialog);
-
-			g_string_free(message, TRUE);
-			}
-
-		g_free(command);
-	});
-}
-
-static void layout_menu_write_rotate_keep_date_cb(GtkToggleAction *action, gpointer data)
-{
-	layout_menu_write_rotate(action, data, TRUE);
-}
-
-static void layout_menu_write_rotate_cb(GtkToggleAction *action, gpointer data)
-{
-	layout_menu_write_rotate(action, data, FALSE);
 }
 
 static void layout_menu_config_cb(GtkAction *, gpointer data)
@@ -2278,7 +2175,6 @@ static void layout_menu_window_delete_cb(GtkWidget *, gpointer data)
  */
 static GtkActionEntry menu_entries[] = {
   { "About",                 GQ_ICON_ABOUT,                     N_("_About"),                                           nullptr,               N_("About"),                                           CB(layout_menu_about_cb) },
-  { "AlterNone",             PIXBUF_INLINE_ICON_ORIGINAL,       N_("_Original state"),                                  "<shift>O",            N_("Image rotate Original state"),                     CB(layout_menu_alter_none_cb) },
   { "AspectRatioMenu",       nullptr,                           N_("Aspect Ratio"),                                     nullptr,               N_("Aspect Ratio"),                                    nullptr },
   { "Back",                  GQ_ICON_GO_PREV,                   N_("_Back"),                                            nullptr,               N_("Back in folder history"),                          CB(layout_menu_back_cb) },
   { "CloseWindow",           GQ_ICON_CLOSE,                     N_("C_lose window"),                                    "<control>W",          N_("Close window"),                                    CB(layout_menu_close_cb) },
@@ -2321,7 +2217,6 @@ static GtkActionEntry menu_entries[] = {
   { "FindDupes",             GQ_ICON_FIND,                      N_("_Find duplicates..."),                              "D",                   N_("Find duplicates..."),                              CB(layout_menu_dupes_cb) },
   { "FirstImage",            GQ_ICON_GO_TOP,                    N_("_First Image"),                                     "Home",                N_("First Image"),                                     CB(layout_menu_image_first_cb) },
   { "FirstPage",             GQ_ICON_PREV_PAGE,                 N_("_First Page"),                                      "<control>Home",       N_( "First Page of multi-page image"),                 CB(layout_menu_page_first_cb) },
-  { "Flip",                  GQ_ICON_FLIP_VERTICAL,             N_("_Flip"),                                            "<shift>F",            N_("Image Flip"),                                      CB(layout_menu_alter_flip_cb) },
   { "Forward",               GQ_ICON_GO_NEXT,                   N_("_Forward"),                                         nullptr,               N_("Forward in folder history"),                       CB(layout_menu_forward_cb) },
   { "FullScreenAlt1",        GQ_ICON_FULLSCREEN,                N_("F_ull screen"),                                     "V",                   N_("Full screen"),                                     CB(layout_menu_fullscreen_cb) },
   { "FullScreenAlt2",        GQ_ICON_FULLSCREEN,                N_("F_ull screen"),                                     "F11",                 N_("Full screen"),                                     CB(layout_menu_fullscreen_cb) },
@@ -2347,7 +2242,6 @@ static GtkActionEntry menu_entries[] = {
   { "LayoutConfig",          GQ_ICON_PREFERENCES,               N_("_Configure this window..."),                        nullptr,               N_("Configure this window..."),                        CB(layout_menu_layout_config_cb) },
   { "LogWindow",             nullptr,                           N_("_Log Window"),                                      nullptr,               N_("Log Window"),                                      CB(layout_menu_log_window_cb) },
   { "Maintenance",           PIXBUF_INLINE_ICON_MAINTENANCE,    N_("_Cache maintenance..."),                            nullptr,               N_("Cache maintenance..."),                            CB(layout_menu_remove_thumb_cb) },
-  { "Mirror",                GQ_ICON_FLIP_HORIZONTAL,           N_("_Mirror"),                                          "<shift>M",            N_("Image Mirror"),                                    CB(layout_menu_alter_mirror_cb) },
   { "Move",                  PIXBUF_INLINE_ICON_MOVE,           N_("_Move..."),                                         "<control>M",          N_("Move..."),                                         CB(layout_menu_move_cb) },
   { "NewCollection",         PIXBUF_INLINE_COLLECTION,          N_("_New collection"),                                  "C",                   N_("New collection"),                                  CB(layout_menu_new_cb) },
   { "NewFolder",             GQ_ICON_DIRECTORY,                 N_("N_ew folder..."),                                   "<control>F",          N_("New folder..."),                                   CB(layout_menu_dir_cb) },
@@ -2380,9 +2274,6 @@ static GtkActionEntry menu_entries[] = {
   { "Refresh",               GQ_ICON_REFRESH,                   N_("_Refresh"),                                         "R",                   N_("Refresh"),                                         CB(layout_menu_refresh_cb) },
   { "Rename",                PIXBUF_INLINE_ICON_RENAME,         N_("_Rename..."),                                       "<control>R",          N_("Rename..."),                                       CB(layout_menu_rename_cb) },
   { "RenameWindow",          GQ_ICON_EDIT,                      N_("Rename window"),                                    nullptr,               N_("Rename window"),                                   CB(layout_menu_window_rename_cb) },
-  { "Rotate180",             PIXBUF_INLINE_ICON_180,            N_("Rotate 1_80°"),                                     "<shift>R",            N_("Image Rotate 180°"),                               CB(layout_menu_alter_180_cb) },
-  { "RotateCCW",             GQ_ICON_ROTATE_LEFT,               N_("Rotate _counterclockwise 90°"),                     "bracketleft",         N_("Rotate counterclockwise 90°"),                     CB(layout_menu_alter_90cc_cb) },
-  { "RotateCW",              GQ_ICON_ROTATE_RIGHT,              N_("_Rotate clockwise 90°"),                            "bracketright",        N_("Image Rotate clockwise 90°"),                      CB(layout_menu_alter_90_cb) },
   { "SaveMetadata",          GQ_ICON_SAVE,                      N_("_Save metadata"),                                   "<control>S",          N_("Save metadata"),                                   CB(layout_menu_metadata_write_cb) },
   { "SearchAndRunCommand",   GQ_ICON_FIND,                      N_("Search and Run command"),                           "slash",               N_("Search commands by keyword and run them"),         CB(layout_menu_search_and_run_cb) },
   { "Search",                GQ_ICON_FIND,                      N_("_Search..."),                                       "F3",                  N_("Search..."),                                       CB(layout_menu_search_cb) },
@@ -2402,8 +2293,6 @@ static GtkActionEntry menu_entries[] = {
   { "ViewMenu",              nullptr,                           N_("_View"),                                            nullptr,               nullptr,                                               CB(layout_menu_view_menu_cb)  },
   { "Wallpaper",             nullptr,                           N_("Set as _wallpaper"),                                nullptr,               N_("Set as wallpaper"),                                CB(layout_menu_wallpaper_cb) },
   { "WindowsMenu",           nullptr,                           N_("_Windows"),                                         nullptr,               nullptr,                                               CB(layout_menu_windows_menu_cb)  },
-  { "WriteRotationKeepDate", nullptr,                           N_("_Write orientation to file (preserve timestamp)"),  nullptr,               N_("Write orientation to file (preserve timestamp)"),  CB(layout_menu_write_rotate_keep_date_cb) },
-  { "WriteRotation",         nullptr,                           N_("_Write orientation to file"),                       nullptr,               N_("Write orientation to file"),                       CB(layout_menu_write_rotate_cb) },
   { "Zoom100Alt1",           GQ_ICON_ZOOM_100,                  N_("Zoom _1:1"),                                        "KP_Divide",           N_("Zoom 1:1"),                                        CB(layout_menu_zoom_1_1_cb) },
   { "Zoom100",               GQ_ICON_ZOOM_100,                  N_("Zoom _1:1"),                                        "Z",                   N_("Zoom 1:1"),                                        CB(layout_menu_zoom_1_1_cb) },
   { "Zoom200",               GQ_ICON_GENERIC,                   N_("Zoom _2:1"),                                        nullptr,               N_("Zoom 2:1"),                                        CB(layout_menu_zoom_2_1_cb) },
@@ -3413,15 +3302,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "ConnectZoomMenu");
 	gq_gtk_action_set_sensitive(action, lw->split_mode != SPLIT_NONE);
-
-	// @todo `which` is deprecated, use command -v
-	gboolean is_write_rotation = !runcmd("which exiftran >/dev/null 2>&1")
-	                          && !runcmd("which mogrify >/dev/null 2>&1")
-	                          && !options->metadata.write_orientation;
-	action = gq_gtk_action_group_get_action(lw->action_group, "WriteRotation");
-	gq_gtk_action_set_sensitive(action, is_write_rotation);
-	action = gq_gtk_action_group_get_action(lw->action_group, "WriteRotationKeepDate");
-	gq_gtk_action_set_sensitive(action, is_write_rotation);
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "StereoAuto");
 	gq_gtk_radio_action_set_current_value(GTK_RADIO_ACTION(action), layout_image_stereo_pixbuf_get(lw));
