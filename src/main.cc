@@ -57,8 +57,6 @@
 
 #include "cache-maint.h"
 #include "cache.h"
-#include "collect-io.h"
-#include "collect.h"
 #include "compat.h"
 #include "debug.h"
 #include "exif.h"
@@ -79,7 +77,6 @@
 #include "options.h"
 #include "pixbuf-util.h"
 #include "rcfile.h"
-#include "remote.h"
 #include "secure-save.h"
 #include "third-party/whereami.h"
 #include "thumb.h"
@@ -91,7 +88,6 @@
 #endif
 
 gboolean thumb_format_changed = FALSE;
-static RemoteConnection *remote_connection = nullptr;
 
 gchar *gq_prefix;
 gchar *gq_localedir;
@@ -242,11 +238,6 @@ static void parse_command_line_add_file(const gchar *file_path, gchar **path, gc
 	path_parsed = g_strdup(file_path);
 	parse_out_relatives(path_parsed);
 
-	if (file_extension_match(path_parsed, GQ_COLLECTION_EXT))
-		{
-		*collection_list = g_list_append(*collection_list, path_parsed);
-		}
-	else
 		{
 		if (!*path) *path = remove_level_from_path(path_parsed);
 		if (!*file) *file = g_strdup(path_parsed);
@@ -342,9 +333,6 @@ static void show_invalid_parameters_warning_dialog(const gchar *command_line_err
 static void parse_command_line(gint argc, gchar *argv[])
 {
 	GList *list = nullptr;
-	GList *remote_list = nullptr;
-	GList *remote_errors = nullptr;
-	gboolean remote_do = FALSE;
 	gchar *first_dir = nullptr;
 	gchar *app_lock;
 	gchar *pwd;
@@ -386,15 +374,6 @@ static void parse_command_line(gint argc, gchar *argv[])
 			else if (download_web_file(cmd_line, FALSE, nullptr))
 				{
 				}
-			else if (is_collection(cmd_line))
-				{
-				gchar *path = nullptr;
-
-				path = collection_path(cmd_line);
-				parse_command_line_process_file(path, &command_line->path, &command_line->file,
-								&list, &command_line->collection_list, &first_dir);
-				g_free(path);
-				}
 			else if (strncmp(cmd_line, "--debug", 7) == 0 && (cmd_line[7] == '\0' || cmd_line[7] == '='))
 				{
 				/* do nothing but do not produce warnings */
@@ -407,15 +386,11 @@ static void parse_command_line(gint argc, gchar *argv[])
 				 strcmp(cmd_line, "--with-tools") == 0)
 				{
 				command_line->tools_show = TRUE;
-
-				remote_list = g_list_append(remote_list, g_strdup("-T"));
 				}
 			else if (strcmp(cmd_line, "-t") == 0 ||
 				 strcmp(cmd_line, "--without-tools") == 0)
 				{
 				command_line->tools_hide = TRUE;
-
-				remote_list = g_list_append(remote_list, g_strdup("-t"));
 				}
 			else if (strcmp(cmd_line, "-f") == 0 ||
 				 strcmp(cmd_line, "--fullscreen") == 0)
@@ -435,15 +410,6 @@ static void parse_command_line(gint argc, gchar *argv[])
 			else if (strncmp(cmd_line, "--geometry=", 11) == 0)
 				{
 				if (!command_line->geometry) command_line->geometry = g_strdup(cmd_line + 11);
-				}
-			else if (strcmp(cmd_line, "-r") == 0 ||
-				 strcmp(cmd_line, "--remote") == 0)
-				{
-				if (!remote_do)
-					{
-					remote_do = TRUE;
-					remote_list = remote_build_list(remote_list, argc - i, &argv[i], &remote_errors);
-					}
 				}
 			else if ((strcmp(cmd_line, "-w") == 0) ||
 						strcmp(cmd_line, "--show-log-window") == 0)
@@ -513,13 +479,11 @@ static void parse_command_line(gint argc, gchar *argv[])
 				print_term(FALSE, "\n");
 				print_term(FALSE, "* Normally a single set of configuration files is used for all instances.\nHowever, the environment variables XDG_CONFIG_HOME, XDG_CACHE_HOME, XDG_DATA_HOME\ncan be used to modify this behavior on an individual basis e.g.\n\nXDG_CONFIG_HOME=/tmp/a XDG_CACHE_HOME=/tmp/b geeqie\n\n");
 
-				remote_help();
-
 				exit(EXIT_SUCCESS);
 				}
-			else if (!remote_do)
+			else
 				{
-				g_string_append_printf(command_line_errors, is_remote_command(cmd_line) ? _("%s\n\nThis is a --remote command option\n") : _("%s\n\nThis option is unknown\n"), cmd_line);
+				g_string_append_printf(command_line_errors, _("%s\n\nThis option is unknown\n"), cmd_line);
 				}
 
 			g_free(cmd_all);
@@ -548,59 +512,7 @@ static void parse_command_line(gint argc, gchar *argv[])
 		parse_out_relatives(command_line->path);
 		}
 	g_free(first_dir);
-
-	if (!command_line->new_instance)
-		{
-		/* If Geeqie is already running, prevent a second instance
-		 * from being started. Open a new window instead.
-		 */
-		app_lock = g_build_filename(get_rc_dir(), ".command", NULL);
-		if (remote_server_exists(app_lock) && !remote_do)
-			{
-			remote_do = TRUE;
-			if (command_line->geometry)
-				{
-				geometry = g_strdup_printf("--geometry=%s", command_line->geometry);
-				remote_list = g_list_prepend(remote_list, geometry);
-				}
-			remote_list = g_list_prepend(remote_list, g_strdup("--new-window"));
-			}
-		g_free(app_lock);
-		}
-
-	if (remote_do)
-		{
-		if (remote_errors)
-			{
-			g_autoptr(GString) command_line_errors = g_string_new(nullptr);
-
-			for (GList *work = remote_errors; work; work = work->next)
-				{
-				auto opt = static_cast<gchar *>(work->data);
-
-				g_string_append_printf(command_line_errors, "%s\n", opt);
-				}
-
-			show_invalid_parameters_warning_dialog(command_line_errors->str);
-
-			exit(EXIT_FAILURE);
-			}
-
-		/* prepend the current dir the remote command was made from,
-		 * for use by any remote command that needs it
-		 */
-		current_dir = g_get_current_dir();
-		pwd = g_strconcat("--PWD=", current_dir, NULL);
-		remote_list = g_list_prepend(remote_list, pwd);
-
-		remote_control(argv[0], remote_list, command_line->path, list, command_line->collection_list);
-		/* There is no return to this point
-		 */
-		g_free(pwd);
-		g_free(current_dir);
-		}
 	g_free(geometry);
-	g_list_free(remote_list);
 
 	if (list && list->next)
 		{
@@ -963,10 +875,6 @@ static void exit_program_final()
 	 /* make sure that external editors are loaded, we would save incomplete configuration otherwise */
 	layout_editors_reload_finish();
 
-	remote_close(remote_connection);
-
-	collect_manager_flush();
-
 	/* Save the named windows */
 	if (layout_window_list && layout_window_list->next)
 		{
@@ -1045,7 +953,7 @@ static gint exit_confirm_dlg()
 		return TRUE;
 		}
 
-	if (!collection_window_modified_exists() && (layout_window_count() == 1)) return FALSE;
+	if (layout_window_count() == 1) return FALSE;
 
 	parent = nullptr;
 	lw = nullptr;
@@ -1062,11 +970,6 @@ static gint exit_confirm_dlg()
 	msg = g_strdup_printf(_("Quit %s"), GQ_APPNAME);
 
 	message = g_string_new(nullptr);
-
-	if (collection_window_modified_exists())
-		{
-		message = g_string_append(message, _("Collections have been modified.\n"));
-		}
 
 	if (layout_window_count() > 1)
 		{
@@ -1209,8 +1112,6 @@ gint main(gint argc, gchar *argv[])
 #endif
 	}
 
-	CollectionData *cd = nullptr;
-	CollectionData *first_collection = nullptr;
 	gboolean disable_clutter = FALSE;
 	gboolean single_dir = TRUE;
 	gchar *buf;
@@ -1258,7 +1159,6 @@ gint main(gint argc, gchar *argv[])
 	file_data_register_notify_func(cache_notify_cb, nullptr, NOTIFY_PRIORITY_HIGH);
 	file_data_register_notify_func(thumb_notify_cb, nullptr, NOTIFY_PRIORITY_HIGH);
 	file_data_register_notify_func(histogram_notify_cb, nullptr, NOTIFY_PRIORITY_HIGH);
-	file_data_register_notify_func(collect_manager_notify_cb, nullptr, NOTIFY_PRIORITY_LOW);
 	file_data_register_notify_func(metadata_notify_cb, nullptr, NOTIFY_PRIORITY_LOW);
 
 
@@ -1377,23 +1277,7 @@ gint main(gint argc, gchar *argv[])
 		/* If no --list option, open a separate collection window for each
 		 * .gqv file on the command line
 		 */
-		if (command_line->collection_list && !command_line->startup_command_line_collection)
-			{
-			GList *work;
-
-			work = command_line->collection_list;
-			while (work)
-				{
-				CollectWindow *cw;
-				const gchar *path;
-
-				path = static_cast<const gchar *>(work->data);
-				work = work->next;
-
-				cw = collection_window_new(path);
-				if (!first_collection && cw) first_collection = cw->cd;
-				}
-			}
+		{}
 
 		if (command_line->log_file)
 			{
@@ -1439,50 +1323,7 @@ gint main(gint argc, gchar *argv[])
 		/* Files from multiple folders, or --list option given
 		 * then open an unnamed collection and insert all files
 		 */
-		if ((command_line->cmd_list && !single_dir) || (command_line->startup_command_line_collection && command_line->cmd_list))
-			{
-			GList *work;
-			CollectWindow *cw;
-
-			cw = collection_window_new(nullptr);
-			cd = cw->cd;
-
-			collection_path_changed(cd);
-
-			work = command_line->cmd_list;
-			while (work)
-				{
-				FileData *fd;
-
-				fd = file_data_new_simple(static_cast<const gchar *>(work->data));
-				collection_add(cd, fd, FALSE);
-				file_data_unref(fd);
-				work = work->next;
-				}
-
-			work = command_line->collection_list;
-			while (work)
-				{
-				collection_load(cd, static_cast<gchar *>(work->data), COLLECTION_LOAD_APPEND);
-				work = work->next;
-				}
-
-			if (cd->list) layout_image_set_collection(nullptr, cd, static_cast<CollectInfo *>(cd->list->data));
-
-			/* mem leak, we never unref this collection when !startup_command_line_collection
-			 * (the image view of the main window does not hold a ref to the collection)
-			 * this is sort of unavoidable, for if it did hold a ref, next/back
-			 * may not work as expected when closing collection windows.
-			 *
-			 * collection_unref(cd);
-			 */
-
-			}
-		else if (first_collection)
-			{
-			layout_image_set_collection(nullptr, first_collection,
-						    collection_get_first(first_collection));
-			}
+		 {}
 
 		/* If the files on the command line are from one folder, select those files
 		 * unless it is a command line collection - then leave focus on collection window
@@ -1507,10 +1348,6 @@ gint main(gint argc, gchar *argv[])
 				}
 			layout_select_list(lw, selected);
 			}
-
-		buf = g_build_filename(get_rc_dir(), ".command", NULL);
-		remote_connection = remote_server_init(buf, cd);
-		g_free(buf);
 
 		marks_load();
 

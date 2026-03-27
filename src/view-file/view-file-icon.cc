@@ -27,7 +27,6 @@
 #include <glib-object.h>
 
 #include "cellrenderericon.h"
-#include "collect.h"
 #include "compat.h"
 #include "debug.h"
 #include "dnd.h"
@@ -1210,11 +1209,6 @@ gboolean vficon_press_cb(ViewFile *vf, GtkWidget *, GdkEventButton *bevent)
 
 				if (bevent->type == GDK_2BUTTON_PRESS && vf->layout)
 					{
-					if (vf->click_fd->format_class == FORMAT_CLASS_COLLECTION)
-						{
-						collection_window_new(vf->click_fd->path);
-						}
-					else
 						{
 						vficon_selection_remove(vf, vf->click_fd, SELECTION_PRELIGHT, &iter);
 						layout_image_full_screen_start(vf->layout);

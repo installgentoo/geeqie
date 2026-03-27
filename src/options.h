@@ -470,12 +470,6 @@ enum SortActionType {
 	BAR_SORT_ACTION_COUNT
 };
 
-enum SortModeType {
-	BAR_SORT_MODE_FOLDER = 0,
-	BAR_SORT_MODE_COLLECTION,
-	BAR_SORT_MODE_COUNT
-};
-
 enum SortSelectionType {
 	BAR_SORT_SELECTION_IMAGE = 0,
 	BAR_SORT_SELECTION_SELECTED,
@@ -564,7 +558,6 @@ struct LayoutOptions
 	gint workspace;
 
 	SortActionType action;
-	SortModeType mode;
 	SortSelectionType selection;
 	gchar *filter_key;
 };

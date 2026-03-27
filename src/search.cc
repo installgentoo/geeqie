@@ -35,8 +35,6 @@
 
 #include "bar-keywords.h"
 #include "cache.h"
-#include "collect-table.h"
-#include "collect.h"
 #include "compat.h"
 #include "debug.h"
 #include "dnd.h"
@@ -80,8 +78,7 @@ enum MatchType {
 	SEARCH_MATCH_OVER,
 	SEARCH_MATCH_BETWEEN,
 	SEARCH_MATCH_ALL,
-	SEARCH_MATCH_ANY,
-	SEARCH_MATCH_COLLECTION
+	SEARCH_MATCH_ANY
 };
 
 enum {
@@ -283,8 +280,7 @@ struct MatchList
 const MatchList text_search_menu_path[] = {
 	{ N_("folder"),		SEARCH_MATCH_NONE },
 	{ N_("comments"),	SEARCH_MATCH_ALL },
-	{ N_("results"),	SEARCH_MATCH_CONTAINS },
-	{ N_("collection"),	SEARCH_MATCH_COLLECTION }
+	{ N_("results"),	SEARCH_MATCH_CONTAINS }
 };
 
 const MatchList text_search_menu_name[] = {
@@ -403,7 +399,6 @@ hard_coded_window_keys search_window_keys[] = {
 	{GDK_CONTROL_MASK, 'W', N_("Close window")},
 	{static_cast<GdkModifierType>(0), GDK_KEY_Return, N_("View")},
 	{static_cast<GdkModifierType>(0), 'V', N_("View in new window")},
-	{static_cast<GdkModifierType>(0), 'C', N_("Collection from selection")},
 	{GDK_CONTROL_MASK, GDK_KEY_Return, N_("Start/stop search")},
 	{static_cast<GdkModifierType>(0), GDK_KEY_F3, N_("Find duplicates")},
 	{static_cast<GdkModifierType>(0), 0, nullptr}
@@ -812,17 +807,6 @@ static void search_result_edit_selected(SearchData *sd, const gchar *key)
 	file_util_start_editor_from_filelist(key, search_result_selection_list(sd), nullptr, sd->window);
 }
 
-static void search_result_collection_from_selection(SearchData *sd)
-{
-	CollectWindow *w;
-	GList *list;
-
-	list = search_result_selection_list(sd);
-	w = collection_window_new(nullptr);
-	collection_table_add_filelist(w->table, list);
-	filelist_free(list);
-}
-
 static gboolean search_result_update_idle_cb(gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
@@ -1145,25 +1129,6 @@ static void search_result_menu_destroy_cb(GtkWidget *, gpointer data)
 	filelist_free(editmenu_fd_list);
 }
 
-/**
- * @brief Add file selection list to a collection
- * @param[in] widget
- * @param[in] data Index to the collection list menu item selected, or -1 for new collection
- *
- *
- */
-static void search_pop_menu_collections_cb(GtkWidget *widget, gpointer data)
-{
-	SearchData *sd;
-	GList *selection_list;
-
-	sd = static_cast<SearchData *>(submenu_item_get_data(widget));
-	selection_list = search_result_selection_list(sd);
-	pop_menu_collections(selection_list, data);
-
-	filelist_free(selection_list);
-}
-
 static GtkWidget *search_result_menu(SearchData *sd, gboolean on_row, gboolean empty)
 {
 	GtkWidget *menu;
@@ -1201,8 +1166,6 @@ static GtkWidget *search_result_menu(SearchData *sd, gboolean on_row, gboolean e
 	submenu_add_edit(menu, &item, G_CALLBACK(sr_menu_edit_cb), sd, editmenu_fd_list);
 	if (!on_row) gtk_widget_set_sensitive(item, FALSE);
 
-	submenu_add_collections(menu, &item,
-				G_CALLBACK(search_pop_menu_collections_cb), sd);
 	gtk_widget_set_sensitive(item, on_row);
 
 	menu_item_add_icon_sensitive(menu, _("Print..."), GQ_ICON_PRINT, on_row,
@@ -1460,9 +1423,6 @@ static gboolean search_result_keypress_cb(GtkWidget *widget, GdkEventKey *event,
 				break;
 			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
 				search_result_remove_selection(sd);
-				break;
-			case 'C': case 'c':
-				search_result_collection_from_selection(sd);
 				break;
 			case GDK_KEY_Menu:
 			case GDK_KEY_F10:
@@ -2871,29 +2831,6 @@ static void search_start_cb(GtkWidget *, gpointer data)
 
 		sd->search_file_list = g_list_concat(sd->search_file_list, list);
 		}
-	else if (sd->search_type == SEARCH_MATCH_COLLECTION)
-		{
-		collection = g_strdup(gq_gtk_entry_get_text(GTK_ENTRY(sd->collection_entry)));
-
-		if (is_collection(collection))
-			{
-			GList *list = nullptr;
-
-			list = collection_contents_fd(collection);
-
-			file_data_unref(sd->search_dir_fd);
-			sd->search_dir_fd = nullptr;
-
-			search_start(sd);
-
-			sd->search_file_list = g_list_concat(sd->search_file_list, list);
-			}
-		else
-			{
-			file_util_warning_dialog(_("Collection not found"), _("Please enter an existing collection name."), GQ_ICON_DIALOG_WARNING, sd->window);
-			}
-		g_free(collection);
-		}
 }
 
 /*
@@ -3038,7 +2975,6 @@ static void menu_choice_path_cb(GtkWidget *combo, gpointer data)
 
 	menu_choice_set_visible(gtk_widget_get_parent(sd->check_recurse),
 				(sd->search_type == SEARCH_MATCH_NONE));
-	menu_choice_set_visible(sd->collection, (sd->search_type == SEARCH_MATCH_COLLECTION));
 }
 
 static void menu_choice_name_cb(GtkWidget *combo, gpointer data)
@@ -3364,8 +3300,6 @@ static void select_collection_clicked_cb(GtkWidget *, gpointer data)
 
 	generic_dialog_add_message(GENERIC_DIALOG(fdlg), nullptr, title, nullptr, FALSE);
 	file_dialog_add_button(fdlg, icon_name, btntext, reinterpret_cast<void(*)(FileDialog *, gpointer)>(btnfunc), TRUE);
-
-	file_dialog_add_path_widgets(fdlg, get_collections_dir(), nullptr, "search_collection", GQ_COLLECTION_EXT, _("Collection Files"));
 
 	gtk_widget_show(GENERIC_DIALOG(fdlg)->dialog);
 }

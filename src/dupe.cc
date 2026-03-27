@@ -34,8 +34,6 @@
 #include <glib-object.h>
 
 #include "cache.h"
-#include "collect-table.h"
-#include "collect.h"
 #include "compat.h"
 #include "debug.h"
 #include "dnd.h"
@@ -121,8 +119,7 @@ constexpr std::array<GtkTargetEntry, 2> dupe_drag_types{{
 	{ const_cast<gchar *>("text/plain"), 0, TARGET_TEXT_PLAIN }
 }};
 
-constexpr std::array<GtkTargetEntry, 2> dupe_drop_types{{
-	{ const_cast<gchar *>(TARGET_APP_COLLECTION_MEMBER_STRING), 0, TARGET_APP_COLLECTION_MEMBER },
+constexpr std::array<GtkTargetEntry, 1> dupe_drop_types{{
 	{ const_cast<gchar *>("text/uri-list"), 0, TARGET_URI_LIST }
 }};
 
@@ -2786,16 +2783,12 @@ static gboolean dupe_files_add_queue_cb(gpointer data)
 	return FALSE;
 }
 
-static void dupe_files_add(DupeWindow *dw, CollectionData *, CollectInfo *info,
+static void dupe_files_add(DupeWindow *dw, void *, void *,
 			   FileData *fd, gboolean recurse)
 {
 	DupeItem *di = nullptr;
 
-	if (info)
-		{
-		di = dupe_item_new(info->fd);
-		}
-	else if (fd)
+	if (fd)
 		{
 		if (isfile(fd->path) && !g_file_test(fd->path, G_FILE_TEST_IS_SYMLINK))
 			{
@@ -2917,20 +2910,6 @@ static gboolean dupe_insert_in_list_cache(DupeWindow *dw, FileData *fd)
 	if (g_hash_table_lookup(table, fd) != nullptr)
 		return FALSE;
 	return g_hash_table_add(table, fd);
-}
-
-void dupe_window_add_collection(DupeWindow *dw, CollectionData *collection)
-{
-	CollectInfo *info;
-
-	info = collection_get_first(collection);
-	while (info)
-		{
-		dupe_files_add(dw, collection, info, nullptr, FALSE);
-		info = collection_next_by_info(collection, info);
-		}
-
-	dupe_check_start(dw);
 }
 
 void dupe_window_add_files(DupeWindow *dw, GList *list, gboolean recurse)
@@ -3160,18 +3139,6 @@ static void dupe_menu_view(DupeWindow *dw, DupeItem *di, GtkWidget *listview, gi
 {
 	if (!di) return;
 
-	if (di->collection && collection_info_valid(di->collection, di->info))
-		{
-		if (new_window)
-			{
-			view_window_new_from_collection(di->collection, di->info);
-			}
-		else
-			{
-			layout_image_set_collection(nullptr, di->collection, di->info);
-			}
-		}
-	else
 		{
 		if (new_window)
 			{
@@ -3234,17 +3201,6 @@ static void dupe_window_remove_selection(DupeWindow *dw, GtkWidget *listview, gb
 static void dupe_window_edit_selected(DupeWindow *dw, const gchar *key)
 {
 	file_util_start_editor_from_filelist(key, dupe_listview_get_selection(dw, dw->listview), nullptr, dw->window);
-}
-
-static void dupe_window_collection_from_selection(DupeWindow *dw)
-{
-	CollectWindow *w;
-	GList *list;
-
-	list = dupe_listview_get_selection(dw, dw->listview);
-	w = collection_window_new(nullptr);
-	collection_table_add_filelist(w->table, list);
-	filelist_free(list);
 }
 
 static void dupe_window_append_file_list(DupeWindow *dw, gint on_second)
@@ -3434,25 +3390,6 @@ static GList *dupe_window_get_fd_list(DupeWindow *dw)
 	return list;
 }
 
-/**
- * @brief Add file selection list to a collection
- * @param[in] widget
- * @param[in] data Index to the collection list menu item selected, or -1 for new collection
- *
- *
- */
-static void dupe_pop_menu_collections_cb(GtkWidget *widget, gpointer data)
-{
-	DupeWindow *dw;
-	GList *selection_list;
-
-	dw = static_cast<DupeWindow *>(submenu_item_get_data(widget));
-	selection_list = dupe_listview_get_selection(dw, dw->listview);
-	pop_menu_collections(selection_list, data);
-
-	filelist_free(selection_list);
-}
-
 static GtkWidget *dupe_menu_popup_main(DupeWindow *dw, DupeItem *di)
 {
 	GtkWidget *menu;
@@ -3495,10 +3432,6 @@ static GtkWidget *dupe_menu_popup_main(DupeWindow *dw, DupeItem *di)
 			 G_CALLBACK(dupe_menu_popup_destroy_cb), editmenu_fd_list);
 	submenu_add_edit(menu, &item, G_CALLBACK(dupe_menu_edit_cb), dw, editmenu_fd_list);
 	if (!on_row) gtk_widget_set_sensitive(item, FALSE);
-
-	submenu_add_collections(menu, &item,
-								G_CALLBACK(dupe_pop_menu_collections_cb), dw);
-	gtk_widget_set_sensitive(item, on_row);
 
 	menu_item_add_icon_sensitive(menu, _("Print..."), GQ_ICON_PRINT, on_row,
 				G_CALLBACK(dupe_menu_print_cb), dw);
@@ -4278,12 +4211,6 @@ static gboolean dupe_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, g
 			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
 				dupe_window_remove_selection(dw, listview, FALSE);
 				break;
-			case 'C': case 'c':
-				if (!on_second)
-					{
-					dupe_window_collection_from_selection(dw);
-					}
-				break;
 			case '0':
 				options->duplicates_select_type = DUPE_SELECT_NONE;
 				dupe_listview_select_dupes(dw, DUPE_SELECT_NONE);
@@ -4943,9 +4870,6 @@ static void dupe_dnd_data_get(GtkWidget *widget, GdkDragContext *context,
 
 	switch (info)
 		{
-		case TARGET_APP_COLLECTION_MEMBER:
-			collection_from_dnd_data(reinterpret_cast<const gchar *>(gtk_selection_data_get_data(selection_data)), &list, nullptr);
-			break;
 		case TARGET_URI_LIST:
 			list = uri_filelist_from_gtk_selection_data(selection_data);
 			work = list;

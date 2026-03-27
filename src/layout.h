@@ -32,7 +32,6 @@ struct AnimationData;
 class FileData;
 struct FullScreenData;
 struct ImageWindow;
-struct SlideShowData;
 struct ViewDir;
 struct ViewFile;
 
@@ -126,10 +125,6 @@ struct LayoutWindow
 	GtkWidget *info_zoom; /**< status bar */
 	GtkWidget *info_pixel; /**< status bar */
 
-	/* slide show */
-
-	SlideShowData *slideshow;
-
 	/* full screen */
 
 	FullScreenData *full_screen;
@@ -138,10 +133,7 @@ struct LayoutWindow
 
 	GtkWidget *utility_box; /**< referenced by lw, exist during whole lw lifetime */
 	GtkWidget *utility_paned; /**< between image and bar */
-	GtkWidget *bar_sort;
 	GtkWidget *bar;
-
-	gboolean bar_sort_enabled; /**< Set during start-up, and checked when the editors have loaded */
 
 	GtkWidget *exif_window;
 	GtkWidget *sar_window; /**< Search and Run window */

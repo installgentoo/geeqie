@@ -23,9 +23,6 @@
 
 #include <gdk/gdk.h>
 
-#include "collect-io.h"
-#include "collect-table.h"
-#include "collect.h"
 #include "editors.h"
 #include "intl.h"
 #include "pixbuf-util.h"
@@ -413,96 +410,3 @@ GtkWidget *submenu_add_alter(GtkWidget *menu, GCallback func, gpointer data)
 	accel = gtk_accel_group_new();
 	return real_submenu_add_alter(menu, func, data, accel); //last accel gr
 }
-
-/*
- *-----------------------------------------------------------------------------
- * collections
- *-----------------------------------------------------------------------------
- */
-
-/**
- * @brief Add submenu consisting of "New collection", and list of existing collections to a right-click menu.
- * @param[in] menu
- * @param[in] func
- * @param[in] collection_list Type gchar
- * @param[in] data
- *
- *  Used by all image windows
- */
-static void add_collection_list(GtkWidget *menu, GCallback func, GList *collection_list, gpointer)
-{
-	GList *work;
-	gint index = 0; /* index to existing collection list menu item selected */
-
-	work = collection_list;
-	while (work)
-		{
-		auto collection_name = static_cast<const gchar *>(work->data);
-
-		menu_item_add(menu, collection_name, func,
-													GINT_TO_POINTER(index));
-		work = work->next;
-		index++;
-		}
-}
-
-GtkWidget *submenu_add_collections(GtkWidget *menu, GtkWidget **menu_item,
-										GCallback func, gpointer data)
-{
-	GtkWidget *item;
-	GtkWidget *submenu;
-	GList *collection_list = nullptr;
-
-	item = menu_item_add(menu, _("_Add to Collection"), nullptr, nullptr);
-
-	submenu = gtk_menu_new();
-	g_object_set_data(G_OBJECT(submenu), "submenu_data", data);
-
-	menu_item_add_icon_sensitive(submenu, _("New collection"),
-	                             PIXBUF_INLINE_COLLECTION, TRUE, G_CALLBACK(func), GINT_TO_POINTER(-1));
-	menu_item_add_divider(submenu);
-
-	collect_manager_list(&collection_list,nullptr,nullptr);
-	add_collection_list(submenu, func, collection_list, data);
-
-	gtk_menu_item_set_submenu(GTK_MENU_ITEM(item), submenu);
-	if (menu_item) *menu_item = item;
-
-	g_list_free(collection_list);
-
-	return submenu;
-}
-
-/**
- * @brief Add file selection list to a collection
- * @param[in] selection_list Selection list of ::_FileData
- * @param[in] data Index to the collection list menu item selected, or -1 for new collection
- *
- *
- */
-void pop_menu_collections(GList *selection_list, gpointer data)
-{
-	CollectWindow *cw;
-	gchar *collection_name;
-	GList *collection_list = nullptr;
-	gchar *name;
-	const gint index = GPOINTER_TO_INT(data);
-
-	if (index >= 0)
-		{
-		collect_manager_list(&collection_list, nullptr, nullptr);
-		collection_name = static_cast<gchar *>(g_list_nth_data(collection_list, index));
-		name = collection_path(collection_name);
-		cw = collection_window_new(name);
-		g_free(name);
-		g_list_free_full(collection_list, g_free);
-		}
-	else
-		{
-		cw = collection_window_new(nullptr);
-		}
-
-	collection_table_add_filelist(cw->table, selection_list);
-}
-
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

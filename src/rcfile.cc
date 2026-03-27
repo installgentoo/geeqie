@@ -36,7 +36,6 @@
 #include "bar-histogram.h"
 #include "bar-keywords.h"
 #include "bar-rating.h"
-#include "bar-sort.h"
 #include "bar.h"
 #include "debug.h"
 #include "dupe.h"
@@ -49,7 +48,6 @@
 #include "metadata.h"
 #include "options.h"
 #include "secure-save.h"
-#include "slideshow.h"
 #include "typedefs.h"
 #include "ui-fileops.h"
 #include "ui-utildlg.h"
@@ -534,14 +532,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_INT(*options, image_overlay.background_blue);
 	WRITE_NL(); WRITE_INT(*options, image_overlay.background_alpha);
 	WRITE_NL(); WRITE_CHAR(*options, image_overlay.font);
-
-	/* Slideshow Options */
-	WRITE_NL(); WRITE_INT_UNIT(*options, slideshow.delay, SLIDESHOW_SUBSECOND_PRECISION);
-	WRITE_NL(); WRITE_BOOL(*options, slideshow.random);
-	WRITE_NL(); WRITE_BOOL(*options, slideshow.repeat);
-
-	/* Collection Options */
-	WRITE_NL(); WRITE_BOOL(*options, collections.rectangular_selection);
 
 	/* Filtering Options */
 	WRITE_NL(); WRITE_BOOL(*options, file_filter.show_hidden_files);
@@ -1040,14 +1030,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_USHORT(*options, image_overlay.background_blue)) continue;
 		if (READ_USHORT(*options, image_overlay.background_alpha)) continue;
 		if (READ_CHAR(*options, image_overlay.font)) continue;
-
-		/* Slideshow options */
-		if (READ_INT_UNIT(*options, slideshow.delay, SLIDESHOW_SUBSECOND_PRECISION)) continue;
-		if (READ_BOOL(*options, slideshow.random)) continue;
-		if (READ_BOOL(*options, slideshow.repeat)) continue;
-
-		/* Collection options */
-		if (READ_BOOL(*options, collections.rectangular_selection)) continue;
 
 		/* Filtering options */
 		if (READ_BOOL(*options, file_filter.show_hidden_files)) continue;
@@ -1670,20 +1652,6 @@ static void options_parse_layout(GQParserData *parser_data, const gchar *element
 			}
 
 		parser_data->func_push(options_parse_bar, nullptr, lw->bar);
-		}
-	else if (g_ascii_strcasecmp(element_name, "bar_sort") == 0)
-		{
-		if (g_list_length(layout_window_list) == 1)
-			{
-			bar_sort_cold_start(lw, attribute_names, attribute_values);
-			}
-		else
-			{
-			GtkWidget *bar = bar_sort_new_from_config(lw, attribute_names, attribute_values);
-			layout_bar_sort_set(lw, bar);
-			gtk_widget_show(lw->bar_sort);
-			}
-		parser_data->func_push(options_parse_leaf, nullptr, nullptr);
 		}
 	else if (g_ascii_strcasecmp(element_name, "toolbar") == 0)
 		{

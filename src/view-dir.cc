@@ -507,33 +507,6 @@ static void vd_pop_menu_up_cb(GtkWidget *, gpointer data)
 	g_free(path);
 }
 
-static void vd_pop_menu_slide_cb(GtkWidget *, gpointer data)
-{
-	auto vd = static_cast<ViewDir *>(data);
-
-	if (!vd->layout) return;
-	if (!vd->click_fd) return;
-
-	layout_set_fd(vd->layout, vd->click_fd);
-	layout_select_none(vd->layout);
-	layout_image_slideshow_stop(vd->layout);
-	layout_image_slideshow_start(vd->layout);
-}
-
-static void vd_pop_menu_slide_rec_cb(GtkWidget *, gpointer data)
-{
-	auto vd = static_cast<ViewDir *>(data);
-	GList *list;
-
-	if (!vd->layout) return;
-	if (!vd->click_fd) return;
-
-	list = filelist_recursive_full(vd->click_fd, vd->layout->options.file_view_list_sort.method, vd->layout->options.file_view_list_sort.ascend, vd->layout->options.file_view_list_sort.case_sensitive);
-
-	layout_image_slideshow_stop(vd->layout);
-	layout_image_slideshow_start_from_list(vd->layout, list);
-}
-
 static void vd_pop_menu_dupe(ViewDir *vd, gint recursive)
 {
 	DupeWindow *dw;
@@ -784,12 +757,6 @@ GtkWidget *vd_pop_menu(ViewDir *vd, FileData *fd)
 	menu_item_add_icon_sensitive(menu, _("_Up to parent"), GQ_ICON_GO_UP,
 				      (vd->dir_fd && strcmp(vd->dir_fd->path, G_DIR_SEPARATOR_S) != 0),
 				      G_CALLBACK(vd_pop_menu_up_cb), vd);
-
-	menu_item_add_divider(menu);
-	menu_item_add_sensitive(menu, _("_Slideshow"), active,
-				G_CALLBACK(vd_pop_menu_slide_cb), vd);
-	menu_item_add_sensitive(menu, _("Slideshow recursive"), active,
-				G_CALLBACK(vd_pop_menu_slide_rec_cb), vd);
 
 	menu_item_add_divider(menu);
 	menu_item_add_icon_sensitive(menu, _("Find _duplicates..."), GQ_ICON_FIND, active,

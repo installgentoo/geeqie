@@ -28,7 +28,6 @@
 #include <gtk/gtk.h>
 #include <pango/pango.h>
 
-#include "collect.h"
 #include "debug.h"
 #include "filedata.h"
 #include "histogram.h"
@@ -42,7 +41,6 @@
 #include "osd.h"
 #include "pixbuf-renderer.h"
 #include "pixbuf-util.h"
-#include "slideshow.h"
 #include "typedefs.h"
 #include "ui-fileops.h"
 
@@ -262,41 +260,14 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 		{
 		gint n;
 		gint t;
-		CollectionData *cd;
-		CollectInfo *info;
 		GHashTable *vars;
 
 		vars = g_hash_table_new_full(g_str_hash, g_str_equal, nullptr, g_free);
 
-		cd = image_get_collection(imd, &info);
-		if (cd)
-			{
-			t = g_list_length(cd->list);
-			n = g_list_index(cd->list, info) + 1;
-			if (cd->name)
-				{
-				if (file_extension_match(cd->name, GQ_COLLECTION_EXT))
-					osd_template_insert(vars, "collection", remove_extension_from_path(cd->name), OSDT_FREE);
-				else
-					osd_template_insert(vars, "collection", cd->name, OSDT_NONE);
-				}
-			else
-				{
-				osd_template_insert(vars, "collection", _("Untitled"), OSDT_NONE);
-				}
-			}
-		else
 			{
 			LayoutWindow *lw = layout_find_by_image(imd);
 			if (lw)
 				{
-				if (lw->slideshow)
-					{
-					n = g_list_length(lw->slideshow->list_done);
-					t = n + g_list_length(lw->slideshow->list);
-					if (n == 0) n = t;
-					}
-				else
 					{
 					t = layout_list_count(lw, nullptr);
 					n = layout_list_get_index(lw, image_get_fd(lw->image)) + 1;

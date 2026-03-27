@@ -191,10 +191,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->expand_menu_toolbar = FALSE;
 	options->hamburger_menu = FALSE;
 
-	options->slideshow.delay = 50;
-	options->slideshow.random = FALSE;
-	options->slideshow.repeat = FALSE;
-
 	options->thumbnails.cache_into_dirs = FALSE;
 	options->thumbnails.enable_caching = TRUE;
 	options->thumbnails.max_width = DEFAULT_THUMB_WIDTH;

@@ -31,12 +31,10 @@
 
 #include "main-defines.h"
 
-#define TARGET_APP_COLLECTION_MEMBER_STRING "application/x-" GQ_APPNAME_LC "-collection-member"
 #define TARGET_APP_EXIF_ENTRY_STRING "application/x-" GQ_APPNAME_LC "-exif-entry"
 #define TARGET_APP_KEYWORD_PATH_STRING "application/x-" GQ_APPNAME_LC "-keyword-path"
 
 enum {
-	TARGET_APP_COLLECTION_MEMBER,
 	TARGET_APP_EXIF_ENTRY,
 	TARGET_APP_KEYWORD_PATH,
 	TARGET_URI_LIST,
@@ -45,7 +43,7 @@ enum {
 
 
 extern const std::array<GtkTargetEntry, 2> dnd_file_drag_types;
-extern const std::array<GtkTargetEntry, 3> dnd_file_drop_types;
+extern const std::array<GtkTargetEntry, 2> dnd_file_drop_types;
 
 void dnd_set_drag_icon(GtkWidget *widget, GdkDragContext *context, GdkPixbuf *pixbuf, gint items);
 

@@ -26,8 +26,6 @@
 #include <glib.h>
 #include <gtk/gtk.h>
 
-struct CollectInfo;
-struct CollectionData;
 class FileData;
 struct ImageLoader;
 struct ImageSimilarityData;
@@ -64,9 +62,6 @@ enum DupeSelectType
 
 struct DupeItem
 {
-	CollectionData *collection;	/**< NULL if from #DupeWindow->files */
-	CollectInfo *info;
-
 	FileData *fd;
 
 	gchar *md5sum;
@@ -162,8 +157,6 @@ DupeWindow *dupe_window_new();
 void dupe_window_clear(DupeWindow *dw);
 void dupe_window_close(DupeWindow *dw);
 
-void dupe_window_add_collection(DupeWindow *dw, CollectionData *collection);
 void dupe_window_add_files(DupeWindow *dw, GList *list, gboolean recurse);
 
 #endif
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

@@ -24,7 +24,6 @@
 #include <glib-object.h>
 #include <glib.h>
 
-#include "collect.h"
 #include "compat.h"
 #include "intl.h"
 #include "layout.h"
@@ -56,11 +55,6 @@ void shortcuts_bookmark_select(const gchar *path, gpointer data)
 {
 	auto scd = static_cast<ShortcutsData *>(data);
 
-	if (file_extension_match(path, GQ_COLLECTION_EXT))
-		{
-		collection_window_new(path);
-		}
-	else
 		{
 		layout_set_path(scd->lw, path);
 		}

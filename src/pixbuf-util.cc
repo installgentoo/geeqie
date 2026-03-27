@@ -353,9 +353,6 @@ GdkPixbuf *pixbuf_fallback(FileData *fd, gint requested_width, gint requested_he
 		case FORMAT_CLASS_VIDEO:
 			pixbuf = pixbuf_inline(PIXBUF_INLINE_VIDEO);
 			break;
-		case FORMAT_CLASS_COLLECTION:
-			pixbuf = pixbuf_inline(PIXBUF_INLINE_COLLECTION);
-			break;
 		case FORMAT_CLASS_DOCUMENT:
 			pixbuf = pixbuf_inline(PIXBUF_INLINE_ICON_PDF);
 			break;

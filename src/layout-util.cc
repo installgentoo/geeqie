@@ -37,11 +37,8 @@
 #include "advanced-exif.h"
 #include "archives.h"
 #include "bar-keywords.h"
-#include "bar-sort.h"
 #include "bar.h"
 #include "cache-maint.h"
-#include "collect-io.h"
-#include "collect.h"
 #include "color-man.h"
 #include "compat.h"
 #include "debug.h"
@@ -73,7 +70,6 @@
 #include "rcfile.h"
 #include "search-and-run.h"
 #include "search.h"
-#include "slideshow.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
 #include "ui-misc.h"
@@ -84,7 +80,6 @@
 #include "window.h"
 
 static gboolean layout_bar_enabled(LayoutWindow *lw);
-static gboolean layout_bar_sort_enabled(LayoutWindow *lw);
 static void layout_bars_hide_toggle(LayoutWindow *lw);
 static void layout_util_sync_views(LayoutWindow *lw);
 static void layout_search_and_run_window_new(LayoutWindow *lw);
@@ -311,32 +306,12 @@ static void layout_menu_new_cb(GtkAction *, gpointer data)
 	auto lw = static_cast<LayoutWindow *>(data);
 
 	layout_exit_fullscreen(lw);
-	collection_window_new(nullptr);
 }
 
 static void layout_menu_open_cb(GtkAction *widget, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
-	gchar *path;
-	gint n;
-	GList *collection_list = nullptr;
-
 	layout_exit_fullscreen(lw);
-
-	n = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(widget), "recent_index"));
-	collect_manager_list(nullptr, nullptr, &collection_list);
-
-	path = static_cast<gchar *>(g_list_nth_data(collection_list, n));
-
-	if (path)
-		{
-		/* make a copy of it */
-		path = g_strdup(path);
-		collection_window_new(path);
-		g_free(path);
-		}
-
-	g_list_free_full(collection_list, g_free);
 }
 
 static void layout_menu_search_cb(GtkAction *, gpointer data)
@@ -1259,16 +1234,6 @@ static void layout_menu_bar_cb(GtkToggleAction *action, gpointer data)
 	layout_bar_toggle(lw);
 }
 
-static void layout_menu_bar_sort_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (layout_bar_sort_enabled(lw) == gq_gtk_toggle_action_get_active(action)) return;
-
-	layout_exit_fullscreen(lw);
-	layout_bar_sort_toggle(lw);
-}
-
 static void layout_menu_hide_bars_cb(GtkToggleAction *action, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -1278,35 +1243,6 @@ static void layout_menu_hide_bars_cb(GtkToggleAction *action, gpointer data)
 		return;
 		}
 	layout_bars_hide_toggle(lw);
-}
-
-static void layout_menu_slideshow_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (layout_image_slideshow_active(lw) == gq_gtk_toggle_action_get_active(action)) return;
-	layout_image_slideshow_toggle(lw);
-}
-
-static void layout_menu_slideshow_pause_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_slideshow_pause_toggle(lw);
-}
-
-static void layout_menu_slideshow_slower_cb(GtkAction *, gpointer)
-{
-	options->slideshow.delay = options->slideshow.delay + 5;
-	if (options->slideshow.delay > SLIDESHOW_MAX_SECONDS)
-		options->slideshow.delay = SLIDESHOW_MAX_SECONDS;
-}
-
-static void layout_menu_slideshow_faster_cb(GtkAction *, gpointer)
-{
-	options->slideshow.delay = options->slideshow.delay - 5;
-	if (options->slideshow.delay < SLIDESHOW_MIN_SECONDS * 10)
-		options->slideshow.delay = SLIDESHOW_MIN_SECONDS * 10;
 }
 
 
@@ -2031,23 +1967,6 @@ static void layout_color_menu_input_cb()
  *-----------------------------------------------------------------------------
  */
 
-static void layout_menu_recent_cb(GtkWidget *widget, gpointer)
-{
-	gint n;
-	gchar *path;
-
-	n = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(widget), "recent_index"));
-
-	path = static_cast<gchar *>(g_list_nth_data(history_list_get_by_key("recent"), n));
-
-	if (!path) return;
-
-	/* make a copy of it */
-	path = g_strdup(path);
-	collection_window_new(path);
-	g_free(path);
-}
-
 static void layout_menu_collection_recent_update(LayoutWindow *lw)
 {
 	GtkWidget *menu;
@@ -2069,17 +1988,11 @@ static void layout_menu_collection_recent_update(LayoutWindow *lw)
 		gchar *name;
 		gboolean free_name = FALSE;
 
-		if (file_extension_match(filename, GQ_COLLECTION_EXT))
-			{
-			name = remove_extension_from_path(filename);
-			free_name = TRUE;
-			}
-		else
 			{
 			name = const_cast<gchar *>(filename);
 			}
 
-		item = menu_item_add_simple(menu, name, G_CALLBACK(layout_menu_recent_cb), lw);
+		item = menu_item_add_simple(menu, name, nullptr, lw);
 		if (free_name) g_free(name);
 		g_object_set_data(G_OBJECT(item), "recent_index", GINT_TO_POINTER(n));
 		list = list->next;
@@ -2096,62 +2009,6 @@ static void layout_menu_collection_recent_update(LayoutWindow *lw)
 	gtk_widget_set_sensitive(recent, (n != 0));
 }
 
-static void layout_menu_collection_open_update(LayoutWindow *lw)
-{
-	gboolean free_name = FALSE;
-	gchar *name;
-	gint n;
-	GList *collection_list = nullptr;
-	GList *work;
-	GtkWidget *item;
-	GtkWidget *menu;
-	GtkWidget *recent;
-
-	if (!lw->ui_manager) return;
-
-	collect_manager_list(&collection_list, nullptr, nullptr);
-
-	n = 0;
-
-	menu = gtk_menu_new();
-
-	work = collection_list;
-	while (work)
-		{
-		const gchar *filename = static_cast<gchar *>(work->data);
-
-		if (file_extension_match(filename, GQ_COLLECTION_EXT))
-			{
-			name = remove_extension_from_path(filename);
-			free_name = TRUE;
-			}
-		else
-			{
-			name = const_cast<gchar *>(filename);
-			}
-
-		item = menu_item_add_simple(menu, name, G_CALLBACK(layout_menu_open_cb), lw);
-		if (free_name)
-			{
-			g_free(name);
-			}
-		g_object_set_data(G_OBJECT(item), "recent_index", GINT_TO_POINTER(n));
-		work = work->next;
-		n++;
-		}
-
-	g_list_free_full(collection_list, g_free);
-
-	if (n == 0)
-		{
-		menu_item_add(menu, _("Empty"), nullptr, nullptr);
-		}
-
-	recent = gq_gtk_ui_manager_get_widget(lw->ui_manager, options->hamburger_menu ? "/MainMenu/OpenMenu/FileMenu/OpenCollection" : "/MainMenu/FileMenu/OpenCollection");
-	gtk_menu_item_set_submenu(GTK_MENU_ITEM(recent), menu);
-	gtk_widget_set_sensitive(recent, (n != 0));
-}
-
 void layout_recent_update_all()
 {
 	GList *work;
@@ -2161,9 +2018,6 @@ void layout_recent_update_all()
 		{
 		auto lw = static_cast<LayoutWindow *>(work->data);
 		work = work->next;
-
-		layout_menu_collection_recent_update(lw);
-		layout_menu_collection_open_update(lw);
 		}
 }
 
@@ -2776,9 +2630,6 @@ static GtkActionEntry menu_entries[] = {
   { "SelectInvert",          PIXBUF_INLINE_ICON_SELECT_INVERT,  N_("_Invert Selection"),                                "<control><shift>I",   N_("Invert Selection"),                                CB(layout_menu_invert_selection_cb) },
   { "SelectMenu",            nullptr,                           N_("_Select"),                                          nullptr,               nullptr,                                               nullptr },
   { "SelectNone",            PIXBUF_INLINE_ICON_SELECT_NONE,    N_("Select _none"),                                     "<control><shift>A",   N_("Select none"),                                     CB(layout_menu_unselect_all_cb) },
-  { "SlideShowFaster",       GQ_ICON_GENERIC,                   N_("Faster"),                                           "<control>equal",      N_("Slideshow Faster"),                                CB(layout_menu_slideshow_faster_cb) },
-  { "SlideShowPause",        GQ_ICON_PAUSE,                     N_("_Pause slideshow"),                                 "P",                   N_("Pause slideshow"),                                 CB(layout_menu_slideshow_pause_cb) },
-  { "SlideShowSlower",       GQ_ICON_GENERIC,                   N_("Slower"),                                           "<control>minus",      N_("Slideshow Slower"),                                CB(layout_menu_slideshow_slower_cb) },
   { "SplitDownPane",         nullptr,                           N_("_Down Pane"),                                       "<alt>Down",           N_("Down Split Pane"),                                 CB(layout_menu_split_pane_updown_cb) },
   { "SplitMenu",             nullptr,                           N_("Spli_t"),                                           nullptr,               nullptr,                                               nullptr },
   { "SplitNextPane",         nullptr,                           N_("_Next Pane"),                                       "<alt>Right",          N_("Next Split Pane"),                                 CB(layout_menu_split_pane_next_cb) },
@@ -2827,11 +2678,9 @@ static GtkToggleActionEntry menu_toggle_entries[] = {
   { "OverUnderExposed",        PIXBUF_INLINE_ICON_EXPOSURE,          N_("Over/Under Exposed"),       "<shift>E",        N_("Highlight over/under exposed"),  CB(layout_menu_select_overunderexposed_cb),  FALSE  },
   { "RectangularSelection",    PIXBUF_INLINE_ICON_SELECT_RECTANGLE,  N_("Rectangular Selection"),    "<alt>R",          N_("Rectangular Selection"),         CB(layout_menu_rectangular_selection_cb),    FALSE  },
   { "SBar",                    PIXBUF_INLINE_ICON_PROPERTIES,        N_("_Info sidebar"),            "<control>K",      N_("Info sidebar"),                  CB(layout_menu_bar_cb),                      FALSE  },
-  { "SBarSort",                PIXBUF_INLINE_ICON_SORT,              N_("Sort _manager"),            "<shift>S",        N_("Sort manager"),                  CB(layout_menu_bar_sort_cb),                 FALSE  },
   { "ShowFileFilter",          GQ_ICON_FILE_FILTER,                  N_("Show File Filter"),         nullptr,           N_("Show File Filter"),              CB(layout_menu_file_filter_cb),              FALSE  },
   { "ShowInfoPixel",           GQ_ICON_SELECT_COLOR,                 N_("Pi_xel Info"),              nullptr,           N_("Show Pixel Info"),               CB(layout_menu_info_pixel_cb),               FALSE  },
   { "ShowMarks",               PIXBUF_INLINE_ICON_MARKS,             N_("Show _Marks"),              "M",               N_("Show Marks"),                    CB(layout_menu_marks_cb),                    FALSE  },
-  { "SlideShow",               GQ_ICON_PLAY,                         N_("Toggle _slideshow"),        "S",               N_("Toggle slideshow"),              CB(layout_menu_slideshow_cb),                FALSE  },
   { "SplitPaneSync",           PIXBUF_INLINE_SPLIT_PANE_SYNC,        N_("Split Pane Sync"),          nullptr,           N_("Split Pane Sync"),               CB(layout_menu_split_pane_sync_cb),          FALSE  },
   { "Thumbnails",              PIXBUF_INLINE_ICON_THUMB,             N_("Show _Thumbnails"),         "T",               N_("Show Thumbnails"),               CB(layout_menu_thumb_cb),                    FALSE  },
   { "UseColorProfiles",        GQ_ICON_COLOR_MANAGEMENT,             N_("Use _color profiles"),      nullptr,           N_("Use color profiles"),            CB(layout_color_menu_enable_cb),             FALSE  },
@@ -3297,10 +3146,6 @@ static gboolean layout_editors_reload_idle_cb(gpointer)
 			auto lw = static_cast<LayoutWindow *>(work->data);
 			work = work->next;
 			layout_actions_setup_editors(lw);
-			if (lw->bar_sort_enabled)
-				{
-				layout_bar_sort_toggle(lw);
-				}
 			}
 
 		DEBUG_1("%s layout_editors_reload_idle_cb: setup_editors done", get_exec_time());
@@ -3889,17 +3734,11 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	action = gq_gtk_action_group_get_action(lw->action_group, "SBar");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), layout_bar_enabled(lw));
 
-	action = gq_gtk_action_group_get_action(lw->action_group, "SBarSort");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), layout_bar_sort_enabled(lw));
-
 	action = gq_gtk_action_group_get_action(lw->action_group, "HideSelectableToolbars");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.selectable_toolbars_hidden);
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "ShowInfoPixel");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.show_info_pixel);
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "SlideShow");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), layout_image_slideshow_active(lw));
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "IgnoreAlpha");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.ignore_alpha);
@@ -3974,8 +3813,6 @@ void layout_util_sync(LayoutWindow *lw)
 {
 	layout_util_sync_views(lw);
 	layout_util_sync_thumb(lw);
-	layout_menu_collection_recent_update(lw);
-	layout_menu_collection_open_update(lw);
 }
 
 /**
@@ -4105,94 +3942,11 @@ static void layout_bar_new_selection(LayoutWindow *lw, gint count)
 	bar_notify_selection(lw->bar, count);
 }
 
-static gboolean layout_bar_sort_enabled(LayoutWindow *lw)
-{
-	return lw->bar_sort && gtk_widget_get_visible(lw->bar_sort);
-}
-
-
-static void layout_bar_sort_destroyed(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	lw->bar_sort = nullptr;
-
-/*
-    do not call layout_util_sync_views(lw) here
-    this is called either when whole layout is destroyed - no need for update
-    or when the bar is replaced - sync is called by upper function at the end of whole operation
-
-*/
-}
-
-static void layout_bar_sort_set_default(LayoutWindow *lw)
-{
-	GtkWidget *bar;
-
-	if (!lw->utility_box) return;
-
-	bar = bar_sort_new_default(lw);
-
-	layout_bar_sort_set(lw, bar);
-}
-
-static void layout_bar_sort_close(LayoutWindow *lw)
-{
-	if (lw->bar_sort)
-		{
-		bar_sort_close(lw->bar_sort);
-		lw->bar_sort = nullptr;
-		}
-}
-
-void layout_bar_sort_set(LayoutWindow *lw, GtkWidget *bar)
-{
-	if (!lw->utility_box) return;
-
-	layout_bar_sort_close(lw); /* if any */
-
-	if (!bar) return;
-	lw->bar_sort = bar;
-
-	g_signal_connect(G_OBJECT(lw->bar_sort), "destroy",
-			 G_CALLBACK(layout_bar_sort_destroyed), lw);
-
-	gq_gtk_box_pack_end(GTK_BOX(lw->utility_box), lw->bar_sort, FALSE, FALSE, 0);
-}
-
-void layout_bar_sort_toggle(LayoutWindow *lw)
-{
-	if (layout_bar_sort_enabled(lw))
-		{
-		gtk_widget_hide(lw->bar_sort);
-		}
-	else
-		{
-		if (!lw->bar_sort)
-			{
-			layout_bar_sort_set_default(lw);
-			}
-		gtk_widget_show(lw->bar_sort);
-		}
-	layout_util_sync_views(lw);
-}
-
 static void layout_bars_hide_toggle(LayoutWindow *lw)
 {
 	if (lw->options.bars_state.hidden)
 		{
 		lw->options.bars_state.hidden = FALSE;
-		if (lw->options.bars_state.sort)
-			{
-			if (lw->bar_sort)
-				{
-				gtk_widget_show(lw->bar_sort);
-				}
-			else
-				{
-				layout_bar_sort_set_default(lw);
-				}
-			}
 		if (lw->options.bars_state.info)
 			{
 			gtk_widget_show(lw->bar);
@@ -4203,7 +3957,6 @@ static void layout_bars_hide_toggle(LayoutWindow *lw)
 	else
 		{
 		lw->options.bars_state.hidden = TRUE;
-		lw->options.bars_state.sort = layout_bar_sort_enabled(lw);
 		lw->options.bars_state.info = layout_bar_enabled(lw);
 		lw->options.bars_state.tools_float = lw->options.tools_float;
 		lw->options.bars_state.tools_hidden = lw->options.tools_hidden;
@@ -4213,8 +3966,6 @@ static void layout_bars_hide_toggle(LayoutWindow *lw)
 			gtk_widget_hide(lw->bar);
 			}
 
-		if (lw->bar_sort)
-			gtk_widget_hide(lw->bar_sort);
 		layout_tools_float_set(lw, lw->options.tools_float, TRUE);
 		}
 
@@ -4256,7 +4007,6 @@ GtkWidget *layout_bars_prepare(LayoutWindow *lw, GtkWidget *image)
 
 void layout_bars_close(LayoutWindow *lw)
 {
-	layout_bar_sort_close(lw);
 	layout_bar_close(lw);
 }
 

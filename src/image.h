@@ -29,8 +29,6 @@
 
 #include "typedefs.h"
 
-struct CollectInfo;
-struct CollectionData;
 class FileData;
 struct ImageLoader;
 
@@ -113,10 +111,6 @@ struct ImageWindow
 
 	gpointer data_scroll_notify;
 
-	/* collection info */
-	CollectionData *collection;
-	CollectInfo *collection_info;
-
 	/* color profiles */
 	gboolean color_profile_enable;
 	gint color_profile_input;
@@ -184,8 +178,6 @@ void image_set_fd(ImageWindow *imd, FileData *fd);
 /* load a new image */
 void image_change_fd(ImageWindow *imd, FileData *fd, gdouble zoom);
 void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboolean lazy);
-void image_change_from_collection(ImageWindow *imd, CollectionData *cd, CollectInfo *info, gdouble zoom);
-CollectionData *image_get_collection(ImageWindow *imd, CollectInfo **info);
 void image_copy_from_image(ImageWindow *imd, ImageWindow *source);
 void image_move_from_image(ImageWindow *imd, ImageWindow *source);
 

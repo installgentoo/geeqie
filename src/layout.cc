@@ -34,7 +34,6 @@
 #include <glib-object.h>
 #include <pango/pango.h>
 
-#include "bar-sort.h"
 #include "bar.h"
 #include "compat.h"
 #include "debug.h"
@@ -715,34 +714,6 @@ void layout_status_update_info(LayoutWindow *lw, const gchar *text)
 			gint64 s_bytes = 0;
 			gchar *ss;
 
-			if (layout_image_slideshow_active(lw))
-				{
-
-				if (!layout_image_slideshow_paused(lw))
-					{
-					delay = g_string_new(_(" Slideshow ["));
-					}
-				else
-					{
-					delay = g_string_new(_(" Paused ["));
-					}
-				hrs = options->slideshow.delay / (36000);
-				min = (options->slideshow.delay -(36000 * hrs))/600;
-				sec = static_cast<gdouble>(options->slideshow.delay -(36000 * hrs)-(min * 600)) / 10;
-
-				if (hrs > 0)
-					{
-					g_string_append_printf(delay, "%dh ", hrs);
-					}
-				if (min > 0)
-					{
-					g_string_append_printf(delay, "%dm ", min);
-					}
-				g_string_append_printf(delay, "%.1fs]", sec);
-
-				ss = g_string_free(delay, FALSE);
-				}
-			else
 				{
 				ss = g_strdup("");
 				}
@@ -1075,15 +1046,6 @@ static void layout_list_sync_sort(LayoutWindow *lw)
 GList *layout_selection_list(LayoutWindow *lw)
 {
 	if (!layout_valid(&lw)) return nullptr;
-
-	if (layout_image_get_collection(lw, nullptr))
-		{
-		FileData *fd;
-
-		fd = layout_image_get_fd(lw);
-		if (fd) return g_list_append(nullptr, file_data_ref(fd));
-		return nullptr;
-		}
 
 	if (lw->vf) return vf_selection_get_list(lw->vf);
 
@@ -1948,7 +1910,6 @@ void layout_style_set(LayoutWindow *lw, gint style, const gchar *order)
 
 	/* remember state */
 
-	/* layout_image_slideshow_stop(lw); slideshow should survive */
 	layout_image_full_screen_stop(lw);
 
 	dir_fd = lw->dir_fd;
@@ -2822,7 +2783,6 @@ void layout_write_config(LayoutWindow *lw, GString *outstr, gint indent)
 	layout_write_attributes(&lw->options, outstr, indent + 1);
 	WRITE_STRING(">");
 
-	bar_sort_write_config(lw->bar_sort, outstr, indent + 1);
 	bar_write_config(lw->bar, outstr, indent + 1);
 
 	WRITE_SEPARATOR();
@@ -3027,7 +2987,6 @@ LayoutWindow *layout_new_from_config(const gchar **attribute_names, const gchar 
 	layout_set_path(lw, path);
 
 	if (use_commandline && command_line->startup_full_screen) layout_image_full_screen_start(lw);
-	if (use_commandline && command_line->startup_in_slideshow) layout_image_slideshow_start(lw);
 	if (use_commandline && command_line->log_window_show) log_window_new(lw);
 
 	g_free(path);

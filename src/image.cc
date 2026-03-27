@@ -27,8 +27,6 @@
 #include <cairo.h>
 #include <glib-object.h>
 
-#include "collect-table.h"
-#include "collect.h"
 #include "color-man.h"
 #include "compat.h"
 #include "debug.h"
@@ -417,13 +415,6 @@ void image_update_title(ImageWindow *imd)
 		{
 		g_autofree gchar *buf = image_zoom_get_as_text(imd);
 		g_string_append_printf(title, " [%s]", buf);
-		}
-
-	if (imd->collection && collection_to_number(imd->collection) >= 0)
-		{
-		const gchar *name = imd->collection->name;
-		if (!name) name = _("Untitled");
-		g_string_append_printf(title, _(" (Collection %s)"), name);
 		}
 
 	if (imd->image_fd) title = g_string_append(title, " - ");
@@ -1179,12 +1170,8 @@ static void image_change_complete(ImageWindow *imd, gdouble zoom)
 }
 
 static void image_change_real(ImageWindow *imd, FileData *fd,
-			      CollectionData *cd, CollectInfo *info, gdouble zoom)
+			      void *, void *, gdouble zoom)
 {
-
-	imd->collection = cd;
-	imd->collection_info = info;
-
 	if (imd->auto_refresh && imd->image_fd)
 		file_data_unregister_real_time_monitor(imd->image_fd);
 
@@ -1479,46 +1466,6 @@ void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboo
 	image_state_set(imd, IMAGE_STATE_IMAGE);
 }
 
-void image_change_from_collection(ImageWindow *imd, CollectionData *cd, CollectInfo *info, gdouble zoom)
-{
-	CollectWindow *cw;
-
-	if (!cd || !info || !g_list_find(cd->list, info)) return;
-
-	image_change_real(imd, info->fd, cd, info, zoom);
-	cw = collection_window_find(cd);
-	if (cw)
-		{
-		collection_table_set_focus(cw->table, info);
-		collection_table_unselect_all(cw->table);
-		collection_table_select(cw->table,info);
-		}
-
-	if (info->fd)
-		{
-		image_chain_append_end(info->fd->path);
-		}
-}
-
-CollectionData *image_get_collection(ImageWindow *imd, CollectInfo **info)
-{
-	if (collection_to_number(imd->collection) >= 0)
-		{
-		if (g_list_find(imd->collection->list, imd->collection_info) != nullptr)
-			{
-			if (info) *info = imd->collection_info;
-			}
-		else
-			{
-			if (info) *info = nullptr;
-			}
-		return imd->collection;
-		}
-
-	if (info) *info = nullptr;
-	return nullptr;
-}
-
 static void image_loader_sync_read_ahead_data(ImageLoader *il, gpointer old_data, gpointer data)
 {
 	if (g_signal_handlers_disconnect_by_func(G_OBJECT(il), (gpointer)image_read_ahead_error_cb, old_data))
@@ -1548,9 +1495,6 @@ void image_move_from_image(ImageWindow *imd, ImageWindow *source)
 	if (imd == source) return;
 
 	imd->unknown = source->unknown;
-
-	imd->collection = source->collection;
-	imd->collection_info = source->collection_info;
 
 	image_loader_free(imd->il);
 	imd->il = nullptr;
@@ -1611,9 +1555,6 @@ void image_copy_from_image(ImageWindow *imd, ImageWindow *source)
 	if (imd == source) return;
 
 	imd->unknown = source->unknown;
-
-	imd->collection = source->collection;
-	imd->collection_info = source->collection_info;
 
 	image_loader_free(imd->il);
 	imd->il = nullptr;

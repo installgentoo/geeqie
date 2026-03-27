@@ -2321,25 +2321,6 @@ static GList *pan_view_get_fd_list(PanWindow *pw)
 	return list;
 }
 
-/**
- * @brief Add file selection list to a collection
- * @param[in] widget
- * @param[in] data Index to the collection list menu item selected, or -1 for new collection
- *
- *
- */
-static void pan_pop_menu_collections_cb(GtkWidget *widget, gpointer data)
-{
-	PanWindow *pw;
-	GList *selection_list = nullptr;
-
-	pw = static_cast<PanWindow *>(submenu_item_get_data(widget));
-	selection_list = g_list_append(selection_list, pan_menu_click_fd(pw));
-	pop_menu_collections(selection_list, data);
-
-	filelist_free(selection_list);
-}
-
 static GtkWidget *pan_popup_menu(PanWindow *pw)
 {
 	GtkWidget *menu;
@@ -2407,12 +2388,6 @@ static GtkWidget *pan_popup_menu(PanWindow *pw)
 						G_CALLBACK(pan_delete_cb), pw);
 
 	menu_item_add_divider(menu);
-
-	submenu = submenu_add_collections(menu, &item,
-				G_CALLBACK(pan_pop_menu_collections_cb), pw);
-	gtk_widget_set_sensitive(item, TRUE);
-	menu_item_add_divider(menu);
-
 
 	item = menu_item_add_check(menu, _("Sort by E_xif date"), pw->exif_date_enable,
 				   G_CALLBACK(pan_exif_date_toggle_cb), pw);

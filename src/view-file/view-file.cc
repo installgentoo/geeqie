@@ -636,25 +636,6 @@ static void vf_popup_destroy_cb(GtkWidget *, gpointer data)
 	vf->editmenu_fd_list = nullptr;
 }
 
-/**
- * @brief Add file selection list to a collection
- * @param[in] widget
- * @param[in] data Index to the collection list menu item selected, or -1 for new collection
- *
- *
- */
-static void vf_pop_menu_collections_cb(GtkWidget *widget, gpointer data)
-{
-	ViewFile *vf;
-	GList *selection_list;
-
-	vf = static_cast<ViewFile *>(submenu_item_get_data(widget));
-	selection_list = vf_selection_get_list(vf);
-	pop_menu_collections(selection_list, data);
-
-	filelist_free(selection_list);
-}
-
 static void vf_pop_menu_show_star_rating_cb(GtkWidget *, gpointer data)
 {
 	auto *vf = static_cast<ViewFile *>(data);
@@ -779,11 +760,6 @@ GtkWidget *vf_pop_menu(ViewFile *vf)
 	menu_item_add_divider(menu);
 	menu_item_add_icon_sensitive(menu, _("_Find duplicates..."), GQ_ICON_FIND, active,
 				G_CALLBACK(vf_pop_menu_duplicates_cb), vf);
-	menu_item_add_divider(menu);
-
-	submenu = submenu_add_collections(menu, &item,
-				G_CALLBACK(vf_pop_menu_collections_cb), vf);
-	gtk_widget_set_sensitive(item, active);
 	menu_item_add_divider(menu);
 
 	submenu = submenu_add_sort(nullptr, G_CALLBACK(vf_pop_menu_sort_cb), vf,

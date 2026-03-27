@@ -24,14 +24,11 @@
 
 #include <glib.h>
 
-struct CollectInfo;
-struct CollectionData;
 class FileData;
 struct ImageWindow;
 
 void view_window_new(FileData *fd);
 void view_window_new_from_list(GList *list);
-void view_window_new_from_collection(CollectionData *cd, CollectInfo *info);
 
 void view_window_colors_update();
 

@@ -33,7 +33,6 @@
 #include <config.h>
 
 #include "archives.h"
-#include "collect.h"
 #include "compat.h"
 #include "debug.h"
 #include "dnd.h"
@@ -54,7 +53,6 @@
 #include "misc.h"
 #include "options.h"
 #include "pixbuf-renderer.h"
-#include "slideshow.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
 #include "ui-utildlg.h"
@@ -154,136 +152,6 @@ gboolean layout_image_full_screen_active(LayoutWindow *lw)
 	if (!layout_valid(&lw)) return FALSE;
 
 	return (lw->full_screen != nullptr);
-}
-
-/*
- *----------------------------------------------------------------------------
- * slideshow
- *----------------------------------------------------------------------------
- */
-
-static void layout_image_slideshow_next(LayoutWindow *lw)
-{
-	if (lw->slideshow) slideshow_next(lw->slideshow);
-}
-
-static void layout_image_slideshow_prev(LayoutWindow *lw)
-{
-	if (lw->slideshow) slideshow_prev(lw->slideshow);
-}
-
-static void layout_image_slideshow_stop_func(SlideShowData *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	lw->slideshow = nullptr;
-	layout_status_update_info(lw, nullptr);
-}
-
-void layout_image_slideshow_start(LayoutWindow *lw)
-{
-	CollectionData *cd;
-	CollectInfo *info;
-
-	if (!layout_valid(&lw)) return;
-	if (lw->slideshow) return;
-
-	cd = image_get_collection(lw->image, &info);
-
-	if (cd && info)
-		{
-		lw->slideshow = slideshow_start_from_collection(lw, nullptr, cd,
-				layout_image_slideshow_stop_func, lw, info);
-		}
-	else
-		{
-		lw->slideshow = slideshow_start(lw,
-				layout_list_get_index(lw, layout_image_get_fd(lw)),
-				layout_image_slideshow_stop_func, lw);
-		}
-
-	layout_status_update_info(lw, nullptr);
-}
-
-/* note that slideshow will take ownership of the list, do not free it */
-void layout_image_slideshow_start_from_list(LayoutWindow *lw, GList *list)
-{
-	if (!layout_valid(&lw)) return;
-
-	if (lw->slideshow || !list)
-		{
-		filelist_free(list);
-		return;
-		}
-
-	lw->slideshow = slideshow_start_from_filelist(lw, nullptr, list,
-						       layout_image_slideshow_stop_func, lw);
-
-	layout_status_update_info(lw, nullptr);
-}
-
-void layout_image_slideshow_stop(LayoutWindow *lw)
-{
-	if (!layout_valid(&lw)) return;
-
-	if (!lw->slideshow) return;
-
-	slideshow_free(lw->slideshow);
-	/* the stop_func sets lw->slideshow to NULL for us */
-}
-
-void layout_image_slideshow_toggle(LayoutWindow *lw)
-{
-	if (!layout_valid(&lw)) return;
-
-	if (lw->slideshow)
-		{
-		layout_image_slideshow_stop(lw);
-		}
-	else
-		{
-		layout_image_slideshow_start(lw);
-		}
-}
-
-gboolean layout_image_slideshow_active(LayoutWindow *lw)
-{
-	if (!layout_valid(&lw)) return FALSE;
-
-	return (lw->slideshow != nullptr);
-}
-
-gboolean layout_image_slideshow_pause_toggle(LayoutWindow *lw)
-{
-	gboolean ret;
-
-	if (!layout_valid(&lw)) return FALSE;
-
-	ret = slideshow_pause_toggle(lw->slideshow);
-
-	layout_status_update_info(lw, nullptr);
-
-	return ret;
-}
-
-gboolean layout_image_slideshow_paused(LayoutWindow *lw)
-{
-	if (!layout_valid(&lw)) return FALSE;
-
-	return (slideshow_paused(lw->slideshow));
-}
-
-static gboolean layout_image_slideshow_continue_check(LayoutWindow *lw)
-{
-	if (!lw->slideshow) return FALSE;
-
-	if (!slideshow_should_continue(lw->slideshow))
-		{
-		layout_image_slideshow_stop(lw);
-		return FALSE;
-		}
-
-	return TRUE;
 }
 
 /*
@@ -658,27 +526,6 @@ static void li_pop_menu_move_to_trash_cb(GtkWidget *widget, gpointer data)
 			 li_pop_menu_click_parent(widget, lw));
 }
 
-static void li_pop_menu_slide_start_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_slideshow_start(lw);
-}
-
-static void li_pop_menu_slide_stop_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_slideshow_stop(lw);
-}
-
-static void li_pop_menu_slide_pause_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_slideshow_pause_toggle(lw);
-}
-
 static void li_pop_menu_full_screen_cb(GtkWidget *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -769,25 +616,6 @@ static GList *layout_image_get_fd_list(LayoutWindow *lw)
 	return list;
 }
 
-/**
- * @brief Add file selection list to a collection
- * @param[in] widget
- * @param[in] data Index to the collection list menu item selected, or -1 for new collection
- *
- *
- */
-static void layout_pop_menu_collections_cb(GtkWidget *widget, gpointer data)
-{
-	LayoutWindow *lw;
-	GList *selection_list = nullptr;
-
-	lw = static_cast<LayoutWindow *>(submenu_item_get_data(widget));
-	selection_list = g_list_append(selection_list, layout_image_get_fd(lw));
-	pop_menu_collections(selection_list, data);
-
-	filelist_free(selection_list);
-}
-
 static GtkWidget *layout_image_pop_menu(LayoutWindow *lw)
 {
 	GtkWidget *menu;
@@ -862,32 +690,6 @@ static GtkWidget *layout_image_pop_menu(LayoutWindow *lw)
 	if (!path) gtk_widget_set_sensitive(item, FALSE);
 	menu_item_add_divider(menu);
 
-	submenu = submenu_add_collections(menu, &item,
-				G_CALLBACK(layout_pop_menu_collections_cb), lw);
-	gtk_widget_set_sensitive(item, TRUE);
-	menu_item_add_divider(menu);
-
-	if (layout_image_slideshow_active(lw))
-		{
-		menu_item_add(menu, _("Toggle _slideshow"), G_CALLBACK(li_pop_menu_slide_stop_cb), lw);
-		if (layout_image_slideshow_paused(lw))
-			{
-			item = menu_item_add(menu, _("Continue slides_how"),
-					     G_CALLBACK(li_pop_menu_slide_pause_cb), lw);
-			}
-		else
-			{
-			item = menu_item_add(menu, _("Pause slides_how"),
-					     G_CALLBACK(li_pop_menu_slide_pause_cb), lw);
-			}
-		}
-	else
-		{
-		menu_item_add(menu, _("Toggle _slideshow"), G_CALLBACK(li_pop_menu_slide_start_cb), lw);
-		item = menu_item_add(menu, _("Pause slides_how"), G_CALLBACK(li_pop_menu_slide_pause_cb), lw);
-		gtk_widget_set_sensitive(item, FALSE);
-		}
-
 	if (!fullscreen)
 		{
 		menu_item_add_icon(menu, _("_Full screen"), GQ_ICON_FULLSCREEN, G_CALLBACK(li_pop_menu_full_screen_cb), lw);
@@ -951,21 +753,13 @@ static void layout_image_dnd_receive(GtkWidget *widget, GdkDragContext *,
 		download_web_file(url, FALSE, lw);
 		g_free(url);
 		}
-	else if (info == TARGET_URI_LIST || info == TARGET_APP_COLLECTION_MEMBER)
+	else if (info == TARGET_URI_LIST)
 		{
-		CollectionData *source;
 		GList *list;
-		GList *info_list;
 
 		if (info == TARGET_URI_LIST)
 			{
 			list = uri_filelist_from_gtk_selection_data(selection_data);
-			source = nullptr;
-			info_list = nullptr;
-			}
-		else
-			{
-			source = collection_from_dnd_data(reinterpret_cast<const gchar *>(gtk_selection_data_get_data(selection_data)), &list, &info_list);
 			}
 
 		if (list)
@@ -988,11 +782,7 @@ static void layout_image_dnd_receive(GtkWidget *widget, GdkDragContext *,
 				g_free(base);
 
 				row = layout_list_get_index(lw, fd);
-				if (source && info_list)
-					{
-					layout_image_set_collection(lw, source, static_cast<CollectInfo *>(info_list->data));
-					}
-				else if (row == -1)
+					if (row == -1)
 					{
 					layout_image_set_fd(lw, fd);
 					}
@@ -1009,7 +799,6 @@ static void layout_image_dnd_receive(GtkWidget *widget, GdkDragContext *,
 			}
 
 		filelist_free(list);
-		g_list_free(info_list);
 		}
 }
 
@@ -1336,13 +1125,6 @@ FileData *layout_image_get_fd(LayoutWindow *lw)
 	return image_get_fd(lw->image);
 }
 
-CollectionData *layout_image_get_collection(LayoutWindow *lw, CollectInfo **info)
-{
-	if (!layout_valid(&lw)) return nullptr;
-
-	return image_get_collection(lw->image, info);
-}
-
 gint layout_image_get_index(LayoutWindow *lw)
 {
 	return layout_list_get_index(lw, image_get_fd(lw->image));
@@ -1367,7 +1149,6 @@ void layout_image_set_fd(LayoutWindow *lw, FileData *fd)
 
 
 	layout_list_sync_fd(lw, fd);
-	layout_image_slideshow_continue_check(lw);
 	layout_bars_new_image(lw);
 	layout_image_animate_new_file(lw);
 
@@ -1455,37 +1236,6 @@ void layout_image_set_index(LayoutWindow *lw, gint index)
 	layout_image_set_with_ahead(lw, fd, read_ahead_fd);
 }
 
-static void layout_image_set_collection_real(LayoutWindow *lw, CollectionData *cd, CollectInfo *info, gboolean forward)
-{
-	if (!layout_valid(&lw)) return;
-
-	image_change_from_collection(lw->image, cd, info, image_zoom_get_default(lw->image));
-	if (options->image.enable_read_ahead)
-		{
-		CollectInfo *r_info;
-		if (forward)
-			{
-			r_info = collection_next_by_info(cd, info);
-			if (!r_info) r_info = collection_prev_by_info(cd, info);
-			}
-		else
-			{
-			r_info = collection_prev_by_info(cd, info);
-			if (!r_info) r_info = collection_next_by_info(cd, info);
-			}
-		if (r_info) image_prebuffer_set(lw->image, r_info->fd);
-		}
-
-	layout_image_slideshow_continue_check(lw);
-	layout_bars_new_image(lw);
-}
-
-void layout_image_set_collection(LayoutWindow *lw, CollectionData *cd, CollectInfo *info)
-{
-	layout_image_set_collection_real(lw, cd, info, TRUE);
-	layout_list_sync_fd(lw, layout_image_get_fd(lw));
-}
-
 void layout_image_refresh(LayoutWindow *lw)
 {
 	if (!layout_valid(&lw)) return;
@@ -1537,16 +1287,8 @@ gboolean layout_image_color_profile_get_status(LayoutWindow *lw, gchar **image_p
 void layout_image_next(LayoutWindow *lw)
 {
 	gint current;
-	CollectionData *cd;
-	CollectInfo *info;
 
 	if (!layout_valid(&lw)) return;
-
-	if (layout_image_slideshow_active(lw))
-		{
-		layout_image_slideshow_next(lw);
-		return;
-		}
 
 	if (layout_selection_count(lw, nullptr) > 1)
 		{
@@ -1574,22 +1316,6 @@ void layout_image_next(LayoutWindow *lw)
 			return;
 		}
 
-	cd = image_get_collection(lw->image, &info);
-
-	if (cd && info)
-		{
-		info = collection_next_by_info(cd, info);
-		if (info)
-			{
-			layout_image_set_collection_real(lw, cd, info, TRUE);
-			}
-		else
-			{
-			image_osd_icon(lw->image, IMAGE_OSD_LAST, -1);
-			}
-		return;
-		}
-
 	current = layout_image_get_index(lw);
 
 	if (current >= 0)
@@ -1612,16 +1338,8 @@ void layout_image_next(LayoutWindow *lw)
 void layout_image_prev(LayoutWindow *lw)
 {
 	gint current;
-	CollectionData *cd;
-	CollectInfo *info;
 
 	if (!layout_valid(&lw)) return;
-
-	if (layout_image_slideshow_active(lw))
-		{
-		layout_image_slideshow_prev(lw);
-		return;
-		}
 
 	if (layout_selection_count(lw, nullptr) > 1)
 		{
@@ -1652,22 +1370,6 @@ void layout_image_prev(LayoutWindow *lw)
 			return;
 		}
 
-	cd = image_get_collection(lw->image, &info);
-
-	if (cd && info)
-		{
-		info = collection_prev_by_info(cd, info);
-		if (info)
-			{
-			layout_image_set_collection_real(lw, cd, info, FALSE);
-			}
-		else
-			{
-			image_osd_icon(lw->image, IMAGE_OSD_FIRST, -1);
-			}
-		return;
-		}
-
 	current = layout_image_get_index(lw);
 
 	if (current >= 0)
@@ -1690,23 +1392,8 @@ void layout_image_prev(LayoutWindow *lw)
 void layout_image_first(LayoutWindow *lw)
 {
 	gint current;
-	CollectionData *cd;
-	CollectInfo *info;
 
 	if (!layout_valid(&lw)) return;
-
-	cd = image_get_collection(lw->image, &info);
-
-	if (cd && info)
-		{
-		CollectInfo *first_collection;
-		first_collection = collection_get_first(cd);
-		if (first_collection != info)
-			{
-			layout_image_set_collection_real(lw, cd, first_collection, TRUE);
-			}
-		return;
-		}
 
 	current = layout_image_get_index(lw);
 	if (current != 0 && layout_list_count(lw, nullptr) > 0)
@@ -1719,23 +1406,8 @@ void layout_image_last(LayoutWindow *lw)
 {
 	gint current;
 	gint count;
-	CollectionData *cd;
-	CollectInfo *info;
 
 	if (!layout_valid(&lw)) return;
-
-	cd = image_get_collection(lw->image, &info);
-
-	if (cd && info)
-		{
-		CollectInfo *last_collection;
-		last_collection = collection_get_last(cd);
-		if (last_collection != info)
-			{
-			layout_image_set_collection_real(lw, cd, last_collection, FALSE);
-			}
-		return;
-		}
 
 	current = layout_image_get_index(lw);
 	count = layout_list_count(lw, nullptr);
@@ -2405,35 +2077,6 @@ static void layout_image_maint_renamed(LayoutWindow *lw, FileData *fd)
 		}
 }
 
-static void layout_image_maint_removed(LayoutWindow *lw, FileData *fd)
-{
-	if (fd == layout_image_get_fd(lw))
-		{
-		CollectionData *cd;
-		CollectInfo *info;
-
-		cd = image_get_collection(lw->image, &info);
-		if (cd && info)
-			{
-			CollectInfo *next_collection;
-
-			next_collection = collection_next_by_info(cd, info);
-			if (!next_collection) next_collection = collection_prev_by_info(cd, info);
-
-			if (next_collection)
-				{
-				layout_image_set_collection(lw, cd, next_collection);
-				return;
-				}
-			layout_image_set_fd(lw, nullptr);
-			}
-
-		/* the image will be set to the next image from the list soon,
-		   setting it to NULL here is not necessary*/
-		}
-}
-
-
 void layout_image_notify_cb(FileData *fd, NotifyType type, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -2449,8 +2092,6 @@ void layout_image_notify_cb(FileData *fd, NotifyType type, gpointer data)
 			layout_image_maint_renamed(lw, fd);
 			break;
 		case FILEDATA_CHANGE_DELETE:
-			layout_image_maint_removed(lw, fd);
-			break;
 		case FILEDATA_CHANGE_COPY:
 		case FILEDATA_CHANGE_UNSPECIFIED:
 		case FILEDATA_CHANGE_WRITE_METADATA:

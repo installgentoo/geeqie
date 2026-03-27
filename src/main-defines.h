@@ -43,8 +43,6 @@
 #define RC_FILE_NAME GQ_APPNAME_LC "rc.xml"
 #define DEFAULT_WINDOW_LAYOUT "default_window_layout.xml"
 
-#define GQ_COLLECTION_EXT ".gqv"
-
 // @todo Deduplicate mousewheel_scrolls processing
 #define MOUSEWHEEL_SCROLL_SIZE 20
 

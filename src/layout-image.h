@@ -27,8 +27,6 @@
 
 #include "typedefs.h"
 
-struct CollectInfo;
-struct CollectionData;
 class FileData;
 struct LayoutWindow;
 
@@ -42,7 +40,6 @@ void layout_image_set_fd(LayoutWindow *lw, FileData *fd);
 void layout_image_set_with_ahead(LayoutWindow *lw, FileData *fd, FileData *read_ahead_fd);
 
 void layout_image_set_index(LayoutWindow *lw, gint index);
-void layout_image_set_collection(LayoutWindow *lw, CollectionData *cd, CollectInfo *info);
 
 void layout_image_refresh(LayoutWindow *lw);
 
@@ -55,7 +52,6 @@ gboolean layout_image_color_profile_get_status(LayoutWindow *lw, gchar **image_p
 
 const gchar *layout_image_get_path(LayoutWindow *lw);
 FileData *layout_image_get_fd(LayoutWindow *lw);
-CollectionData *layout_image_get_collection(LayoutWindow *lw, CollectInfo **info);
 gint layout_image_get_index(LayoutWindow *lw);
 
 
@@ -88,14 +84,6 @@ void layout_image_full_screen_start(LayoutWindow *lw);
 void layout_image_full_screen_stop(LayoutWindow *lw);
 void layout_image_full_screen_toggle(LayoutWindow *lw);
 gboolean layout_image_full_screen_active(LayoutWindow *lw);
-
-void layout_image_slideshow_start(LayoutWindow *lw);
-void layout_image_slideshow_start_from_list(LayoutWindow *lw, GList *list);
-void layout_image_slideshow_stop(LayoutWindow *lw);
-void layout_image_slideshow_toggle(LayoutWindow *lw);
-gboolean layout_image_slideshow_active(LayoutWindow *lw);
-gboolean layout_image_slideshow_pause_toggle(LayoutWindow *lw);
-gboolean layout_image_slideshow_paused(LayoutWindow *lw);
 
 void layout_image_animate_toggle(LayoutWindow *lw);
 

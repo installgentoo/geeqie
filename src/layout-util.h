@@ -66,9 +66,6 @@ void layout_keyboard_init(LayoutWindow *lw, GtkWidget *window);
 void layout_bar_toggle(LayoutWindow *lw);
 void layout_bar_set(LayoutWindow *lw, GtkWidget *bar);
 
-void layout_bar_sort_toggle(LayoutWindow *lw);
-void layout_bar_sort_set(LayoutWindow *lw, GtkWidget *bar);
-
 void layout_bars_new_image(LayoutWindow *lw);
 void layout_bars_new_selection(LayoutWindow *lw, gint count);
 

@@ -71,7 +71,6 @@
 #include "osd.h"
 #include "pixbuf-util.h"
 #include "rcfile.h"
-#include "slideshow.h"
 #include "third-party/zonedetect.h"
 #include "toolbar.h"
 #include "trash.h"
@@ -207,54 +206,6 @@ static void zoom_increment_cb(GtkWidget *spin, gpointer)
 	c_options->image.zoom_increment = static_cast<gint>(gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin)) * 100.0 + 0.01);
 }
 
-static void slideshow_delay_hours_cb(GtkWidget *spin, gpointer)
-{
-	gint mins_secs_tenths;
-	gint delay;
-
-	mins_secs_tenths = c_options->slideshow.delay %
-						(3600 * SLIDESHOW_SUBSECOND_PRECISION);
-
-	delay = (gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin)) *
-								(3600 * SLIDESHOW_SUBSECOND_PRECISION) +
-								mins_secs_tenths);
-
-	c_options->slideshow.delay = delay > 0 ? delay : SLIDESHOW_MIN_SECONDS *
-													SLIDESHOW_SUBSECOND_PRECISION;
-}
-
-static void slideshow_delay_minutes_cb(GtkWidget *spin, gpointer)
-{
-	gint hours;
-	gint secs_tenths;
-	gint delay;
-
-	hours = c_options->slideshow.delay / (3600 * SLIDESHOW_SUBSECOND_PRECISION);
-	secs_tenths = c_options->slideshow.delay % (60 * SLIDESHOW_SUBSECOND_PRECISION);
-
-	delay = hours * (3600 * SLIDESHOW_SUBSECOND_PRECISION) +
-					(gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin)) *
-					(60 * SLIDESHOW_SUBSECOND_PRECISION) + secs_tenths);
-
-	c_options->slideshow.delay = delay > 0 ? delay : SLIDESHOW_MIN_SECONDS *
-													SLIDESHOW_SUBSECOND_PRECISION;
-}
-
-static void slideshow_delay_seconds_cb(GtkWidget *spin, gpointer)
-{
-	gint hours_mins;
-	gint delay;
-
-	hours_mins = c_options->slideshow.delay / (60 * SLIDESHOW_SUBSECOND_PRECISION);
-
-	delay = (hours_mins * (60 * SLIDESHOW_SUBSECOND_PRECISION)) +
-							static_cast<gint>(gtk_spin_button_get_value(GTK_SPIN_BUTTON(spin)) *
-							static_cast<gdouble>(SLIDESHOW_SUBSECOND_PRECISION) + 0.01);
-
-	c_options->slideshow.delay = delay > 0 ? delay : SLIDESHOW_MIN_SECONDS *
-													SLIDESHOW_SUBSECOND_PRECISION;
-}
-
 /*
  *-----------------------------------------------------------------------------
  * sync program to config window routine (private)
@@ -358,7 +309,6 @@ static void config_window_apply()
 	options->thumbnails.cache_into_dirs = c_options->thumbnails.cache_into_dirs;
 	options->thumbnails.use_exif = c_options->thumbnails.use_exif;
 	options->thumbnails.use_color_management = c_options->thumbnails.use_color_management;
-	options->thumbnails.collection_preview = c_options->thumbnails.collection_preview;
 	options->thumbnails.use_ft_metadata = c_options->thumbnails.use_ft_metadata;
 	options->thumbnails.spec_standard = c_options->thumbnails.spec_standard;
 	options->metadata.enable_metadata_dirs = c_options->metadata.enable_metadata_dirs;
@@ -372,10 +322,6 @@ static void config_window_apply()
 
 	config_entry_to_option(sidecar_ext_entry, &options->sidecar.ext, nullptr);
 	sidecar_ext_parse(options->sidecar.ext);
-
-	options->slideshow.random = c_options->slideshow.random;
-	options->slideshow.repeat = c_options->slideshow.repeat;
-	options->slideshow.delay = c_options->slideshow.delay;
 
 	options->mousewheel_scrolls = c_options->mousewheel_scrolls;
 	options->image_lm_click_nav = c_options->image_lm_click_nav;
@@ -1984,11 +1930,6 @@ static void config_tab_general(GtkWidget *notebook)
 	GtkWidget *button;
 	GtkWidget *ct_button;
 	GtkWidget *table;
-	GtkWidget *spin;
-	gint hours;
-	gint minutes;
-	gint remainder;
-	gdouble seconds;
 	GtkWidget *star_rating_entry;
 	GString *str;
 	gchar *rating_symbol;
@@ -2046,11 +1987,6 @@ static void config_tab_general(GtkWidget *notebook)
 
 	pref_checkbox_new_int(group, _("Thumbnail color management"),
 				options->thumbnails.use_color_management, &c_options->thumbnails.use_color_management);
-
-	spin = pref_spin_new_int(group, _("Collection preview:"), nullptr,
-				 1, 999, 1,
-				 options->thumbnails.collection_preview, &c_options->thumbnails.collection_preview);
-	gtk_widget_set_tooltip_text(spin, _("The maximum number of thumbnails shown in a Collection preview montage"));
 
 #if HAVE_FFMPEGTHUMBNAILER_METADATA
 	pref_checkbox_new_int(group, _("Use embedded metadata in video files as thumbnails when available"),
@@ -2127,38 +2063,6 @@ static void config_tab_general(GtkWidget *notebook)
 
 	g_string_free(str, TRUE);
 	g_free(rating_symbol);
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("Slide show"), GTK_ORIENTATION_VERTICAL);
-
-	c_options->slideshow.delay = options->slideshow.delay;
-	hours = options->slideshow.delay / (3600 * SLIDESHOW_SUBSECOND_PRECISION);
-	remainder = options->slideshow.delay % (3600 * SLIDESHOW_SUBSECOND_PRECISION);
-	minutes = remainder / (60 * SLIDESHOW_SUBSECOND_PRECISION);
-	seconds = static_cast<gdouble>(remainder % (60 * SLIDESHOW_SUBSECOND_PRECISION)) /
-											SLIDESHOW_SUBSECOND_PRECISION;
-
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-
-	spin = pref_spin_new(hbox, _("Delay between image change hrs:mins:secs.dec"), nullptr,
-										0, 23, 1.0, 0,
-										options->slideshow.delay ? hours : 0.0,
-										G_CALLBACK(slideshow_delay_hours_cb), nullptr);
-	gtk_spin_button_set_update_policy(GTK_SPIN_BUTTON(spin), GTK_UPDATE_ALWAYS);
-	spin = pref_spin_new(hbox, ":" , nullptr,
-										0, 59, 1.0, 0,
-										options->slideshow.delay ? minutes: 0.0,
-										G_CALLBACK(slideshow_delay_minutes_cb), nullptr);
-	gtk_spin_button_set_update_policy(GTK_SPIN_BUTTON(spin), GTK_UPDATE_ALWAYS);
-	spin = pref_spin_new(hbox, ":", nullptr,
-										SLIDESHOW_MIN_SECONDS, 59, 1.0, 1,
-										options->slideshow.delay ? seconds : 10.0,
-										G_CALLBACK(slideshow_delay_seconds_cb), nullptr);
-	gtk_spin_button_set_update_policy(GTK_SPIN_BUTTON(spin), GTK_UPDATE_ALWAYS);
-
-	pref_checkbox_new_int(group, _("Random"), options->slideshow.random, &c_options->slideshow.random);
-	pref_checkbox_new_int(group, _("Repeat"), options->slideshow.repeat, &c_options->slideshow.repeat);
 
 	pref_spacer(group, PREF_PAD_GROUP);
 

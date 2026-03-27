@@ -28,8 +28,6 @@
 #include <gtk/gtk.h>
 
 #include "archives.h"
-#include "collect-io.h"
-#include "collect.h"
 #include "compat.h"
 #include "debug.h"
 #include "dnd.h"
@@ -48,7 +46,6 @@
 #include "options.h"
 #include "pixbuf-util.h"
 #include "print.h"
-#include "slideshow.h"
 #include "typedefs.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
@@ -62,7 +59,6 @@ struct ViewWindow
 	GtkWidget *window;
 	ImageWindow *imd;
 	FullScreenData *fs;
-	SlideShowData *ss;
 
 	GList *list;
 	GList *list_pointer;
@@ -75,11 +71,6 @@ static GList *view_window_list = nullptr;
 static GtkWidget *view_popup_menu(ViewWindow *vw);
 static void view_fullscreen_toggle(ViewWindow *vw, gboolean force_off);
 static void view_overlay_toggle(ViewWindow *vw);
-
-static void view_slideshow_next(ViewWindow *vw);
-static void view_slideshow_prev(ViewWindow *vw);
-static void view_slideshow_start(ViewWindow *vw);
-static void view_slideshow_stop(ViewWindow *vw);
 
 static void view_window_close(ViewWindow *vw);
 
@@ -168,84 +159,6 @@ static void view_window_set_list(ViewWindow *vw, GList *list)
 	vw->list_pointer = nullptr;
 
 	vw->list = filelist_copy(list);
-}
-
-static gboolean view_window_contains_collection(ViewWindow *vw)
-{
-	CollectionData *cd;
-	CollectInfo *info;
-
-	cd = image_get_collection(view_window_active_image(vw), &info);
-
-	return (cd && info);
-}
-
-static void view_collection_step(ViewWindow *vw, gboolean next)
-{
-	ImageWindow *imd = view_window_active_image(vw);
-	CollectionData *cd;
-	CollectInfo *info;
-	CollectInfo *read_ahead_info = nullptr;
-
-	cd = image_get_collection(imd, &info);
-
-	if (!cd || !info) return;
-
-	if (next)
-		{
-		info = collection_next_by_info(cd, info);
-		if (options->image.enable_read_ahead)
-			{
-			read_ahead_info = collection_next_by_info(cd, info);
-			if (!read_ahead_info) read_ahead_info = collection_prev_by_info(cd, info);
-			}
-		}
-	else
-		{
-		info = collection_prev_by_info(cd, info);
-		if (options->image.enable_read_ahead)
-			{
-			read_ahead_info = collection_prev_by_info(cd, info);
-			if (!read_ahead_info) read_ahead_info = collection_next_by_info(cd, info);
-			}
-		}
-
-	if (info)
-		{
-		image_change_from_collection(imd, cd, info, image_zoom_get_default(imd));
-
-		if (read_ahead_info) image_prebuffer_set(imd, read_ahead_info->fd);
-		}
-
-}
-
-static void view_collection_step_to_end(ViewWindow *vw, gboolean last)
-{
-	ImageWindow *imd = view_window_active_image(vw);
-	CollectionData *cd;
-	CollectInfo *info;
-	CollectInfo *read_ahead_info = nullptr;
-
-	cd = image_get_collection(imd, &info);
-
-	if (!cd || !info) return;
-
-	if (last)
-		{
-		info = collection_get_last(cd);
-		if (options->image.enable_read_ahead) read_ahead_info = collection_prev_by_info(cd, info);
-		}
-	else
-		{
-		info = collection_get_first(cd);
-		if (options->image.enable_read_ahead) read_ahead_info = collection_next_by_info(cd, info);
-		}
-
-	if (info)
-		{
-		image_change_from_collection(imd, cd, info, image_zoom_get_default(imd));
-		if (read_ahead_info) image_prebuffer_set(imd, read_ahead_info->fd);
-		}
 }
 
 static void view_list_step(ViewWindow *vw, gboolean next)
@@ -345,33 +258,17 @@ static void view_list_step_to_end(ViewWindow *vw, gboolean last)
 
 static void view_step_next(ViewWindow *vw)
 {
-	if (vw->ss)
-		{
-		view_slideshow_next(vw);
-		}
-	else if (vw->list)
+	if (vw->list)
 		{
 		view_list_step(vw, TRUE);
-		}
-	else
-		{
-		view_collection_step(vw, TRUE);
 		}
 }
 
 static void view_step_prev(ViewWindow *vw)
 {
-	if (vw->ss)
-		{
-		view_slideshow_prev(vw);
-		}
-	else if (vw->list)
+	if (vw->list)
 		{
 		view_list_step(vw, FALSE);
-		}
-	else
-		{
-		view_collection_step(vw, FALSE);
 		}
 }
 
@@ -380,10 +277,6 @@ static void view_step_to_end(ViewWindow *vw, gboolean last)
 	if (vw->list)
 		{
 		view_list_step_to_end(vw, last);
-		}
-	else
-		{
-		view_collection_step_to_end(vw, last);
 		}
 }
 
@@ -587,19 +480,6 @@ static gboolean view_window_key_press_cb(GtkWidget * (widget), GdkEventKey *even
 			case 'R': case 'r':
 				image_reload(imd);
 				break;
-			case 'S': case 's':
-				if (vw->ss)
-					{
-					view_slideshow_stop(vw);
-					}
-				else
-					{
-					view_slideshow_start(vw);
-					}
-				break;
-			case 'P': case 'p':
-				slideshow_pause_toggle(vw->ss);
-				break;
 			case 'F': case 'f':
 			case 'V': case 'v':
 			case GDK_KEY_F11:
@@ -765,8 +645,6 @@ static void view_fullscreen_stop_func(FullScreenData *, gpointer data)
 	auto vw = static_cast<ViewWindow *>(data);
 
 	vw->fs = nullptr;
-
-	if (vw->ss) vw->ss->imd = vw->imd;
 }
 
 static void view_fullscreen_toggle(ViewWindow *vw, gboolean force_off)
@@ -788,8 +666,6 @@ static void view_fullscreen_toggle(ViewWindow *vw, gboolean force_off)
 		g_signal_connect(G_OBJECT(vw->fs->window), "key_press_event",
 				 G_CALLBACK(view_window_key_press_cb), vw);
 
-		if (vw->ss) vw->ss->imd = vw->fs->imd;
-
 		if (image_osd_get(vw->imd) & OSD_SHOW_INFO)
 			{
 			image_osd_set(vw->fs->imd, image_osd_get(vw->imd));
@@ -807,80 +683,12 @@ static void view_overlay_toggle(ViewWindow *vw)
 	image_osd_toggle(imd);
 }
 
-static void view_slideshow_next(ViewWindow *vw)
-{
-	if (vw->ss) slideshow_next(vw->ss);
-}
-
-static void view_slideshow_prev(ViewWindow *vw)
-{
-	if (vw->ss) slideshow_prev(vw->ss);
-}
-
-static void view_slideshow_stop_func(SlideShowData *, gpointer data)
-{
-	auto vw = static_cast<ViewWindow *>(data);
-	GList *work;
-	FileData *fd;
-
-	vw->ss = nullptr;
-
-	work = vw->list;
-	fd = image_get_fd(view_window_active_image(vw));
-	while (work)
-		{
-		FileData *temp;
-
-		temp = static_cast<FileData *>(work->data);
-		if (fd == temp)
-			{
-			vw->list_pointer = work;
-			work = nullptr;
-			}
-		else
-			{
-			work = work->next;
-			}
-		}
-}
-
-static void view_slideshow_start(ViewWindow *vw)
-{
-	if (!vw->ss)
-		{
-		CollectionData *cd;
-		CollectInfo *info;
-
-		if (vw->list)
-			{
-			vw->ss = slideshow_start_from_filelist(nullptr, view_window_active_image(vw),
-								filelist_copy(vw->list),
-								view_slideshow_stop_func, vw);
-			vw->list_pointer = nullptr;
-			return;
-			}
-
-		cd = image_get_collection(view_window_active_image(vw), &info);
-		if (cd && info)
-			{
-			vw->ss = slideshow_start_from_collection(nullptr, view_window_active_image(vw), cd,
-								 view_slideshow_stop_func, vw, info);
-			}
-		}
-}
-
-static void view_slideshow_stop(ViewWindow *vw)
-{
-	if (vw->ss) slideshow_free(vw->ss);
-}
-
 static void view_window_destroy_cb(GtkWidget *, gpointer data)
 {
 	auto vw = static_cast<ViewWindow *>(data);
 
 	view_window_list = g_list_remove(view_window_list, vw);
 
-	view_slideshow_stop(vw);
 	fullscreen_stop(vw->fs);
 
 	filelist_free(vw->list);
@@ -892,7 +700,6 @@ static void view_window_destroy_cb(GtkWidget *, gpointer data)
 
 static void view_window_close(ViewWindow *vw)
 {
-	view_slideshow_stop(vw);
 	view_fullscreen_toggle(vw, TRUE);
 	gq_gtk_widget_destroy(vw->window);
 }
@@ -905,7 +712,7 @@ static gboolean view_window_delete_cb(GtkWidget *, GdkEventAny *, gpointer data)
 	return TRUE;
 }
 
-static ViewWindow *real_view_window_new(FileData *fd, GList *list, CollectionData *cd, CollectInfo *info)
+static ViewWindow *real_view_window_new(FileData *fd, GList *list, void *, void *)
 {
 	ViewWindow *vw;
 	GtkAllocation req_size;
@@ -913,7 +720,7 @@ static ViewWindow *real_view_window_new(FileData *fd, GList *list, CollectionDat
 	gint w;
 	gint h;
 
-	if (!fd && !list && (!cd || !info)) return nullptr;
+	if (!fd && !list) return nullptr;
 
 	vw = g_new0(ViewWindow, 1);
 
@@ -956,20 +763,7 @@ static ViewWindow *real_view_window_new(FileData *fd, GList *list, CollectionDat
 	g_signal_connect(G_OBJECT(vw->window), "button_press_event",
 			 G_CALLBACK(view_window_press_cb), vw);
 
-	if (cd && info)
-		{
-		image_change_from_collection(vw->imd, cd, info, image_zoom_get_default(nullptr));
-		/* Grab the fd so we can correctly size the window in
-		   the call to image_load_dimensions() below. */
-		fd = info->fd;
-		if (options->image.enable_read_ahead)
-			{
-			CollectInfo * r_info = collection_next_by_info(cd, info);
-			if (!r_info) r_info = collection_prev_by_info(cd, info);
-			if (r_info) image_prebuffer_set(vw->imd, r_info->fd);
-			}
-		}
-	else if (list)
+	if (list)
 		{
 		view_window_set_list(vw, list);
 		vw->list_pointer = vw->list;
@@ -1025,44 +819,13 @@ static ViewWindow *real_view_window_new(FileData *fd, GList *list, CollectionDat
 	return vw;
 }
 
-static void view_window_collection_unref_cb(GtkWidget *, gpointer data)
-{
-	auto cd = static_cast<CollectionData *>(data);
-
-	collection_unref(cd);
-}
-
 void view_window_new(FileData *fd)
 {
 	GList *list;
 
 	if (fd)
 		{
-		if (file_extension_match(fd->path, GQ_COLLECTION_EXT))
-			{
-			ViewWindow *vw;
-			CollectionData *cd;
-			CollectInfo *info;
-
-			cd = collection_new(fd->path);
-			if (collection_load(cd, fd->path, COLLECTION_LOAD_NONE))
-				{
-				info = collection_get_first(cd);
-				}
-			else
-				{
-				collection_unref(cd);
-				cd = nullptr;
-				info = nullptr;
-				}
-			vw = real_view_window_new(nullptr, nullptr, cd, info);
-			if (vw && cd)
-				{
-				g_signal_connect(G_OBJECT(vw->window), "destroy",
-						 G_CALLBACK(view_window_collection_unref_cb), cd);
-				}
-			}
-		else if (isdir(fd->path) && filelist_read(fd, &list, nullptr))
+		if (isdir(fd->path) && filelist_read(fd, &list, nullptr))
 			{
 			list = filelist_sort_path(list);
 			list = filelist_filter(list, FALSE);
@@ -1079,11 +842,6 @@ void view_window_new(FileData *fd)
 void view_window_new_from_list(GList *list)
 {
 	real_view_window_new(nullptr, list, nullptr, nullptr);
-}
-
-void view_window_new_from_collection(CollectionData *cd, CollectInfo *info)
-{
-	real_view_window_new(nullptr, nullptr, cd, info);
 }
 
 /*
@@ -1119,18 +877,6 @@ gboolean view_window_find_image(ImageWindow *imd, gint *index, gint *total)
 		if (vw->imd == imd ||
 		    (vw->fs && vw->fs->imd == imd))
 			{
-			if (vw->ss)
-				{
-				gint n;
-				gint t;
-
-				n = g_list_length(vw->ss->list_done);
-				t = n + g_list_length(vw->ss->list);
-				if (n == 0) n = t;
-				if (index) *index = n - 1;
-				if (total) *total = t;
-				}
-			else
 				{
 				if (index) *index = g_list_position(vw->list, vw->list_pointer);
 				if (total) *total = g_list_length(vw->list);
@@ -1151,19 +897,7 @@ gboolean view_window_find_image(ImageWindow *imd, gint *index, gint *total)
 static void view_new_window_cb(GtkWidget *, gpointer data)
 {
 	auto vw = static_cast<ViewWindow *>(data);
-	CollectionData *cd;
-	CollectInfo *info;
-
-	cd = image_get_collection(vw->imd, &info);
-
-	if (cd && info)
-		{
-		view_window_new_from_collection(cd, info);
-		}
-	else
-		{
-		view_window_new(image_get_fd(vw->imd));
-		}
+	view_window_new(image_get_fd(vw->imd));
 }
 
 static void view_edit_cb(GtkWidget *widget, gpointer data)
@@ -1296,27 +1030,6 @@ static void view_fullscreen_cb(GtkWidget *, gpointer data)
 	view_fullscreen_toggle(vw, FALSE);
 }
 
-static void view_slideshow_start_cb(GtkWidget *, gpointer data)
-{
-	auto vw = static_cast<ViewWindow *>(data);
-
-	view_slideshow_start(vw);
-}
-
-static void view_slideshow_stop_cb(GtkWidget *, gpointer data)
-{
-	auto vw = static_cast<ViewWindow *>(data);
-
-	view_slideshow_stop(vw);
-}
-
-static void view_slideshow_pause_cb(GtkWidget *, gpointer data)
-{
-	auto vw = static_cast<ViewWindow *>(data);
-
-	slideshow_pause_toggle(vw->ss);
-}
-
 static void view_close_cb(GtkWidget *, gpointer data)
 {
 	auto vw = static_cast<ViewWindow *>(data);
@@ -1379,29 +1092,6 @@ static GList *view_window_get_fd_list(ViewWindow *vw)
 	return list;
 }
 
-/**
- * @brief Add file selection list to a collection
- * @param[in] widget
- * @param[in] data Index to the collection list menu item selected, or -1 for new collection
- *
- *
- */
-static void image_pop_menu_collections_cb(GtkWidget *widget, gpointer data)
-{
-	ViewWindow *vw;
-	ImageWindow *imd;
-	FileData *fd;
-	GList *selection_list = nullptr;
-
-	vw = static_cast<ViewWindow *>(submenu_item_get_data(widget));
-	imd = view_window_active_image(vw);
-	fd = image_get_fd(imd);
-	selection_list = g_list_append(selection_list, fd);
-	pop_menu_collections(selection_list, data);
-
-	filelist_free(selection_list);
-}
-
 static GtkWidget *view_popup_menu(ViewWindow *vw)
 {
 	GtkWidget *menu;
@@ -1452,33 +1142,6 @@ static GtkWidget *view_popup_menu(ViewWindow *vw)
 				G_CALLBACK(view_delete_cb), vw);
 
 	menu_item_add_divider(menu);
-
-	submenu_add_collections(menu, &item,
-				G_CALLBACK(image_pop_menu_collections_cb), vw);
-	gtk_widget_set_sensitive(item, TRUE);
-	menu_item_add_divider(menu);
-
-	if (vw->ss)
-		{
-		menu_item_add(menu, _("Toggle _slideshow"), G_CALLBACK(view_slideshow_stop_cb), vw);
-		if (slideshow_paused(vw->ss))
-			{
-			item = menu_item_add(menu, _("Continue slides_how"),
-					     G_CALLBACK(view_slideshow_pause_cb), vw);
-			}
-		else
-			{
-			item = menu_item_add(menu, _("Pause slides_how"),
-					     G_CALLBACK(view_slideshow_pause_cb), vw);
-			}
-		}
-	else
-		{
-		item = menu_item_add(menu, _("Toggle _slideshow"), G_CALLBACK(view_slideshow_start_cb), vw);
-		gtk_widget_set_sensitive(item, (vw->list != nullptr) || view_window_contains_collection(vw));
-		item = menu_item_add(menu, _("Pause slides_how"), G_CALLBACK(view_slideshow_pause_cb), vw);
-		gtk_widget_set_sensitive(item, FALSE);
-		}
 
 	if (vw->fs)
 		{
@@ -1637,11 +1300,9 @@ static void view_window_get_dnd_data(GtkWidget *, GdkDragContext *context,
 
 	imd = vw->imd;
 
-	if (info == TARGET_URI_LIST || info == TARGET_APP_COLLECTION_MEMBER)
+	if (info == TARGET_URI_LIST)
 		{
-		CollectionData *source;
 		GList *list;
-		GList *info_list;
 
 		if (info == TARGET_URI_LIST)
 			{
@@ -1664,13 +1325,6 @@ static void view_window_get_dnd_data(GtkWidget *, GdkDragContext *context,
 				}
 
 			list = filelist_filter(list, FALSE);
-
-			source = nullptr;
-			info_list = nullptr;
-			}
-		else
-			{
-			source = collection_from_dnd_data(reinterpret_cast<const gchar *>(gtk_selection_data_get_data(selection_data)), &list, &info_list);
 			}
 
 		if (list)
@@ -1680,14 +1334,8 @@ static void view_window_get_dnd_data(GtkWidget *, GdkDragContext *context,
 			fd = static_cast<FileData *>(list->data);
 			if (isfile(fd->path))
 				{
-				view_slideshow_stop(vw);
 				view_window_set_list(vw, nullptr);
 
-				if (source && info_list)
-					{
-					image_change_from_collection(imd, source, static_cast<CollectInfo *>(info_list->data), image_zoom_get_default(imd));
-					}
-				else
 					{
 					if (list->next)
 						{
@@ -1701,7 +1349,6 @@ static void view_window_get_dnd_data(GtkWidget *, GdkDragContext *context,
 				}
 			}
 		filelist_free(list);
-		g_list_free(info_list);
 		}
 }
 
@@ -1771,14 +1418,6 @@ static void view_real_removed(ViewWindow *vw, FileData *fd)
 			if (image_get_fd(imd) == image_fd)
 				{
 				view_list_step(vw, FALSE);
-				}
-			}
-		else if (view_window_contains_collection(vw))
-			{
-			view_collection_step(vw, TRUE);
-			if (image_get_fd(imd) == image_fd)
-				{
-				view_collection_step(vw, FALSE);
 				}
 			}
 		if (image_get_fd(imd) == image_fd)
