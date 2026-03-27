@@ -35,8 +35,6 @@ struct ThumbLoader;
 
 struct ViewFile
 {
-	FileViewType type; 	/**< @todo (xsdg): Turn this into a union (see VFLIST and VFICON). */
-
 	gpointer info;
 
 	GtkWidget *widget;
@@ -104,7 +102,7 @@ struct ViewFile
 
 void vf_send_update(ViewFile *vf);
 
-ViewFile *vf_new(FileViewType type, FileData *dir_fd);
+ViewFile *vf_new(FileData *dir_fd);
 
 void vf_set_status_func(ViewFile *vf, void (*func)(ViewFile *vf, gpointer data), gpointer data);
 void vf_set_thumb_status_func(ViewFile *vf, void (*func)(ViewFile *vf, gdouble val, const gchar *text, gpointer data), gpointer data);
@@ -115,7 +113,6 @@ gboolean vf_set_fd(ViewFile *vf, FileData *fd);
 gboolean vf_refresh(ViewFile *vf);
 void vf_refresh_idle(ViewFile *vf);
 
-void vf_thumb_set(ViewFile *vf, gboolean enable);
 void vf_marks_set(ViewFile *vf, gboolean enable);
 void vf_sort_set(ViewFile *vf, SortType type, gboolean ascend, gboolean case_sensitive);
 

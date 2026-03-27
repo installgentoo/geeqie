@@ -490,7 +490,6 @@ struct LayoutOptions
 	gint style;
 
 	DirViewType dir_view_type;
-	FileViewType file_view_type;
 
 	struct SortParams
 	{

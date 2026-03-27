@@ -992,11 +992,6 @@ static void layout_list_thumb_cb(ViewFile *, gdouble val, const gchar *text, gpo
 	layout_status_update_progress(lw, val, text);
 }
 
-static void layout_list_sync_thumb(LayoutWindow *lw)
-{
-	if (lw->vf) vf_thumb_set(lw->vf, lw->options.show_thumbnails);
-}
-
 static void layout_list_sync_file_filter(LayoutWindow *lw)
 {
 	if (lw->vf) vf_file_filter_set(lw->vf, lw->options.show_file_filter);
@@ -1004,7 +999,7 @@ static void layout_list_sync_file_filter(LayoutWindow *lw)
 
 static GtkWidget *layout_list_new(LayoutWindow *lw)
 {
-	lw->vf = vf_new(lw->options.file_view_type, nullptr);
+	lw->vf = vf_new(nullptr);
 	vf_set_layout(lw->vf, lw);
 
 	vf_set_status_func(lw->vf, layout_list_status_cb, lw);
@@ -1012,7 +1007,6 @@ static GtkWidget *layout_list_new(LayoutWindow *lw)
 
 	vf_marks_set(lw->vf, lw->options.show_marks);
 
-	layout_list_sync_thumb(lw);
 	layout_list_sync_file_filter(lw);
 
 	return lw->vf->widget;
@@ -1341,7 +1335,6 @@ void layout_thumb_set(LayoutWindow *lw, gboolean enable)
 	lw->options.show_thumbnails = enable;
 
 	layout_util_sync_thumb(lw);
-	layout_list_sync_thumb(lw);
 }
 
 void layout_file_filter_set(LayoutWindow *lw, gboolean enable)
@@ -1443,14 +1436,13 @@ gboolean layout_geometry_get_dividers(LayoutWindow *lw, gint *h, gint *v)
 	return TRUE;
 }
 
-void layout_views_set(LayoutWindow *lw, DirViewType dir_view_type, FileViewType file_view_type)
+void layout_views_set(LayoutWindow *lw, DirViewType dir_view_type)
 {
 	if (!layout_valid(&lw)) return;
 
-	if (lw->options.dir_view_type == dir_view_type && lw->options.file_view_type == file_view_type) return;
+	if (lw->options.dir_view_type == dir_view_type) return;
 
 	lw->options.dir_view_type = dir_view_type;
-	lw->options.file_view_type = file_view_type;
 
 	layout_style_set(lw, -1, nullptr);
 }
@@ -2618,7 +2610,6 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	layout_config_parse(lw->options.style, lw->options.order,
 			    &lw->dir_location,  &lw->file_location, &lw->image_location);
 	if (lw->options.dir_view_type > DIRVIEW_LAST) lw->options.dir_view_type = DIRVIEW_LIST;
-	if (lw->options.file_view_type > FILEVIEW_LAST) lw->options.file_view_type = FILEVIEW_LIST;
 	/* divider positions */
 
 	default_path = g_build_filename(get_rc_dir(), DEFAULT_WINDOW_LAYOUT, NULL);
@@ -2738,7 +2729,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_INT(*layout, style);
 	WRITE_NL(); WRITE_CHAR(*layout, order);
 	WRITE_NL(); WRITE_UINT(*layout, dir_view_type);
-	WRITE_NL(); WRITE_UINT(*layout, file_view_type);
 
 	WRITE_NL(); WRITE_UINT(*layout, file_view_list_sort.method);
 	WRITE_NL(); WRITE_BOOL(*layout, file_view_list_sort.ascend);
@@ -2861,7 +2851,6 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_CHAR(*layout, order)) continue;
 
 		if (READ_UINT_ENUM(*layout, dir_view_type)) continue;
-		if (READ_UINT_ENUM(*layout, file_view_type)) continue;
 		if (READ_UINT_ENUM(*layout, file_view_list_sort.method)) continue;
 		if (READ_BOOL(*layout, file_view_list_sort.ascend)) continue;
 		if (READ_BOOL(*layout, file_view_list_sort.case_sensitive)) continue;

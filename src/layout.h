@@ -221,7 +221,7 @@ gboolean layout_sort_get(LayoutWindow *lw, SortType *type, gboolean *ascend, gbo
 
 gboolean layout_geometry_get_dividers(LayoutWindow *lw, gint *h, gint *v);
 
-void layout_views_set(LayoutWindow *lw, DirViewType dir_view_type, FileViewType file_view_type);
+void layout_views_set(LayoutWindow *lw, DirViewType dir_view_type);
 
 void layout_views_set_sort_dir(LayoutWindow *lw, SortType method, gboolean ascend, gboolean case_sensitive);
 

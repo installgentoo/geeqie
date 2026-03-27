@@ -934,14 +934,6 @@ static void layout_menu_thumb_cb(GtkToggleAction *action, gpointer data)
 }
 
 
-static void layout_menu_list_cb(GtkRadioAction *action, GtkRadioAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	layout_views_set(lw, lw->options.dir_view_type, static_cast<FileViewType>(gq_gtk_radio_action_get_current_value(action)));
-}
-
 static void layout_menu_view_dir_as_cb(GtkToggleAction *action,  gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -950,11 +942,11 @@ static void layout_menu_view_dir_as_cb(GtkToggleAction *action,  gpointer data)
 
 	if (gq_gtk_toggle_action_get_active(action))
 		{
-		layout_views_set(lw, DIRVIEW_TREE, lw->options.file_view_type);
+		layout_views_set(lw, DIRVIEW_TREE);
 		}
 	else
 		{
-		layout_views_set(lw, DIRVIEW_LIST, lw->options.file_view_type);
+		layout_views_set(lw, DIRVIEW_LIST);
 		}
 }
 
@@ -2846,11 +2838,6 @@ static GtkToggleActionEntry menu_toggle_entries[] = {
   { "UseImageProfile",         nullptr,                              N_("Use profile from _image"),  nullptr,           N_("Use profile from image"),        CB(layout_color_menu_use_image_cb),          FALSE  }
 };
 
-static GtkRadioActionEntry menu_radio_entries[] = {
-  { "ViewIcons",  nullptr,  N_("Images as I_cons"),  "<control>I",  N_("View Images as Icons"),  FILEVIEW_ICON },
-  { "ViewList",   nullptr,  N_("Images as _List"),   "<control>L",  N_("View Images as List"),   FILEVIEW_LIST }
-};
-
 static GtkToggleActionEntry menu_view_dir_toggle_entries[] = {
   { "FolderTree",  nullptr,  N_("T_oggle Folder View"),  "<control>T",  N_("Toggle Folders View"),  CB(layout_menu_view_dir_as_cb),FALSE },
 };
@@ -3230,9 +3217,6 @@ void layout_actions_setup(LayoutWindow *lw)
 				     menu_entries, G_N_ELEMENTS(menu_entries), lw);
 	gq_gtk_action_group_add_toggle_actions(lw->action_group,
 					    menu_toggle_entries, G_N_ELEMENTS(menu_toggle_entries), lw);
-	gq_gtk_action_group_add_radio_actions(lw->action_group,
-					   menu_radio_entries, G_N_ELEMENTS(menu_radio_entries),
-					   0, G_CALLBACK(layout_menu_list_cb), lw);
 	gq_gtk_action_group_add_radio_actions(lw->action_group,
 					   menu_split_radio_entries, G_N_ELEMENTS(menu_split_radio_entries),
 					   0, G_CALLBACK(layout_menu_split_cb), lw);
@@ -3896,9 +3880,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	action = gq_gtk_action_group_get_action(lw->action_group, "SplitPaneSync");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.split_pane_sync);
 
-	action = gq_gtk_action_group_get_action(lw->action_group, "ViewIcons");
-	gq_gtk_radio_action_set_current_value(GTK_RADIO_ACTION(action), lw->options.file_view_type);
-
 	action = gq_gtk_action_group_get_action(lw->action_group, "CropNone");
 	gq_gtk_radio_action_set_current_value(GTK_RADIO_ACTION(action), options->rectangle_draw_aspect_ratio);
 
@@ -3987,7 +3968,6 @@ void layout_util_sync_thumb(LayoutWindow *lw)
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "Thumbnails");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.show_thumbnails);
-	g_object_set(action, "sensitive", (lw->options.file_view_type == FILEVIEW_LIST), NULL);
 }
 
 void layout_util_sync(LayoutWindow *lw)
