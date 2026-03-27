@@ -30,7 +30,6 @@
 
 #include "debug.h"
 #include "filedata.h"
-#include "histogram.h"
 #include "image-load.h"
 #include "image.h"
 #include "img-view.h"
@@ -51,8 +50,6 @@ constexpr gint IMAGE_OSD_DEFAULT_DURATION = 30;
 
 } // namespace
 
-struct HistMap;
-
 /*
  *----------------------------------------------------------------------------
  * image overlay
@@ -64,8 +61,6 @@ struct OverlayStateData {
 	ImageWindow *imd;
 	ImageState changed_states;
 	NotifyType notify;
-
-	Histogram *histogram;
 
 	OsdShowFlags show;
 	OverlayRendererFlags origin;
@@ -103,11 +98,6 @@ static OSDIcon osd_icons[] = {
 };
 
 #define OSD_DATA "overlay-data"
-
-enum {
-	HISTOGRAM_HEIGHT = 140,
-	HISTOGRAM_WIDTH =  256
-};
 
 static void image_osd_timer_schedule(OverlayStateData *osd);
 
@@ -152,71 +142,6 @@ static void image_set_osd_data(ImageWindow *imd, OverlayStateData *osd)
 	g_object_set_data(G_OBJECT(imd->pr), "IMAGE_OVERLAY_DATA", osd);
 }
 
-/*
- *----------------------------------------------------------------------------
- * image histogram
- *----------------------------------------------------------------------------
- */
-
-
-void image_osd_histogram_toggle_channel(ImageWindow *imd)
-{
-	OverlayStateData *osd = image_get_osd_data(imd);
-
-	if (!osd || !osd->histogram) return;
-
-	histogram_toggle_channel(osd->histogram);
-	image_osd_update(imd);
-}
-
-void image_osd_histogram_toggle_mode(ImageWindow *imd)
-{
-	OverlayStateData *osd = image_get_osd_data(imd);
-
-	if (!osd || !osd->histogram) return;
-
-	histogram_toggle_mode(osd->histogram);
-	image_osd_update(imd);
-}
-
-void image_osd_histogram_set_channel(ImageWindow *imd, gint chan)
-{
-	OverlayStateData *osd = image_get_osd_data(imd);
-
-	if (!osd || !osd->histogram) return;
-
-	histogram_set_channel(osd->histogram, chan);
-	image_osd_update(imd);
-}
-
-void image_osd_histogram_set_mode(ImageWindow *imd, gint mode)
-{
-	OverlayStateData *osd = image_get_osd_data(imd);
-
-	if (!osd || !osd->histogram) return;
-
-	histogram_set_mode(osd->histogram, mode);
-	image_osd_update(imd);
-}
-
-gint image_osd_histogram_get_channel(ImageWindow *imd)
-{
-	OverlayStateData *osd = image_get_osd_data(imd);
-
-	if (!osd || !osd->histogram) return HCHAN_DEFAULT;
-
-	return histogram_get_channel(osd->histogram);
-}
-
-gint image_osd_histogram_get_mode(ImageWindow *imd)
-{
-	OverlayStateData *osd = image_get_osd_data(imd);
-
-	if (!osd || !osd->histogram) return 0;
-
-	return histogram_get_mode(osd->histogram);
-}
-
 void image_osd_toggle(ImageWindow *imd)
 {
 	OsdShowFlags show;
@@ -229,13 +154,8 @@ void image_osd_toggle(ImageWindow *imd)
 		return;
 		}
 
-	if (show & OSD_SHOW_HISTOGRAM)
 		{
-		image_osd_set(imd, OSD_SHOW_NOTHING);
-		}
-	else
-		{
-		image_osd_set(imd, static_cast<OsdShowFlags>(show | OSD_SHOW_HISTOGRAM));
+		image_osd_set(imd, static_cast<OsdShowFlags>(show));
 		}
 }
 
@@ -247,8 +167,6 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 	PangoLayout *layout;
 	const gchar *name;
 	gchar *text;
-	gboolean with_hist;
-	const HistMap *histmap = nullptr;
 	ImageWindow *imd = osd->imd;
 	FileData *fd = image_get_fd(imd);
 	PangoFontDescription *font_desc;
@@ -335,34 +253,6 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 		text = g_markup_escape_text(_("Untitled"), -1);
 	}
 
-	with_hist = ((osd->show & OSD_SHOW_HISTOGRAM) && osd->histogram);
-	if (with_hist)
-		{
-		histmap = histmap_get(imd->image_fd);
-		if (!histmap)
-			{
-			histmap_start_idle(imd->image_fd);
-			with_hist = FALSE;
-			}
-		}
-
-
-	{
-		gchar *text2;
-
-		if (with_hist)
-			{
-			gchar *escaped_histogram_label = g_markup_escape_text(histogram_label(osd->histogram), -1);
-			if (*text)
-				text2 = g_strdup_printf("%s\n%s", text, escaped_histogram_label);
-			else
-				text2 = g_strdup(escaped_histogram_label);
-			g_free(escaped_histogram_label);
-			g_free(text);
-			text = text2;
-			}
-	}
-
 	font_desc = pango_font_description_from_string(options->image_overlay.font);
 	layout = gtk_widget_create_pango_layout(imd->pr, nullptr);
 	pango_layout_set_font_description(layout, font_desc);
@@ -379,12 +269,6 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 	if (width > 0) width += 10;
 	if (height > 0) height += 10;
 
-	if (with_hist)
-		{
-		if (width < HISTOGRAM_WIDTH + 10) width = HISTOGRAM_WIDTH + 10;
-		height += HISTOGRAM_HEIGHT + 5;
-		}
-
 	if (width > 0 && height > 0)
 		{
 		pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, width, height);
@@ -398,15 +282,6 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 		pixbuf_pixel_set(pixbuf, 0, height - 1, 0, 0, 0, 0);
 		pixbuf_pixel_set(pixbuf, width - 1, height - 1, 0, 0, 0, 0);
 
-		if (with_hist)
-			{
-			gint x = 5;
-			gint y = height - HISTOGRAM_HEIGHT - 5;
-			gint w = width - 10;
-
-			pixbuf_set_rect_fill(pixbuf, x, y, w, HISTOGRAM_HEIGHT, 220, 220, 220, 210);
-			histogram_draw(osd->histogram, histmap, pixbuf, x, y, w, HISTOGRAM_HEIGHT);
-			}
 		pixbuf_draw_layout(pixbuf, layout, 5, 5,
 		                   options->image_overlay.text_red, options->image_overlay.text_green, options->image_overlay.text_blue, options->image_overlay.text_alpha);
 	}
@@ -599,11 +474,8 @@ static gboolean image_osd_update_cb(gpointer data)
 
 	if (osd->show & OSD_SHOW_INFO)
 		{
-		/* redraw when the image was changed,
-		   with histogram we have to redraw also when loading is finished */
-		if (osd->changed_states & IMAGE_STATE_IMAGE ||
-		    (osd->changed_states & IMAGE_STATE_LOADING && osd->show & OSD_SHOW_HISTOGRAM) ||
-		    osd->notify & NOTIFY_HISTMAP)
+		/* redraw when the image was changed */
+		if (osd->changed_states & IMAGE_STATE_IMAGE)
 			{
 			GdkPixbuf *pixbuf;
 
@@ -732,27 +604,12 @@ static void image_osd_state_cb(ImageWindow *, ImageState state, gpointer data)
 	image_osd_update_schedule(osd, FALSE);
 }
 
-static void image_osd_notify_cb(FileData *fd, NotifyType type, gpointer data)
-{
-	auto osd = static_cast<OverlayStateData *>(data);
-
-	if ((type & (NOTIFY_HISTMAP)) && osd->imd && fd == osd->imd->image_fd)
-		{
-		DEBUG_1("Notify osd: %s %04x", fd->path, type);
-		osd->notify = static_cast<NotifyType>(osd->notify | type);
-		image_osd_update_schedule(osd, FALSE);
-		}
-}
-
-
 static void image_osd_free(OverlayStateData *osd)
 {
 	if (!osd) return;
 
 	if (osd->idle_id) g_source_remove(osd->idle_id);
 	if (osd->timer_id) g_source_remove(osd->timer_id);
-
-	file_data_unregister_notify_func(image_osd_notify_cb, osd);
 
 	if (osd->imd)
 		{
@@ -764,8 +621,6 @@ static void image_osd_free(OverlayStateData *osd)
 		image_osd_info_hide(osd);
 		image_osd_icons_hide(osd);
 		}
-
-	if (osd->histogram) histogram_free(osd->histogram);
 
 	g_free(osd);
 }
@@ -791,14 +646,11 @@ static void image_osd_enable(ImageWindow *imd, OsdShowFlags show)
 		osd->y = options->image_overlay.y;
 		osd->origin = OVL_RELATIVE;
 
-		osd->histogram = histogram_new();
-
 		osd->destroy_id = g_signal_connect(G_OBJECT(imd->pr), "destroy",
 						   G_CALLBACK(image_osd_destroy_cb), osd);
 		image_set_osd_data(imd, osd);
 
 		image_set_state_func(osd->imd, image_osd_state_cb, osd);
-		file_data_register_notify_func(image_osd_notify_cb, osd, NOTIFY_PRIORITY_LOW);
 		}
 
 	if (show & OSD_SHOW_STATUS)
@@ -824,25 +676,9 @@ OsdShowFlags image_osd_get(ImageWindow *imd)
 	return osd ? osd->show : OSD_SHOW_NOTHING;
 }
 
-Histogram *image_osd_get_histogram(ImageWindow *imd)
-{
-	OverlayStateData *osd = image_get_osd_data(imd);
-
-	return osd ? osd->histogram : nullptr;
-}
-
 void image_osd_copy_status(ImageWindow *src, ImageWindow *dest)
 {
-	Histogram *h_src;
-	Histogram *h_dest;
 	image_osd_set(dest, image_osd_get(src));
-
-	h_src = image_osd_get_histogram(src);
-	h_dest = image_osd_get_histogram(dest);
-
-	h_dest->histogram_mode = h_src->histogram_mode;
-	h_dest->histogram_channel = h_src->histogram_channel;
-
 }
 
 /* duration:

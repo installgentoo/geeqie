@@ -24,7 +24,6 @@
 
 #include <glib.h>
 
-struct Histogram;
 struct ImageWindow;
 
 enum ImageOSDFlag {
@@ -42,7 +41,6 @@ enum OsdShowFlags {
 	OSD_SHOW_NOTHING	= 0,
 	OSD_SHOW_INFO		= 1 << 0,
 	OSD_SHOW_STATUS		= 1 << 1,
-	OSD_SHOW_HISTOGRAM	= 1 << 2
 };
 
 void set_image_overlay_template_string(gchar **template_string, const gchar *value);
@@ -52,20 +50,11 @@ void set_image_overlay_font_string(gchar **font_string, const gchar *value);
 void image_osd_set(ImageWindow *imd, OsdShowFlags show);
 OsdShowFlags image_osd_get(ImageWindow *imd);
 
-Histogram *image_osd_get_histogram(ImageWindow *imd);
-
 void image_osd_copy_status(ImageWindow *src, ImageWindow *dest);
 
 void image_osd_update(ImageWindow *imd);
 
 void image_osd_icon(ImageWindow *imd, ImageOSDFlag flag, gint duration);
-
-void image_osd_histogram_toggle_channel(ImageWindow *imd);
-void image_osd_histogram_toggle_mode(ImageWindow *imd);
-void image_osd_histogram_set_channel(ImageWindow *imd, gint chan);
-void image_osd_histogram_set_mode(ImageWindow *imd, gint mode);
-gint image_osd_histogram_get_channel(ImageWindow *imd);
-gint image_osd_histogram_get_mode(ImageWindow *imd);
 
 void image_osd_toggle(ImageWindow *imd);
 

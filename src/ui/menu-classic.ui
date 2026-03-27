@@ -123,20 +123,6 @@
           <menuitem action="Zoom33"/>
           <menuitem action="Zoom25"/>
         </menu>
-        <menu action="SplitMenu">
-          <menuitem action="SplitHorizontal"/>
-          <menuitem action="SplitVertical"/>
-          <menuitem action="SplitTriple"/>
-          <menuitem action="SplitQuad"/>
-          <menuitem action="SplitSingle"/>
-          <separator/>
-          <menuitem action="SplitNextPane"/>
-          <menuitem action="SplitPreviousPane"/>
-          <menuitem action="SplitUpPane"/>
-          <menuitem action="SplitDownPane"/>
-          <separator/>
-          <menuitem action="SplitPaneSync"/>
-        </menu>
         <menu action="ColorMenu">
           <menuitem action="UseColorProfiles"/>
           <menuitem action="UseImageProfile"/>
@@ -151,19 +137,7 @@
         </menu>
         <menu action="OverlayMenu">
           <menuitem action="ImageOverlay"/>
-          <menuitem action="ImageHistogram"/>
           <menuitem action="ImageOverlayCycle"/>
-          <separator/>
-          <menuitem action="HistogramChanR"/>
-          <menuitem action="HistogramChanG"/>
-          <menuitem action="HistogramChanB"/>
-          <menuitem action="HistogramChanRGB"/>
-          <menuitem action="HistogramChanV"/>
-          <menuitem action="HistogramChanCycle"/>
-          <separator/>
-          <menuitem action="HistogramModeLin"/>
-          <menuitem action="HistogramModeLog"/>
-          <menuitem action="HistogramModeCycle"/>
         </menu>
         <menuitem action="OverUnderExposed"/>
         <menuitem action="FullScreen"/>

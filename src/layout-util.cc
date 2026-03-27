@@ -46,7 +46,6 @@
 #include "editors.h"
 #include "filedata.h"
 #include "fullscreen.h"
-#include "histogram.h"
 #include "history-list.h"
 #include "image-overlay.h"
 #include "image.h"
@@ -446,13 +445,6 @@ static void layout_menu_exif_rotate_cb(GtkToggleAction *action, gpointer data)
 	layout_image_reset_orientation(lw);
 }
 
-static void layout_menu_split_pane_sync_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	lw->options.split_pane_sync = gq_gtk_toggle_action_get_active(action);
-}
-
 static void layout_menu_select_overunderexposed_cb(GtkToggleAction *action, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -667,16 +659,6 @@ static void layout_menu_connect_zoom_1_4_cb(GtkAction *, gpointer data)
 	layout_image_zoom_set(lw, -4.0, TRUE);
 }
 
-static void layout_menu_split_cb(GtkRadioAction *action, GtkRadioAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	ImageSplitMode mode;
-
-	layout_exit_fullscreen(lw);
-	mode = static_cast<ImageSplitMode>(gq_gtk_radio_action_get_current_value(action));
-	layout_split_change(lw, mode);
-}
-
 
 static void layout_menu_thumb_cb(GtkToggleAction *action, gpointer data)
 {
@@ -861,27 +843,7 @@ static void layout_menu_overlay_cb(GtkToggleAction *action, gpointer data)
 		}
 	else
 		{
-		GtkToggleAction *histogram_action = GTK_TOGGLE_ACTION(gq_gtk_action_group_get_action(lw->action_group, "ImageHistogram"));
-
 		image_osd_set(lw->image, OSD_SHOW_NOTHING);
-		gq_gtk_toggle_action_set_active(histogram_action, FALSE); /* this calls layout_menu_histogram_cb */
-		}
-}
-
-static void layout_menu_histogram_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (gq_gtk_toggle_action_get_active(action))
-		{
-		image_osd_set(lw->image, static_cast<OsdShowFlags>(OSD_SHOW_INFO | OSD_SHOW_STATUS | OSD_SHOW_HISTOGRAM));
-		layout_util_sync_views(lw); /* show the overlay state, default channel and mode in the menu */
-		}
-	else
-		{
-		OsdShowFlags flags = image_osd_get(lw->image);
-		if (flags & OSD_SHOW_HISTOGRAM)
-			image_osd_set(lw->image, static_cast<OsdShowFlags>(flags & ~OSD_SHOW_HISTOGRAM));
 		}
 }
 
@@ -896,46 +858,6 @@ static void layout_menu_animate_cb(GtkToggleAction *action, gpointer data)
 static void layout_menu_rectangular_selection_cb(GtkToggleAction *action, gpointer)
 {
 	options->collections.rectangular_selection = gq_gtk_toggle_action_get_active(action);
-}
-
-static void layout_menu_histogram_toggle_channel_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	image_osd_histogram_toggle_channel(lw->image);
-	layout_util_sync_views(lw);
-}
-
-static void layout_menu_histogram_toggle_mode_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	image_osd_histogram_toggle_mode(lw->image);
-	layout_util_sync_views(lw);
-}
-
-static void layout_menu_histogram_channel_cb(GtkRadioAction *action, GtkRadioAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint channel = gq_gtk_radio_action_get_current_value(action);
-	GtkToggleAction *histogram_action = GTK_TOGGLE_ACTION(gq_gtk_action_group_get_action(lw->action_group, "ImageHistogram"));
-
-	if (channel < 0 || channel >= HCHAN_COUNT) return;
-
-	gq_gtk_toggle_action_set_active(histogram_action, TRUE); /* this calls layout_menu_histogram_cb */
-	image_osd_histogram_set_channel(lw->image, channel);
-}
-
-static void layout_menu_histogram_mode_cb(GtkRadioAction *action, GtkRadioAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint mode = gq_gtk_radio_action_get_current_value(action);
-	GtkToggleAction *histogram_action = GTK_TOGGLE_ACTION(gq_gtk_action_group_get_action(lw->action_group, "ImageHistogram"));
-
-	if (mode < 0 || mode > 1) return;
-
-	gq_gtk_toggle_action_set_active(histogram_action, TRUE); /* this calls layout_menu_histogram_cb */
-	image_osd_histogram_set_mode(lw->image, mode);
 }
 
 static void layout_menu_refresh_cb(GtkAction *, gpointer data)
@@ -1291,19 +1213,6 @@ static void layout_menu_image_prev_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	if (lw->options.split_pane_sync)
-		{
-		for (gint i = 0; i < MAX_SPLIT_IMAGES; i++)
-			{
-			if (lw->split_images[i])
-				{
-				DEBUG_1("image activate scroll %d", i);
-				layout_image_activate(lw, i, FALSE);
-				layout_image_prev(lw);
-				}
-			}
-		}
-	else
 		{
 		layout_image_prev(lw);
 		}
@@ -1313,19 +1222,6 @@ static void layout_menu_image_next_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	if (lw->options.split_pane_sync)
-		{
-		for (gint i = 0; i < MAX_SPLIT_IMAGES; i++)
-			{
-			if (lw->split_images[i])
-				{
-				DEBUG_1("image activate scroll %d", i);
-				layout_image_activate(lw, i, FALSE);
-				layout_image_next(lw);
-				}
-			}
-		}
-	else
 		{
 		layout_image_next(lw);
 		}
@@ -1389,64 +1285,6 @@ static void layout_menu_image_back_cb(GtkAction *, gpointer data)
 
 	/* Obtain previous image */
 	layout_set_path(lw, image_chain_back());
-}
-
-static void layout_menu_split_pane_next_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint active_frame;
-
-	active_frame = lw->active_split_image;
-
-	if (active_frame < MAX_SPLIT_IMAGES-1 && lw->split_images[active_frame+1] )
-		{
-		active_frame++;
-		}
-	else
-		{
-		active_frame = 0;
-		}
-	layout_image_activate(lw, active_frame, FALSE);
-}
-
-static void layout_menu_split_pane_prev_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint active_frame;
-
-	active_frame = lw->active_split_image;
-
-	if (active_frame >=1 && lw->split_images[active_frame-1] )
-		{
-		active_frame--;
-		}
-	else
-		{
-		active_frame = MAX_SPLIT_IMAGES-1;
-		while (!lw->split_images[active_frame])
-			{
-			active_frame--;
-			}
-		}
-	layout_image_activate(lw, active_frame, FALSE);
-}
-
-static void layout_menu_split_pane_updown_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint active_frame;
-
-	active_frame = lw->active_split_image;
-
-	if (lw->split_images[MAX_SPLIT_IMAGES-1] )
-		{
-		active_frame = active_frame ^ 2;
-		}
-	else
-		{
-		active_frame = active_frame ^ 1;
-		}
-	layout_image_activate(lw, active_frame, FALSE);
 }
 
 static void layout_menu_image_last_cb(GtkAction *, gpointer data)
@@ -2158,8 +1996,6 @@ static GtkActionEntry menu_entries[] = {
   { "HelpSearch",            nullptr,                           N_("On-line help search"),                              nullptr,               N_("On-line help search"),                             CB(layout_menu_help_search_cb) },
   { "HelpShortcuts",         nullptr,                           N_("_Keyboard shortcuts"),                              nullptr,               N_("Keyboard shortcuts"),                              CB(layout_menu_help_keys_cb) },
   { "HideTools",             PIXBUF_INLINE_ICON_HIDETOOLS,      N_("_Hide file list"),                                  "<control>H",          N_("Hide file list"),                                  CB(layout_menu_hide_cb) },
-  { "HistogramChanCycle",    nullptr,                           N_("Cycle through histogram ch_annels"),                "K",                   N_("Cycle through histogram channels"),                CB(layout_menu_histogram_toggle_channel_cb) },                                                         
-  { "HistogramModeCycle",    nullptr,                           N_("Cycle through histogram mo_des"),                   "J",                   N_("Cycle through histogram modes"),                   CB(layout_menu_histogram_toggle_mode_cb) },            
   { "Home",                  GQ_ICON_HOME,                      N_("_Home"),                                            nullptr,               N_("Home"),                                            CB(layout_menu_home_cb) },
   { "ImageBack",             GQ_ICON_GO_FIRST,                  N_("Image Back"),                                       nullptr,               N_("Back in image history"),                           CB(layout_menu_image_back_cb) },
   { "ImageForward",          GQ_ICON_GO_LAST,                   N_("Image Forward"),                                    nullptr,               N_("Forward in image history"),                        CB(layout_menu_image_forward_cb) },
@@ -2208,11 +2044,6 @@ static GtkActionEntry menu_entries[] = {
   { "SelectInvert",          PIXBUF_INLINE_ICON_SELECT_INVERT,  N_("_Invert Selection"),                                "<control><shift>I",   N_("Invert Selection"),                                CB(layout_menu_invert_selection_cb) },
   { "SelectMenu",            nullptr,                           N_("_Select"),                                          nullptr,               nullptr,                                               nullptr },
   { "SelectNone",            PIXBUF_INLINE_ICON_SELECT_NONE,    N_("Select _none"),                                     "<control><shift>A",   N_("Select none"),                                     CB(layout_menu_unselect_all_cb) },
-  { "SplitDownPane",         nullptr,                           N_("_Down Pane"),                                       "<alt>Down",           N_("Down Split Pane"),                                 CB(layout_menu_split_pane_updown_cb) },
-  { "SplitMenu",             nullptr,                           N_("Spli_t"),                                           nullptr,               nullptr,                                               nullptr },
-  { "SplitNextPane",         nullptr,                           N_("_Next Pane"),                                       "<alt>Right",          N_("Next Split Pane"),                                 CB(layout_menu_split_pane_next_cb) },
-  { "SplitPreviousPane",     nullptr,                           N_("_Previous Pane"),                                   "<alt>Left",           N_("Previous Split Pane"),                             CB(layout_menu_split_pane_prev_cb) },
-  { "SplitUpPane",           nullptr,                           N_("_Up Pane"),                                         "<alt>Up",             N_("Up Split Pane"),                                   CB(layout_menu_split_pane_updown_cb) },
   { "Up",                    GQ_ICON_GO_UP,                     N_("_Up"),                                              nullptr,               N_("Up one folder"),                                   CB(layout_menu_up_cb) },
   { "ViewInNewWindow",       nullptr,                           N_("_View in new window"),                              "<control>V",          N_("View in new window"),                              CB(layout_menu_view_in_new_window_cb) },
   { "ViewMenu",              nullptr,                           N_("_View"),                                            nullptr,               nullptr,                                               CB(layout_menu_view_menu_cb)  },
@@ -2245,14 +2076,12 @@ static GtkToggleActionEntry menu_toggle_entries[] = {
   { "HideBars",                nullptr,                              N_("Hide Bars and Files"),      "grave",           N_("Hide Bars and Files"),           CB(layout_menu_hide_bars_cb),                FALSE  },
   { "HideSelectableToolbars",  nullptr,                              N_("Hide Selectable Bars"),     "<control>grave",  N_("Hide Selectable Bars"),          CB(layout_menu_selectable_toolbars_cb),      FALSE  },
   { "IgnoreAlpha",             GQ_ICON_STRIKETHROUGH,                N_("Hide _alpha"),              "<shift>A",        N_("Hide alpha channel"),            CB(layout_menu_alter_ignore_alpha_cb),       FALSE  },
-  { "ImageHistogram",          nullptr,                              N_("_Show Histogram"),          nullptr,           N_("Show Histogram"),                CB(layout_menu_histogram_cb),                FALSE  },
   { "ImageOverlay",            nullptr,                              N_("Image _Overlay"),           nullptr,           N_("Image Overlay"),                 CB(layout_menu_overlay_cb),                  FALSE  },
   { "OverUnderExposed",        PIXBUF_INLINE_ICON_EXPOSURE,          N_("Over/Under Exposed"),       "<shift>E",        N_("Highlight over/under exposed"),  CB(layout_menu_select_overunderexposed_cb),  FALSE  },
   { "RectangularSelection",    PIXBUF_INLINE_ICON_SELECT_RECTANGLE,  N_("Rectangular Selection"),    "<alt>R",          N_("Rectangular Selection"),         CB(layout_menu_rectangular_selection_cb),    FALSE  },
   { "SBar",                    PIXBUF_INLINE_ICON_PROPERTIES,        N_("_Info sidebar"),            "<control>K",      N_("Info sidebar"),                  CB(layout_menu_bar_cb),                      FALSE  },
   { "ShowFileFilter",          GQ_ICON_FILE_FILTER,                  N_("Show File Filter"),         nullptr,           N_("Show File Filter"),              CB(layout_menu_file_filter_cb),              FALSE  },
   { "ShowInfoPixel",           GQ_ICON_SELECT_COLOR,                 N_("Pi_xel Info"),              nullptr,           N_("Show Pixel Info"),               CB(layout_menu_info_pixel_cb),               FALSE  },
-  { "SplitPaneSync",           PIXBUF_INLINE_SPLIT_PANE_SYNC,        N_("Split Pane Sync"),          nullptr,           N_("Split Pane Sync"),               CB(layout_menu_split_pane_sync_cb),          FALSE  },
   { "Thumbnails",              PIXBUF_INLINE_ICON_THUMB,             N_("Show _Thumbnails"),         "T",               N_("Show Thumbnails"),               CB(layout_menu_thumb_cb),                    FALSE  },
   { "UseColorProfiles",        GQ_ICON_COLOR_MANAGEMENT,             N_("Use _color profiles"),      nullptr,           N_("Use color profiles"),            CB(layout_color_menu_enable_cb),             FALSE  },
   { "UseImageProfile",         nullptr,                              N_("Use profile from _image"),  nullptr,           N_("Use profile from image"),        CB(layout_color_menu_use_image_cb),          FALSE  }
@@ -2262,14 +2091,6 @@ static GtkToggleActionEntry menu_view_dir_toggle_entries[] = {
   { "FolderTree",  nullptr,  N_("T_oggle Folder View"),  "<control>T",  N_("Toggle Folders View"),  CB(layout_menu_view_dir_as_cb),FALSE },
 };
 
-static GtkRadioActionEntry menu_split_radio_entries[] = {
-  { "SplitHorizontal",  nullptr,  N_("_Horizontal"),  "E",      N_("Split panes horizontal."),  SPLIT_HOR },
-  { "SplitQuad",        nullptr,  N_("_Quad"),        nullptr,  N_("Split panes quad"),         SPLIT_QUAD },
-  { "SplitSingle",      nullptr,  N_("_Single"),      "Y",      N_("Single pane"),              SPLIT_NONE },
-  { "SplitTriple",      nullptr,  N_("_Triple"),      nullptr,  N_("Split panes triple"),       SPLIT_TRIPLE },
-  { "SplitVertical",    nullptr,  N_("_Vertical"),    "U",      N_("Split panes vertical"),     SPLIT_VERT }
-};
-
 static GtkRadioActionEntry menu_color_radio_entries[] = {
   { "ColorProfile0",  nullptr,  N_("Input _0: sRGB"),                 nullptr,  N_("Input 0: sRGB"),                 COLOR_PROFILE_SRGB },
   { "ColorProfile1",  nullptr,  N_("Input _1: AdobeRGB compatible"),  nullptr,  N_("Input 1: AdobeRGB compatible"),  COLOR_PROFILE_ADOBERGB },
@@ -2277,19 +2098,6 @@ static GtkRadioActionEntry menu_color_radio_entries[] = {
   { "ColorProfile3",  nullptr,  N_("Input _3"),                       nullptr,  N_("Input 3"),                       COLOR_PROFILE_FILE + 1 },
   { "ColorProfile4",  nullptr,  N_("Input _4"),                       nullptr,  N_("Input 4"),                       COLOR_PROFILE_FILE + 2 },
   { "ColorProfile5",  nullptr,  N_("Input _5"),                       nullptr,  N_("Input 5"),                       COLOR_PROFILE_FILE + 3 }
-};
-
-static GtkRadioActionEntry menu_histogram_channel[] = {
-  { "HistogramChanB",    nullptr,  N_("Histogram on _Blue"),   nullptr,  N_("Histogram on Blue"),   HCHAN_B },
-  { "HistogramChanG",    nullptr,  N_("Histogram on _Green"),  nullptr,  N_("Histogram on Green"),  HCHAN_G },
-  { "HistogramChanRGB",  nullptr,  N_("_Histogram on RGB"),    nullptr,  N_("Histogram on RGB"),    HCHAN_RGB },
-  { "HistogramChanR",    nullptr,  N_("Histogram on _Red"),    nullptr,  N_("Histogram on Red"),    HCHAN_R },
-  { "HistogramChanV",    nullptr,  N_("Histogram on _Value"),  nullptr,  N_("Histogram on Value"),  HCHAN_MAX }
-};
-
-static GtkRadioActionEntry menu_histogram_mode[] = {
-  { "HistogramModeLin",  nullptr,  N_("Li_near Histogram"),  nullptr,  N_("Linear Histogram"),  0 },
-  { "HistogramModeLog",  nullptr,  N_("_Log Histogram"),     nullptr,  N_("Log Histogram"),     1 },
 };
 
 #undef CB
@@ -2510,21 +2318,12 @@ void layout_actions_setup(LayoutWindow *lw)
 				     menu_entries, G_N_ELEMENTS(menu_entries), lw);
 	gq_gtk_action_group_add_toggle_actions(lw->action_group,
 					    menu_toggle_entries, G_N_ELEMENTS(menu_toggle_entries), lw);
-	gq_gtk_action_group_add_radio_actions(lw->action_group,
-					   menu_split_radio_entries, G_N_ELEMENTS(menu_split_radio_entries),
-					   0, G_CALLBACK(layout_menu_split_cb), lw);
 	gq_gtk_action_group_add_toggle_actions(lw->action_group,
 					   menu_view_dir_toggle_entries, G_N_ELEMENTS(menu_view_dir_toggle_entries),
 					    lw);
 	gq_gtk_action_group_add_radio_actions(lw->action_group,
 					   menu_color_radio_entries, COLOR_PROFILE_FILE + COLOR_PROFILE_INPUTS,
 					   0, G_CALLBACK(layout_color_menu_input_cb), lw);
-	gq_gtk_action_group_add_radio_actions(lw->action_group,
-					   menu_histogram_channel, G_N_ELEMENTS(menu_histogram_channel),
-					   0, G_CALLBACK(layout_menu_histogram_channel_cb), lw);
-	gq_gtk_action_group_add_radio_actions(lw->action_group,
-					   menu_histogram_mode, G_N_ELEMENTS(menu_histogram_mode),
-					   0, G_CALLBACK(layout_menu_histogram_mode_cb), lw);
 
 
 	lw->ui_manager = gq_gtk_ui_manager_new();
@@ -3134,21 +2933,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	action = gq_gtk_action_group_get_action(lw->action_group, "FolderTree");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.dir_view_type);
 
-	action = gq_gtk_action_group_get_action(lw->action_group, "SplitSingle");
-	gq_gtk_radio_action_set_current_value(GTK_RADIO_ACTION(action), lw->split_mode);
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "SplitNextPane");
-	gq_gtk_action_set_sensitive(action, !(lw->split_mode == SPLIT_NONE));
-	action = gq_gtk_action_group_get_action(lw->action_group, "SplitPreviousPane");
-	gq_gtk_action_set_sensitive(action, !(lw->split_mode == SPLIT_NONE));
-	action = gq_gtk_action_group_get_action(lw->action_group, "SplitUpPane");
-	gq_gtk_action_set_sensitive(action, !(lw->split_mode == SPLIT_NONE));
-	action = gq_gtk_action_group_get_action(lw->action_group, "SplitDownPane");
-	gq_gtk_action_set_sensitive(action, !(lw->split_mode == SPLIT_NONE));
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "SplitPaneSync");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.split_pane_sync);
-
 	action = gq_gtk_action_group_get_action(lw->action_group, "FloatTools");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.tools_float);
 
@@ -3170,9 +2954,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	action = gq_gtk_action_group_get_action(lw->action_group, "ImageOverlay");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), osd_flags != OSD_SHOW_NOTHING);
 
-	action = gq_gtk_action_group_get_action(lw->action_group, "ImageHistogram");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), osd_flags & OSD_SHOW_HISTOGRAM);
-
 	action = gq_gtk_action_group_get_action(lw->action_group, "ExifRotate");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), options->image.exif_rotate_enable);
 
@@ -3188,17 +2969,7 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	action = gq_gtk_action_group_get_action(lw->action_group, "HideBars");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), (lw->options.bars_state.hidden));
 
-	if (osd_flags & OSD_SHOW_HISTOGRAM)
-		{
-		action = gq_gtk_action_group_get_action(lw->action_group, "HistogramChanR");
-		gq_gtk_radio_action_set_current_value(GTK_RADIO_ACTION(action), image_osd_histogram_get_channel(lw->image));
-
-		action = gq_gtk_action_group_get_action(lw->action_group, "HistogramModeLin");
-		gq_gtk_radio_action_set_current_value(GTK_RADIO_ACTION(action), image_osd_histogram_get_mode(lw->image));
-		}
-
 	action = gq_gtk_action_group_get_action(lw->action_group, "ConnectZoomMenu");
-	gq_gtk_action_set_sensitive(action, lw->split_mode != SPLIT_NONE);
 
 	layout_util_sync_color(lw);
 	layout_image_set_ignore_alpha(lw, lw->options.ignore_alpha);

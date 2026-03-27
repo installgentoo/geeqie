@@ -63,7 +63,6 @@
 #include "filedata.h"
 #include "filefilter.h"
 #include "glua.h"
-#include "histogram.h"
 #include "history-list.h"
 #include "image.h"
 #include "img-view.h"
@@ -1137,7 +1136,6 @@ gint main(gint argc, gchar *argv[])
 	/* register global notify functions */
 	file_data_register_notify_func(cache_notify_cb, nullptr, NOTIFY_PRIORITY_HIGH);
 	file_data_register_notify_func(thumb_notify_cb, nullptr, NOTIFY_PRIORITY_HIGH);
-	file_data_register_notify_func(histogram_notify_cb, nullptr, NOTIFY_PRIORITY_HIGH);
 	file_data_register_notify_func(metadata_notify_cb, nullptr, NOTIFY_PRIORITY_LOW);
 
 

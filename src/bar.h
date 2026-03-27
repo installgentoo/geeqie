@@ -32,9 +32,7 @@ struct LayoutWindow;
 enum PaneType {
 	PANE_UNDEF = 0,
 	PANE_COMMENT,
-	PANE_EXIF,
-	PANE_HISTOGRAM,
-	PANE_GPS
+	PANE_EXIF
 };
 
 struct PaneData {

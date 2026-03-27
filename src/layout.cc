@@ -38,7 +38,6 @@
 #include "compat.h"
 #include "debug.h"
 #include "filedata.h"
-#include "histogram.h"
 #include "history-list.h"
 #include "image-overlay.h"
 #include "image.h"
@@ -1680,12 +1679,12 @@ static void layout_grid_compute(LayoutWindow *lw,
 		}
 }
 
-void layout_split_change(LayoutWindow *lw, ImageSplitMode mode)
+void layout_split_change(LayoutWindow *lw)
 {
 	GtkWidget *image;
 	gint i;
 
-	for (i = 0; i < MAX_SPLIT_IMAGES; i++)
+	for (i = 0; i < 1; i++)
 		{
 		if (lw->split_images[i])
 			{
@@ -1696,7 +1695,7 @@ void layout_split_change(LayoutWindow *lw, ImageSplitMode mode)
 		}
 	gtk_container_remove(GTK_CONTAINER(lw->utility_paned), lw->split_image_widget);
 
-	image = layout_image_setup_split(lw, mode);
+	image = layout_image_setup_split_none(lw);
 
 	gtk_paned_pack1(GTK_PANED(lw->utility_paned), image, TRUE, FALSE);
 	gtk_widget_show(image);
@@ -1735,14 +1734,14 @@ static void layout_grid_setup(LayoutWindow *lw)
 
 	if (lw->utility_box)
 		{
-		layout_split_change(lw, lw->split_mode); /* this re-creates image frame for the new configuration */
+		layout_split_change(lw); /* this re-creates image frame for the new configuration */
 		image_sb = lw->utility_box;
 		DEBUG_NAME(image_sb);
 		}
 	else
 		{
 		GtkWidget *image; /* image or split images together */
-		image = layout_image_setup_split(lw, lw->split_mode);
+		image = layout_image_setup_split_none(lw);
 		image_sb = layout_bars_prepare(lw, image);
 		DEBUG_NAME(image_sb);
 		}
@@ -1941,7 +1940,7 @@ void layout_colors_update()
 
 		if (!lw->image) continue;
 
-		for (i = 0; i < MAX_SPLIT_IMAGES; i++)
+		for (i = 0; i < 1; i++)
 			{
 			if (!lw->split_images[i]) continue;
 			image_background_set_color_from_options(lw->split_images[i], !!lw->full_screen);
@@ -2329,7 +2328,6 @@ void layout_show_config_window(LayoutWindow *lw)
 
 void layout_sync_options_with_current_state(LayoutWindow *lw)
 {
-	Histogram *histogram;
 #ifdef GDK_WINDOWING_X11
 	GdkWindow *window;
 #endif
@@ -2347,10 +2345,6 @@ void layout_sync_options_with_current_state(LayoutWindow *lw)
 	layout_geometry_get_tools(lw, lw->options.float_window.rect, lw->options.float_window.vdivider_pos);
 
 	lw->options.image_overlay.state = image_osd_get(lw->image);
-	histogram = image_osd_get_histogram(lw->image);
-
-	lw->options.image_overlay.histogram_channel = histogram->histogram_channel;
-	lw->options.image_overlay.histogram_mode = histogram->histogram_mode;
 
 	g_free(lw->options.last_path);
 	lw->options.last_path = g_strdup(layout_get_path(lw));
@@ -2498,7 +2492,6 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	LayoutWindow *lw;
 	GdkGeometry hint;
 	GdkWindowHints hint_mask;
-	Histogram *histogram;
 	gchar *default_path;
 
 	DEBUG_1("%s layout_new: start", get_exec_time());
@@ -2614,10 +2607,6 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	layout_tools_hide(lw, lw->options.tools_hidden);
 
 	image_osd_set(lw->image, static_cast<OsdShowFlags>(lw->options.image_overlay.state));
-	histogram = image_osd_get_histogram(lw->image);
-
-	histogram->histogram_channel = lw->options.image_overlay.histogram_channel;
-	histogram->histogram_mode = lw->options.image_overlay.histogram_mode;
 
 	layout_window_list = g_list_append(layout_window_list, lw);
 
@@ -2686,8 +2675,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_SEPARATOR();
 
 	WRITE_NL(); WRITE_UINT(*layout, image_overlay.state);
-	WRITE_NL(); WRITE_INT(*layout, image_overlay.histogram_channel);
-	WRITE_NL(); WRITE_INT(*layout, image_overlay.histogram_mode);
 
 	WRITE_NL(); WRITE_INT(*layout, log_window.x);
 	WRITE_NL(); WRITE_INT(*layout, log_window.y);
@@ -2797,8 +2784,6 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_BOOL(*layout, bars_state.hidden)) continue;
 
 		if (READ_UINT(*layout, image_overlay.state)) continue;
-		if (READ_INT(*layout, image_overlay.histogram_channel)) continue;
-		if (READ_INT(*layout, image_overlay.histogram_mode)) continue;
 
 		if (READ_INT(*layout, log_window.x)) continue;
 		if (READ_INT(*layout, log_window.y)) continue;

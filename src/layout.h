@@ -36,7 +36,6 @@ struct ViewDir;
 struct ViewFile;
 
 #define LAYOUT_ID_CURRENT "_current_"
-#define MAX_SPLIT_IMAGES 4
 
 extern GList *layout_window_list;
 
@@ -82,8 +81,7 @@ struct LayoutWindow
 
 	ImageWindow *image;
 
-	ImageWindow *split_images[MAX_SPLIT_IMAGES];
-	ImageSplitMode split_mode;
+	ImageWindow *split_images[1];
 	gint active_split_image;
 
 	GtkWidget *split_image_widget;
@@ -229,7 +227,7 @@ void layout_tools_hide_toggle(LayoutWindow *lw);
 void layout_selectable_toolbars_toggle(LayoutWindow *lw);
 void layout_info_pixel_set(LayoutWindow *lw, gboolean show);
 
-void layout_split_change(LayoutWindow *lw, ImageSplitMode mode);
+void layout_split_change(LayoutWindow *lw);
 
 void save_layout(LayoutWindow *lw);
 gchar *layout_get_unique_id();

@@ -34,7 +34,6 @@
 #include "typedefs.h"
 
 struct ExifData;
-struct HistMap;
 
 #ifdef DEBUG
 #define DEBUG_FILEDATA
@@ -154,8 +153,6 @@ class FileData {
 
 	GdkPixbuf *pixbuf; /**< full-size image, only complete images, NULL during loading
 			      all FileData with non-NULL pixbuf are referenced by image_cache */
-
-	HistMap *histmap;
 
 	gboolean locked;
 	gint ref;

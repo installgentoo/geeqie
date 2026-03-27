@@ -483,7 +483,6 @@ struct LayoutOptions
 	gboolean show_file_filter;
 	gboolean show_directory_date;
 	gboolean show_info_pixel;
-	gboolean split_pane_sync;
 	gboolean ignore_alpha;
 
 	struct {
@@ -504,8 +503,6 @@ struct LayoutOptions
 
 	struct {
 		guint state;
-		gint histogram_channel;
-		gint histogram_mode;
 	} image_overlay;
 
 	GdkRectangle log_window;

@@ -41,7 +41,6 @@
 #include "debug.h"
 #include "exif.h"
 #include "filefilter.h"
-#include "histogram.h"
 #include "intl.h"
 #include "main-defines.h"
 #include "metadata.h"
@@ -662,7 +661,6 @@ void FileData::file_data_free(FileData *fd)
 
 	g_free(fd->extended_extension);
 	if (fd->thumb_pixbuf) g_object_unref(fd->thumb_pixbuf);
-	histmap_free(fd->histmap);
 	g_free(fd->format_name);
 	g_assert(fd->sidecar_files == nullptr); /* sidecar files must be freed before calling this */
 

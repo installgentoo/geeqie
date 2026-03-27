@@ -91,7 +91,6 @@ constexpr PixbufInline inline_pixbuf_data[] = {
 	{ PIXBUF_INLINE_LOGO,                   "geeqie-logo" },
 	{ PIXBUF_INLINE_METADATA,               "gq-icon-metadata" },
 	{ PIXBUF_INLINE_SCROLLER,               "gq-scroller" },
-	{ PIXBUF_INLINE_SPLIT_PANE_SYNC,        "gq-icon-split-pane-sync" },
 	{ PIXBUF_INLINE_UNKNOWN,                "gq-icon-unknown" },
 	{ PIXBUF_INLINE_VIDEO,                  "gq-icon-video" },
 };

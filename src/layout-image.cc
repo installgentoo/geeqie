@@ -727,17 +727,6 @@ static void layout_image_dnd_receive(GtkWidget *widget, GdkDragContext *,
 	gchar *url;
 
 
-	for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-		{
-		if (lw->split_images[i] && lw->split_images[i]->pr == widget)
-			break;
-		}
-	if (i < MAX_SPLIT_IMAGES)
-		{
-		DEBUG_1("dnd image activate %d", i);
-		layout_image_activate(lw, i, FALSE);
-		}
-
 	if (info == TARGET_TEXT_PLAIN)
 		{
 		url = g_strdup(reinterpret_cast<const gchar *>(gtk_selection_data_get_data(selection_data)));
@@ -802,17 +791,6 @@ static void layout_image_dnd_get(GtkWidget *widget, GdkDragContext *,
 	gint i;
 
 
-	for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-		{
-		if (lw->split_images[i] && lw->split_images[i]->pr == widget)
-			break;
-		}
-	if (i < MAX_SPLIT_IMAGES)
-		{
-		DEBUG_1("dnd get from %d", i);
-		fd = image_get_fd(lw->split_images[i]);
-		}
-	else
 		fd = layout_image_get_fd(lw);
 
 	if (fd)
@@ -909,14 +887,6 @@ void layout_image_scroll(LayoutWindow *lw, gint x, gint y, gboolean connect_scro
 
 	if (!connect_scroll) return;
 
-	for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-		{
-		if (lw->split_images[i] && lw->split_images[i] != lw->image)
-			{
-			image_scroll(lw->split_images[i], x, y);
-			}
-		}
-
 }
 
 void layout_image_zoom_adjust(LayoutWindow *lw, gdouble increment, gboolean connect_zoom)
@@ -932,12 +902,6 @@ void layout_image_zoom_adjust(LayoutWindow *lw, gdouble increment, gboolean conn
 		}
 
 	if (!connect_zoom) return;
-
-	for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-		{
-		if (lw->split_images[i] && lw->split_images[i] != lw->image)
-			image_zoom_adjust(lw->split_images[i], increment); ;
-		}
 }
 
 void layout_image_zoom_adjust_at_point(LayoutWindow *lw, gdouble increment, gint x, gint y, gboolean connect_zoom)
@@ -950,14 +914,6 @@ void layout_image_zoom_adjust_at_point(LayoutWindow *lw, gdouble increment, gint
 	if (lw->full_screen && lw->image != lw->full_screen->imd)
 		{
 		image_zoom_adjust_at_point(lw->full_screen->imd, increment, x, y);
-		}
-	if (!connect_zoom && !lw->split_mode) return;
-
-	for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-		{
-		if (lw->split_images[i] && lw->split_images[i] != lw->image &&
-						lw->split_images[i]->mouse_wheel_mode)
-			image_zoom_adjust_at_point(lw->split_images[i], increment, x, y);
 		}
 }
 
@@ -972,14 +928,6 @@ void layout_image_zoom_set(LayoutWindow *lw, gdouble zoom, gboolean connect_zoom
 		{
 		image_zoom_set(lw->full_screen->imd, zoom);
 		}
-
-	if (!connect_zoom) return;
-
-	for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-		{
-		if (lw->split_images[i] && lw->split_images[i] != lw->image)
-			image_zoom_set(lw->split_images[i], zoom);
-		}
 }
 
 void layout_image_zoom_set_fill_geometry(LayoutWindow *lw, gboolean vertical, gboolean connect_zoom)
@@ -992,14 +940,6 @@ void layout_image_zoom_set_fill_geometry(LayoutWindow *lw, gboolean vertical, gb
 	if (lw->full_screen && lw->image != lw->full_screen->imd)
 		{
 		image_zoom_set_fill_geometry(lw->full_screen->imd, vertical);
-		}
-
-	if (!connect_zoom) return;
-
-	for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-		{
-		if (lw->split_images[i] && lw->split_images[i] != lw->image)
-			image_zoom_set_fill_geometry(lw->split_images[i], vertical);
 		}
 }
 
@@ -1379,36 +1319,6 @@ void layout_image_last(LayoutWindow *lw)
  *----------------------------------------------------------------------------
  */
 
-static gint image_idx(LayoutWindow *lw, ImageWindow *imd)
-{
-	gint i;
-
-	for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-		{
-		if (lw->split_images[i] == imd)
-			break;
-		}
-	if (i < MAX_SPLIT_IMAGES)
-		{
-		return i;
-		}
-	return -1;
-}
-
-static void layout_image_focus_in_cb(ImageWindow *imd, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	gint i = image_idx(lw, imd);
-
-	if (i != -1)
-		{
-		DEBUG_1("image activate focus_in %d", i);
-		layout_image_activate(lw, i, FALSE);
-		}
-}
-
-
 static void layout_image_button_cb(ImageWindow *imd, GdkEventButton *event, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -1442,11 +1352,11 @@ static void layout_image_button_cb(ImageWindow *imd, GdkEventButton *event, gpoi
 				{
 				start_editor_from_file(options->image_l_click_video_editor, imd->image_fd);
 				}
-			else if (options->image_lm_click_nav && lw->split_mode == SPLIT_NONE)
+			else if (options->image_lm_click_nav)
 				layout_image_next(lw);
 			break;
 		case MOUSE_BUTTON_MIDDLE:
-			if (options->image_lm_click_nav && lw->split_mode == SPLIT_NONE)
+			if (options->image_lm_click_nav)
 				layout_image_prev(lw);
 			break;
 		case MOUSE_BUTTON_RIGHT:
@@ -1465,15 +1375,6 @@ static void layout_image_button_cb(ImageWindow *imd, GdkEventButton *event, gpoi
 static void layout_image_scroll_cb(ImageWindow *imd, GdkEventScroll *event, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
-
-	gint i = image_idx(lw, imd);
-
-	if (i != -1)
-		{
-		DEBUG_1("image activate scroll %d", i);
-		layout_image_activate(lw, i, FALSE);
-		}
-
 
 	if ((event->state & GDK_CONTROL_MASK) ||
 				(imd->mouse_wheel_mode && !options->image_lm_click_nav))
@@ -1548,39 +1449,12 @@ static void layout_image_drag_cb(ImageWindow *imd, GdkEventMotion *event, gdoubl
 			}
 		image_set_scroll_center(lw->full_screen->imd, sx, sy);
 		}
-
-	if (!(event->state & GDK_SHIFT_MASK)) return;
-
-	for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-		{
-		if (lw->split_images[i] && lw->split_images[i] != imd)
-			{
-
-			if (event->state & GDK_CONTROL_MASK)
-				{
-				image_get_scroll_center(imd, &sx, &sy);
-				}
-			else
-				{
-				image_get_scroll_center(lw->split_images[i], &sx, &sy);
-				sx += dx;
-				sy += dy;
-				}
-			image_set_scroll_center(lw->split_images[i], sx, sy);
-			}
-		}
 }
 
 static void layout_image_button_inactive_cb(ImageWindow *imd, GdkEventButton *event, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 	GtkWidget *menu;
-	gint i = image_idx(lw, imd);
-
-	if (i != -1)
-		{
-		layout_image_activate(lw, i, FALSE);
-		}
 
 	switch (event->button)
 		{
@@ -1600,15 +1474,6 @@ static void layout_image_button_inactive_cb(ImageWindow *imd, GdkEventButton *ev
 
 static void layout_image_drag_inactive_cb(ImageWindow *imd, GdkEventMotion *event, gdouble dx, gdouble dy, gpointer data)
 {
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint i = image_idx(lw, imd);
-
-	if (i != -1)
-		{
-		layout_image_activate(lw, i, FALSE);
-		}
-
-	/* continue as with active image */
 	layout_image_drag_cb(imd, event, dx, dy, data);
 }
 
@@ -1735,8 +1600,6 @@ GtkWidget *layout_image_new(LayoutWindow *lw, gint i)
 		gtk_size_group_add_widget(lw->split_image_sizegroup, lw->split_images[i]->widget);
 		gtk_widget_set_size_request(lw->split_images[i]->widget, IMAGE_MIN_WIDTH, -1);
 
-		image_set_focus_in_func(lw->split_images[i], layout_image_focus_in_cb, lw);
-
 		}
 
 	return lw->split_images[i]->widget;
@@ -1774,12 +1637,6 @@ void layout_image_activate(LayoutWindow *lw, gint i, gboolean force)
 
 	image_attach_window(lw->image, lw->window, nullptr, GQ_APPNAME, FALSE);
 
-	/* do not highlight selected image in SPLIT_NONE */
-	/* maybe the image should be selected always and highlight should be controlled by
-	   another image option */
-	if (lw->split_mode != SPLIT_NONE)
-		image_select(lw->split_images[i], TRUE);
-	else
 		image_select(lw->split_images[i], FALSE);
 
 	fd = image_get_fd(lw->image);
@@ -1855,7 +1712,7 @@ static void layout_image_setup_split_common(LayoutWindow *lw, gint n)
 			image_set_selectable(lw->split_images[i], (n > 1));
 			}
 
-	for (i = n; i < MAX_SPLIT_IMAGES; i++)
+	for (i = n; i < 1; i++)
 		{
 		if (lw->split_images[i])
 			{
@@ -1878,146 +1735,12 @@ static void layout_image_setup_split_common(LayoutWindow *lw, gint n)
 
 GtkWidget *layout_image_setup_split_none(LayoutWindow *lw)
 {
-	lw->split_mode = SPLIT_NONE;
-
 	layout_image_setup_split_common(lw, 1);
 
 	lw->split_image_widget = lw->split_images[0]->widget;
 
 	return lw->split_image_widget;
 }
-
-
-GtkWidget *layout_image_setup_split_hv(LayoutWindow *lw, gboolean horizontal)
-{
-	GtkWidget *paned;
-
-	lw->split_mode = horizontal ? SPLIT_HOR : SPLIT_VERT;
-
-	layout_image_setup_split_common(lw, 2);
-
-	/* horizontal split means vpaned and vice versa */
-	paned = gtk_paned_new(horizontal ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
-	DEBUG_NAME(paned);
-
-	gtk_paned_pack1(GTK_PANED(paned), lw->split_images[0]->widget, TRUE, TRUE);
-	gtk_paned_pack2(GTK_PANED(paned), lw->split_images[1]->widget, TRUE, TRUE);
-
-	gtk_widget_show(lw->split_images[0]->widget);
-	gtk_widget_show(lw->split_images[1]->widget);
-
-	lw->split_image_widget = paned;
-
-	return lw->split_image_widget;
-
-}
-
-static GtkWidget *layout_image_setup_split_triple(LayoutWindow *lw)
-{
-	GtkWidget *hpaned1;
-	GtkWidget *hpaned2;
-	GtkAllocation allocation;
-	gint i;
-	gint pane_pos;
-
-	lw->split_mode = SPLIT_TRIPLE;
-
-	layout_image_setup_split_common(lw, 3);
-
-	gtk_widget_get_allocation(lw->utility_paned, &allocation);
-
-	hpaned1 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-	DEBUG_NAME(hpaned1);
-	hpaned2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-	DEBUG_NAME(hpaned2);
-
-	if (lw->bar && gtk_widget_get_visible(lw->bar))
-		{
-		pane_pos = (gtk_paned_get_position(GTK_PANED(lw->utility_paned))) / 3;
-		}
-	else
-		{
-		pane_pos = allocation.width / 3;
-		}
-
-	gtk_paned_set_position(GTK_PANED(hpaned1), pane_pos);
-	gtk_paned_set_position(GTK_PANED(hpaned2), pane_pos);
-
-	gtk_paned_pack1(GTK_PANED(hpaned1), lw->split_images[0]->widget, TRUE, TRUE);
-	gtk_paned_pack1(GTK_PANED(hpaned2), lw->split_images[1]->widget, TRUE, TRUE);
-	gtk_paned_pack2(GTK_PANED(hpaned2), lw->split_images[2]->widget, TRUE, TRUE);
-	gtk_paned_pack2(GTK_PANED(hpaned1), hpaned2, TRUE, TRUE);
-
-	for (i = 0; i < 3; i++)
-		{
-		gtk_widget_show(lw->split_images[i]->widget);
-		}
-
-	gtk_widget_show(hpaned1);
-	gtk_widget_show(hpaned2);
-
-	lw->split_image_widget = hpaned1;
-
-	return lw->split_image_widget;
-}
-
-static GtkWidget *layout_image_setup_split_quad(LayoutWindow *lw)
-{
-	GtkWidget *hpaned;
-	GtkWidget *vpaned1;
-	GtkWidget *vpaned2;
-	gint i;
-
-	lw->split_mode = SPLIT_QUAD;
-
-	layout_image_setup_split_common(lw, 4);
-
-	hpaned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-	DEBUG_NAME(hpaned);
-	vpaned1 = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
-	DEBUG_NAME(vpaned1);
-	vpaned2 = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
-	DEBUG_NAME(vpaned2);
-
-	gtk_paned_pack1(GTK_PANED(vpaned1), lw->split_images[0]->widget, TRUE, TRUE);
-	gtk_paned_pack2(GTK_PANED(vpaned1), lw->split_images[2]->widget, TRUE, TRUE);
-
-	gtk_paned_pack1(GTK_PANED(vpaned2), lw->split_images[1]->widget, TRUE, TRUE);
-	gtk_paned_pack2(GTK_PANED(vpaned2), lw->split_images[3]->widget, TRUE, TRUE);
-
-	gtk_paned_pack1(GTK_PANED(hpaned), vpaned1, TRUE, TRUE);
-	gtk_paned_pack2(GTK_PANED(hpaned), vpaned2, TRUE, TRUE);
-
-	for (i = 0; i < 4; i++)
-		gtk_widget_show(lw->split_images[i]->widget);
-
-	gtk_widget_show(vpaned1);
-	gtk_widget_show(vpaned2);
-
-	lw->split_image_widget = hpaned;
-
-	return lw->split_image_widget;
-
-}
-
-GtkWidget *layout_image_setup_split(LayoutWindow *lw, ImageSplitMode mode)
-{
-	switch (mode)
-		{
-		case SPLIT_HOR:
-			return layout_image_setup_split_hv(lw, TRUE);
-		case SPLIT_VERT:
-			return layout_image_setup_split_hv(lw, FALSE);
-		case SPLIT_TRIPLE:
-			return layout_image_setup_split_triple(lw);
-		case SPLIT_QUAD:
-			return layout_image_setup_split_quad(lw);
-		case SPLIT_NONE:
-		default:
-			return layout_image_setup_split_none(lw);
-		}
-}
-
 
 /*
  *-----------------------------------------------------------------------------

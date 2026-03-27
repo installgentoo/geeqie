@@ -21,8 +21,6 @@ main_sources = files('advanced-exif.cc',
 'bar-comment.h',
 'bar-exif.cc',
 'bar-exif.h',
-'bar-histogram.cc',
-'bar-histogram.h',
 'cache.cc',
 'cache.h',
 'cache-loader.cc',
@@ -55,8 +53,6 @@ main_sources = files('advanced-exif.cc',
 'filefilter.h',
 'fullscreen.cc',
 'fullscreen.h',
-'histogram.cc',
-'histogram.h',
 'history-list.cc',
 'history-list.h',
 'image.cc',
@@ -242,13 +238,6 @@ if conf_data.get('HAVE_JPEGXL', 0) == 1
     main_sources += files(
         'image-load-jpegxl.cc',
         'image-load-jpegxl.h',
-    )
-endif
-
-if conf_data.get('HAVE_LIBCHAMPLAIN', 0) == 1 and conf_data.get('HAVE_LIBCHAMPLAIN_GTK', 0) == 1
-    main_sources += files(
-        'bar-gps.cc',
-        'bar-gps.h',
     )
 endif
 

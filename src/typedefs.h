@@ -74,14 +74,6 @@ enum SortType {
 	SORT_CLASS
 };
 
-enum ImageSplitMode {
-	SPLIT_NONE = 0,
-	SPLIT_VERT,
-	SPLIT_HOR,
-	SPLIT_TRIPLE,
-	SPLIT_QUAD,
-};
-
 enum FileFormatClass {
 	FORMAT_CLASS_UNKNOWN,
 	FORMAT_CLASS_IMAGE,

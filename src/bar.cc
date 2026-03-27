@@ -61,15 +61,6 @@ struct KnownPanes
 	const gchar *config;
 };
 
-static const gchar default_config_histogram[] =
-"<gq>"
-"    <layout id = '_current_'>"
-"        <bar>"
-"            <pane_histogram id = 'histogram' expanded = 'true' histogram_channel = '4' histogram_mode = '0' />"
-"        </bar>"
-"    </layout>"
-"</gq>";
-
 static const gchar default_config_title[] =
 "<gq>"
 "    <layout id = '_current_'>"
@@ -189,7 +180,6 @@ static const gchar default_config_gps[] =
 
 static const KnownPanes known_panes[] = {
 /* default sidebar */
-	{PANE_HISTOGRAM,	"histogram",	N_("Histogram"),	default_config_histogram},
 	{PANE_COMMENT,		"title",	N_("Title"),		default_config_title},
 	{PANE_COMMENT,		"comment",	N_("Comment"),		default_config_comment},
 	{PANE_COMMENT,		"headline",	N_("Headline"),		default_config_headline},
@@ -198,9 +188,6 @@ static const KnownPanes known_panes[] = {
 	{PANE_EXIF,		"file_info",	N_("File info"),	default_config_file_info},
 	{PANE_EXIF,		"location",	N_("Location and GPS"),	default_config_location},
 	{PANE_EXIF,		"copyright",	N_("Copyright"),	default_config_copyright},
-#if HAVE_LIBCHAMPLAIN && HAVE_LIBCHAMPLAIN_GTK
-	{PANE_GPS,		"gps",	N_("GPS Map"),	default_config_gps},
-#endif
 	{PANE_UNDEF,		nullptr,		nullptr,			nullptr}
 };
 
@@ -679,7 +666,7 @@ void bar_add(GtkWidget *bar, GtkWidget *pane)
 
 void bar_populate_default(GtkWidget *)
 {
-	const gchar *populate_id[] = {"histogram", "title", "keywords", "comment", "rating", "exif", nullptr};
+	const gchar *populate_id[] = {"title", "comment", "exif", nullptr};
 	const gchar **id = populate_id;
 
 	while (*id)

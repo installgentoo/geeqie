@@ -902,34 +902,6 @@ static gboolean image_scroll_cb(GtkWidget *, GdkEventScroll *event, gpointer dat
 		{
 		layout_valid(&lw);
 		/* check if the image is in a layout window */
-		for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-			{
-			if (imd == lw->split_images[i])
-				{
-				in_lw = TRUE;
-				break;
-				}
-			}
-
-		if (in_lw)
-			{
-			if (lw->options.split_pane_sync)
-				{
-				for (i = 0; i < MAX_SPLIT_IMAGES; i++)
-					{
-					if (lw->split_images[i])
-						{
-						layout_image_activate(lw, i, FALSE);
-						imd->func_scroll(lw->split_images[i], event, lw->split_images[i]->data_scroll);
-						}
-					}
-				}
-			else
-				{
-				imd->func_scroll(imd, event, imd->data_scroll);
-				}
-			return TRUE;
-			}
 
 		imd->func_scroll(imd, event, imd->data_scroll);
 		return TRUE;

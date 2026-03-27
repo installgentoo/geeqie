@@ -24,7 +24,6 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 
 #include "debug.h"
-#include "histogram.h" /* HCHAN_RGB */
 #include "image-overlay.h" /* OSD_SHOW_NOTHING */
 #include "image.h" /* RECTANGLE_DRAW_ASPECT_RATIO_NONE */
 #include "intl.h"
@@ -325,14 +324,11 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->selectable_toolbars_hidden = FALSE;
 	options->tools_float = FALSE;
 	options->tools_hidden = FALSE;
-	options->image_overlay.histogram_channel = HCHAN_RGB;
-	options->image_overlay.histogram_mode = 1;
 	options->image_overlay.state = OSD_SHOW_NOTHING;
 	options->animate = TRUE;
 	options->bars_state.hidden = FALSE;
 	options->log_window = {0, 0, 520, 400};
 	options->preferences_window.rect = {0, 0, 700, 600};
-	options->split_pane_sync = FALSE;
 	options->workspace = -1;
 	return options;
 }

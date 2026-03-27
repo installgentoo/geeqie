@@ -32,8 +32,6 @@
 
 #include "bar-comment.h"
 #include "bar-exif.h"
-#include "bar-gps.h"
-#include "bar-histogram.h"
 #include "bar.h"
 #include "debug.h"
 #include "dupe.h"
@@ -1394,20 +1392,6 @@ static void options_parse_bar(GQParserData *parser_data, const gchar *element_na
 			bar_add(bar, pane);
 			}
 		parser_data->func_push(options_parse_pane_exif, nullptr, pane);
-		}
-	else if (g_ascii_strcasecmp(element_name, "pane_histogram") == 0)
-		{
-		GtkWidget *pane = bar_find_pane_by_id(bar, PANE_HISTOGRAM, options_get_id(attribute_names, attribute_values));
-		if (pane)
-			{
-			bar_pane_histogram_update_from_config(pane, attribute_names, attribute_values);
-			}
-		else
-			{
-			pane = bar_pane_histogram_new_from_config(attribute_names, attribute_values);
-			bar_add(bar, pane);
-			}
-		parser_data->func_push(options_parse_leaf, nullptr, nullptr);
 		}
 	else if (g_ascii_strcasecmp(element_name, "clear") == 0)
 		{
