@@ -34,8 +34,6 @@
 #include "bar-exif.h"
 #include "bar-gps.h"
 #include "bar-histogram.h"
-#include "bar-keywords.h"
-#include "bar-rating.h"
 #include "bar.h"
 #include "debug.h"
 #include "dupe.h"
@@ -386,8 +384,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 {
 	/* General Options */
 	WRITE_NL(); WRITE_BOOL(*options, show_icon_names);
-	WRITE_NL(); WRITE_BOOL(*options, show_star_rating);
-	WRITE_NL(); WRITE_BOOL(*options, show_predefined_keyword_tree);
 	WRITE_SEPARATOR();
 
 	WRITE_NL(); WRITE_BOOL(*options, tree_descend_subdirs);
@@ -429,14 +425,12 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_BOOL(*options, hide_window_decorations);
 	WRITE_NL(); WRITE_BOOL(*options, show_window_ids);
 	WRITE_NL(); WRITE_BOOL(*options, expand_menu_toolbar);
-	WRITE_NL(); WRITE_BOOL(*options, hamburger_menu);
 
 	WRITE_NL(); WRITE_UINT(*options, log_window_lines);
 	WRITE_NL(); WRITE_BOOL(*options, log_window.timer_data);
 	WRITE_NL(); WRITE_CHAR(*options, log_window.action);
 
 	WRITE_NL(); WRITE_BOOL(*options, appimage_notifications);
-	WRITE_NL(); WRITE_BOOL(*options, marks_save);
 	WRITE_NL(); WRITE_CHAR(*options, help_search_engine);
 
 	WRITE_NL(); WRITE_BOOL(*options, external_preview.enable);
@@ -565,7 +559,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_BOOL(*options, metadata.confirm_after_timeout);
 	WRITE_NL(); WRITE_BOOL(*options, metadata.confirm_on_image_change);
 	WRITE_NL(); WRITE_BOOL(*options, metadata.confirm_on_dir_change);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.keywords_case_sensitive);
 	WRITE_NL(); WRITE_BOOL(*options, metadata.write_orientation);
 	WRITE_NL(); WRITE_BOOL(*options, metadata.check_spelling);
 
@@ -580,9 +573,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_INT(*options, stereo.fixed_y2);
 
 	WRITE_NL(); WRITE_BOOL(*options, read_metadata_in_idle);
-
-	WRITE_NL(); WRITE_UINT(*options, star_rating.star);
-	WRITE_NL(); WRITE_UINT(*options, star_rating.rejected);
 
 	/* copy move rename */
 	WRITE_NL(); WRITE_INT(*options, cp_mv_rn.auto_start);
@@ -649,22 +639,6 @@ static void write_color_profile(GString *outstr, gint indent)
 		}
 	indent--;
 	WRITE_NL(); WRITE_STRING("</color_profiles>");
-}
-
-static void write_marks_tooltips(GString *outstr, gint indent)
-{
-	gint i;
-
-	WRITE_NL(); WRITE_STRING("<marks_tooltips>");
-	indent++;
-	for (i = 0; i < FILEDATA_MARKS_SIZE; i++)
-		{
-		WRITE_NL();
-		write_char_option(outstr, indent, "<tooltip text", options->marks_tooltips[i]);
-		WRITE_STRING("/>");
-		}
-	indent--;
-	WRITE_NL(); WRITE_STRING("</marks_tooltips>");
 }
 
 static void write_class_filter(GString *outstr, gint indent)
@@ -771,16 +745,12 @@ gboolean save_config_to_file(const gchar *utf8_path, ConfOptions *options, Layou
 		filter_write_list(outstr, indent);
 
 		WRITE_SEPARATOR();
-		write_marks_tooltips(outstr, indent);
-
-		WRITE_SEPARATOR();
 		write_disabled_plugins(outstr, indent);
 
 		WRITE_SEPARATOR();
 		write_class_filter(outstr, indent);
 
 		WRITE_SEPARATOR();
-		keyword_tree_write_config(outstr, indent);
 		indent--;
 		WRITE_NL(); WRITE_STRING("</global>\n");
 		}
@@ -889,8 +859,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 
 		/* General options */
 		if (READ_BOOL(*options, show_icon_names)) continue;
-		if (READ_BOOL(*options, show_star_rating)) continue;
-		if (READ_BOOL(*options, show_predefined_keyword_tree)) continue;
 
 		if (READ_BOOL(*options, tree_descend_subdirs)) continue;
 		if (READ_BOOL(*options, view_dir_list_single_click_enter)) continue;
@@ -930,14 +898,12 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_BOOL(*options, hide_window_decorations)) continue;
 		if (READ_BOOL(*options, show_window_ids)) continue;
 		if (READ_BOOL(*options, expand_menu_toolbar)) continue;
-		if (READ_BOOL(*options, hamburger_menu)) continue;
 
 		if (READ_INT(*options, log_window_lines)) continue;
 		if (READ_BOOL(*options, log_window.timer_data)) continue;
 		if (READ_CHAR(*options, log_window.action)) continue;
 
 		if (READ_BOOL(*options, appimage_notifications)) continue;
-		if (READ_BOOL(*options, marks_save)) continue;
 		if (READ_CHAR(*options, help_search_engine)) continue;
 
 		if (READ_BOOL(*options, external_preview.enable)) continue;
@@ -1062,7 +1028,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_INT(*options, metadata.confirm_timeout)) continue;
 		if (READ_BOOL(*options, metadata.confirm_on_image_change)) continue;
 		if (READ_BOOL(*options, metadata.confirm_on_dir_change)) continue;
-		if (READ_BOOL(*options, metadata.keywords_case_sensitive)) continue;
 		if (READ_BOOL(*options, metadata.write_orientation)) continue;
 		if (READ_BOOL(*options, metadata.check_spelling)) continue;
 
@@ -1077,9 +1042,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_INT(*options, stereo.fixed_y2)) continue;
 
 		if (READ_BOOL(*options, read_metadata_in_idle)) continue;
-
-		if (READ_UINT(*options, star_rating.star)) continue;
-		if (READ_UINT(*options, star_rating.rejected)) continue;
 
 		/* copy move rename */
 		if (READ_INT(*options, cp_mv_rn.auto_start))  continue;
@@ -1159,23 +1121,6 @@ static void options_load_profile(GQParserData *parser_data, const gchar **attrib
 
 }
 
-static void options_load_marks_tooltips(GQParserData *parser_data, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
-{
-	gint i = GPOINTER_TO_INT(data);
-	if (i < 0 || i >= FILEDATA_MARKS_SIZE) return;
-	while (*attribute_names)
-		{
-		const gchar *option = *attribute_names++;
-		const gchar *value = *attribute_values++;
-		if (READ_CHAR_FULL("text",  options->marks_tooltips[i])) continue;
-
-		log_printf("unknown attribute %s = %s\n", option, value);
-		}
-	i++;
-	parser_data->func_set_data(GINT_TO_POINTER(i));
-
-}
-
 static void options_load_disabled_plugins(GQParserData *parser_data, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
 {
 	gint i = GPOINTER_TO_INT(data);
@@ -1232,20 +1177,6 @@ static void options_parse_color_profiles(GQParserData *parser_data, const gchar 
 	else
 		{
 		log_printf("unexpected in <color_profiles>: <%s>\n", element_name);
-		}
-
-	parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-}
-
-static void options_parse_marks_tooltips(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
-{
-	if (g_ascii_strcasecmp(element_name, "tooltip") == 0)
-		{
-		options_load_marks_tooltips(parser_data, attribute_names, attribute_values, data);
-		}
-	else
-		{
-		log_printf("unexpected in <marks_tooltips>: <%s>\n", element_name);
 		}
 
 	parser_data->func_push(options_parse_leaf, nullptr, nullptr);
@@ -1362,45 +1293,6 @@ static void options_parse_filter_end(gpointer data)
 	filter_rebuild();
 }
 
-static void options_parse_keyword_end(gpointer data)
-{
-	auto iter_ptr = static_cast<GtkTreeIter *>(data);
-	gtk_tree_iter_free(iter_ptr);
-}
-
-
-static void options_parse_keyword(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
-{
-	if (g_ascii_strcasecmp(element_name, "keyword") == 0)
-		{
-		auto iter_ptr = static_cast<GtkTreeIter *>(data);
-		GtkTreeIter *child = keyword_add_from_config(keyword_tree, iter_ptr, attribute_names, attribute_values);
-		parser_data->func_push(options_parse_keyword, options_parse_keyword_end, child);
-		}
-	else
-		{
-		log_printf("unexpected in <keyword>: <%s>\n", element_name);
-		parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-		}
-}
-
-
-
-static void options_parse_keyword_tree(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer)
-{
-	if (g_ascii_strcasecmp(element_name, "keyword") == 0)
-		{
-		GtkTreeIter *iter_ptr = keyword_add_from_config(keyword_tree, nullptr, attribute_names, attribute_values);
-		parser_data->func_push(options_parse_keyword, options_parse_keyword_end, iter_ptr);
-		}
-	else
-		{
-		log_printf("unexpected in <keyword_tree>: <%s>\n", element_name);
-		parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-		}
-}
-
-
 static void options_parse_global(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
 {
 	if (g_ascii_strcasecmp(element_name, "color_profiles") == 0)
@@ -1412,19 +1304,9 @@ static void options_parse_global(GQParserData *parser_data, const gchar *element
 		{
 		parser_data->func_push(options_parse_filter, options_parse_filter_end, GINT_TO_POINTER(parser_data->startup));
 		}
-	else if (g_ascii_strcasecmp(element_name, "marks_tooltips") == 0)
-		{
-		options_load_marks_tooltips(parser_data, attribute_names, attribute_values, data);
-		parser_data->func_push(options_parse_marks_tooltips, nullptr, nullptr);
-		}
 	else if (g_ascii_strcasecmp(element_name, "class_filter") == 0)
 		{
 		parser_data->func_push(options_parse_class_filter, nullptr, nullptr);
-		}
-	else if (g_ascii_strcasecmp(element_name, "keyword_tree") == 0)
-		{
-		if (!keyword_tree) keyword_tree_new();
-		parser_data->func_push(options_parse_keyword_tree, nullptr, nullptr);
 		}
 	else if (g_ascii_strcasecmp(element_name, "disabled_plugins") == 0)
 		{
@@ -1459,21 +1341,6 @@ static void options_parse_pane_exif(GQParserData *parser_data, const gchar *elem
 	else
 		{
 		log_printf("unexpected in <pane_exif>: <%s>\n", element_name);
-		}
-
-	parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-}
-
-static void options_parse_pane_keywords(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
-{
-	if (g_ascii_strcasecmp(element_name, "expanded") == 0)
-		{
-		auto pane = static_cast<GtkWidget *>(data);
-		bar_pane_keywords_entry_add_from_config(pane, attribute_names, attribute_values);
-		}
-	else
-		{
-		log_printf("unexpected in <pane_keywords>: <%s>\n", element_name);
 		}
 
 	parser_data->func_push(options_parse_leaf, nullptr, nullptr);
@@ -1543,34 +1410,6 @@ static void options_parse_bar(GQParserData *parser_data, const gchar *element_na
 			bar_add(bar, pane);
 			}
 		parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-		}
-	else if (g_ascii_strcasecmp(element_name, "pane_rating") == 0)
-		{
-		GtkWidget *pane = bar_find_pane_by_id(bar, PANE_RATING, options_get_id(attribute_names, attribute_values));
-		if (pane)
-			{
-			bar_pane_rating_update_from_config(pane, attribute_names, attribute_values);
-			}
-		else
-			{
-			pane = bar_pane_rating_new_from_config(attribute_names, attribute_values);
-			bar_add(bar, pane);
-			}
-		parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-		}
-	else if (g_ascii_strcasecmp(element_name, "pane_keywords") == 0)
-		{
-		GtkWidget *pane = bar_find_pane_by_id(bar, PANE_KEYWORDS, options_get_id(attribute_names, attribute_values));
-		if (pane)
-			{
-			bar_pane_keywords_update_from_config(pane, attribute_names, attribute_values);
-			}
-		else
-			{
-			pane = bar_pane_keywords_new_from_config(attribute_names, attribute_values);
-			bar_add(bar, pane);
-			}
-		parser_data->func_push(options_parse_pane_keywords, nullptr, pane);
 		}
 	else if (g_ascii_strcasecmp(element_name, "clear") == 0)
 		{

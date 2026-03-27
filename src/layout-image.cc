@@ -1020,20 +1020,6 @@ void layout_image_alter_orientation(LayoutWindow *lw, AlterType type)
 	vf_selection_foreach(lw->vf, [lw, type](FileData *fd_n) { image_alter_orientation(lw->image, fd_n, type); });
 }
 
-static void image_alter_rating(FileData *fd_n, const gchar *rating)
-{
-	metadata_write_string(fd_n, RATING_KEY, rating);
-	read_rating_data(fd_n);
-}
-
-void layout_image_rating(LayoutWindow *lw, const gchar *rating)
-{
-	if (!layout_valid(&lw)) return;
-	if (!lw || !lw->vf) return;
-
-	vf_selection_foreach(lw->vf, [rating](FileData *fd_n) { image_alter_rating(fd_n, rating); });
-}
-
 void layout_image_reset_orientation(LayoutWindow *lw)
 {
 	ImageWindow *imd= lw->image;

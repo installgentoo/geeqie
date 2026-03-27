@@ -71,7 +71,6 @@ enum SortType {
 	SORT_NUMBER,
 	SORT_EXIFTIME,
 	SORT_EXIFTIMEDIGITIZED,
-	SORT_RATING,
 	SORT_CLASS
 };
 
@@ -90,19 +89,6 @@ enum ImageSplitMode {
 	SPLIT_HOR,
 	SPLIT_TRIPLE,
 	SPLIT_QUAD,
-};
-
-enum MarkToSelectionMode {
-	MTS_MODE_MINUS,
-	MTS_MODE_SET,
-	MTS_MODE_OR,
-	MTS_MODE_AND
-};
-
-enum SelectionToMarkMode {
-	STM_MODE_RESET,
-	STM_MODE_SET,
-	STM_MODE_TOGGLE
 };
 
 enum FileFormatClass {
@@ -215,8 +201,6 @@ enum ScrollReset : guint {
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(FILE, fclose)
 
 using FileUtilDoneFunc = void (*)(gboolean, const gchar *, gpointer);
-
-#define FILEDATA_MARKS_SIZE 10
 
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

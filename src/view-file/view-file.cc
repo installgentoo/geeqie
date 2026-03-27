@@ -229,24 +229,6 @@ void vf_select_list(ViewFile *vf, GList *list)
 	}
 }
 
-void vf_mark_to_selection(ViewFile *vf, gint mark, MarkToSelectionMode mode)
-{
-	
-	{
-
-	vficon_mark_to_selection(vf, mark, mode);
-	}
-}
-
-void vf_selection_to_mark(ViewFile *vf, gint mark, SelectionToMarkMode mode)
-{
-	
-	{
-
-	vficon_selection_to_mark(vf, mark, mode);
-	}
-}
-
 /*
  *-----------------------------------------------------------------------------
  * dnd
@@ -321,15 +303,6 @@ static void vf_drag_data_received(GtkWidget *, GdkDragContext *,
 
 	FileData *fd = vf_find_data_by_coord(vf, x, y, nullptr);
 	if (!fd) return;
-
-	/* Add keywords to file */
-	auto str = reinterpret_cast<gchar *>(gtk_selection_data_get_text(selection));
-	GList *kw_list = string_to_keywords_list(str);
-
-	metadata_append_list(fd, KEYWORD_KEY, kw_list);
-
-	g_list_free_full(kw_list, g_free);
-	g_free(str);
 }
 
 static void vf_dnd_init(ViewFile *vf)
@@ -522,7 +495,7 @@ static void vf_pop_menu_sort_cb(GtkWidget *widget, gpointer data)
 
 	type = static_cast<SortType>GPOINTER_TO_INT(data);
 
-	if (type == SORT_EXIFTIME || type == SORT_EXIFTIMEDIGITIZED || type == SORT_RATING)
+	if (type == SORT_EXIFTIME || type == SORT_EXIFTIMEDIGITIZED)
 		{
 		vf_read_metadata_in_idle(vf);
 		}
@@ -565,58 +538,11 @@ static void vf_pop_menu_sort_case_cb(GtkWidget *, gpointer data)
 		}
 }
 
-static void vf_pop_menu_sel_mark_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	vf_mark_to_selection(vf, vf->active_mark, MTS_MODE_SET);
-}
-
-static void vf_pop_menu_sel_mark_and_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	vf_mark_to_selection(vf, vf->active_mark, MTS_MODE_AND);
-}
-
-static void vf_pop_menu_sel_mark_or_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	vf_mark_to_selection(vf, vf->active_mark, MTS_MODE_OR);
-}
-
-static void vf_pop_menu_sel_mark_minus_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	vf_mark_to_selection(vf, vf->active_mark, MTS_MODE_MINUS);
-}
-
-static void vf_pop_menu_set_mark_sel_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	vf_selection_to_mark(vf, vf->active_mark, STM_MODE_SET);
-}
-
-static void vf_pop_menu_res_mark_sel_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	vf_selection_to_mark(vf, vf->active_mark, STM_MODE_RESET);
-}
-
-static void vf_pop_menu_toggle_mark_sel_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	vf_selection_to_mark(vf, vf->active_mark, STM_MODE_TOGGLE);
-}
-
 
 static void vf_pop_menu_refresh_cb(GtkWidget *, gpointer data)
 {
 	auto vf = static_cast<ViewFile *>(data);
-
-	
-	{
-
 	vficon_pop_menu_refresh_cb(vf);
-	}
 }
 
 static void vf_popup_destroy_cb(GtkWidget *, gpointer data)
@@ -634,19 +560,6 @@ static void vf_popup_destroy_cb(GtkWidget *, gpointer data)
 
 	filelist_free(vf->editmenu_fd_list);
 	vf->editmenu_fd_list = nullptr;
-}
-
-static void vf_pop_menu_show_star_rating_cb(GtkWidget *, gpointer data)
-{
-	auto *vf = static_cast<ViewFile *>(data);
-
-	options->show_star_rating = !options->show_star_rating;
-
-	
-	{
-
-	vficon_pop_menu_show_star_rating_cb(vf);
-	}
 }
 
 GtkWidget *vf_pop_menu(ViewFile *vf)
@@ -671,53 +584,6 @@ GtkWidget *vf_pop_menu(ViewFile *vf)
 
 	g_signal_connect(G_OBJECT(menu), "destroy",
 			 G_CALLBACK(vf_popup_destroy_cb), vf);
-
-	if (vf->clicked_mark > 0)
-		{
-		gint mark = vf->clicked_mark;
-		gchar *str_set_mark = g_strdup_printf(_("_Set mark %d"), mark);
-		gchar *str_res_mark = g_strdup_printf(_("_Reset mark %d"), mark);
-		gchar *str_toggle_mark = g_strdup_printf(_("_Toggle mark %d"), mark);
-		gchar *str_sel_mark = g_strdup_printf(_("_Select mark %d"), mark);
-		gchar *str_sel_mark_or = g_strdup_printf(_("_Add mark %d"), mark);
-		gchar *str_sel_mark_and = g_strdup_printf(_("_Intersection with mark %d"), mark);
-		gchar *str_sel_mark_minus = g_strdup_printf(_("_Unselect mark %d"), mark);
-
-		g_assert(mark >= 1 && mark <= FILEDATA_MARKS_SIZE);
-
-		vf->active_mark = mark;
-		vf->clicked_mark = 0;
-
-		menu_item_add_sensitive(menu, str_set_mark, active,
-					G_CALLBACK(vf_pop_menu_set_mark_sel_cb), vf);
-
-		menu_item_add_sensitive(menu, str_res_mark, active,
-					G_CALLBACK(vf_pop_menu_res_mark_sel_cb), vf);
-
-		menu_item_add_sensitive(menu, str_toggle_mark, active,
-					G_CALLBACK(vf_pop_menu_toggle_mark_sel_cb), vf);
-
-		menu_item_add_divider(menu);
-
-		menu_item_add_sensitive(menu, str_sel_mark, active,
-					G_CALLBACK(vf_pop_menu_sel_mark_cb), vf);
-		menu_item_add_sensitive(menu, str_sel_mark_or, active,
-					G_CALLBACK(vf_pop_menu_sel_mark_or_cb), vf);
-		menu_item_add_sensitive(menu, str_sel_mark_and, active,
-					G_CALLBACK(vf_pop_menu_sel_mark_and_cb), vf);
-		menu_item_add_sensitive(menu, str_sel_mark_minus, active,
-					G_CALLBACK(vf_pop_menu_sel_mark_minus_cb), vf);
-
-		menu_item_add_divider(menu);
-
-		g_free(str_set_mark);
-		g_free(str_res_mark);
-		g_free(str_toggle_mark);
-		g_free(str_sel_mark);
-		g_free(str_sel_mark_and);
-		g_free(str_sel_mark_or);
-		g_free(str_sel_mark_minus);
-		}
 
 	vf->editmenu_fd_list = vf_pop_menu_file_list(vf);
 	submenu_add_edit(menu, &item, G_CALLBACK(vf_pop_menu_edit_cb), vf, vf->editmenu_fd_list);
@@ -775,9 +641,6 @@ GtkWidget *vf_pop_menu(ViewFile *vf)
 
 	vficon_pop_menu_add_items(vf, menu);
 
-	menu_item_add_check(menu, _("Show star rating"), options->show_star_rating,
-	                    G_CALLBACK(vf_pop_menu_show_star_rating_cb), vf);
-
 	menu_item_add_icon(menu, _("Re_fresh"), GQ_ICON_REFRESH, G_CALLBACK(vf_pop_menu_refresh_cb), vf);
 
 	return menu;
@@ -820,105 +683,6 @@ static void vf_destroy_cb(GtkWidget *, gpointer data)
 	file_data_unref(vf->dir_fd);
 	g_free(vf->info);
 	g_free(vf);
-}
-
-static void vf_marks_filter_toggle_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	vf_refresh_idle(vf);
-}
-
-struct MarksTextEntry {
-	GenericDialog *gd;
-	gint mark_no;
-	GtkWidget *edit_widget;
-	gchar *text_entry;
-	GtkWidget *parent;
-};
-
-static void vf_marks_tooltip_cancel_cb(GenericDialog *gd, gpointer data)
-{
-	auto mte = static_cast<MarksTextEntry *>(data);
-
-	g_free(mte->text_entry);
-	generic_dialog_close(gd);
-}
-
-static void vf_marks_tooltip_ok_cb(GenericDialog *gd, gpointer data)
-{
-	auto mte = static_cast<MarksTextEntry *>(data);
-
-	g_free(options->marks_tooltips[mte->mark_no]);
-	options->marks_tooltips[mte->mark_no] = g_strdup(gq_gtk_entry_get_text(GTK_ENTRY(mte->edit_widget)));
-
-	gtk_widget_set_tooltip_text(mte->parent, options->marks_tooltips[mte->mark_no]);
-
-	g_free(mte->text_entry);
-	generic_dialog_close(gd);
-}
-
-static void vf_marks_filter_on_icon_press(GtkEntry *, GtkEntryIconPosition, GdkEvent *, gpointer userdata)
-{
-	auto mte = static_cast<MarksTextEntry *>(userdata);
-
-	g_free(mte->text_entry);
-	mte->text_entry = g_strdup("");
-	gq_gtk_entry_set_text(GTK_ENTRY(mte->edit_widget), "");
-}
-
-static void vf_marks_tooltip_help_cb(GenericDialog *, gpointer)
-{
-	help_window_show("GuideImageMarks.html");
-}
-
-static gboolean vf_marks_tooltip_cb(GtkWidget *widget,
-										GdkEventButton *event,
-										gpointer user_data)
-{
-	GtkWidget *table;
-	gint i = GPOINTER_TO_INT(user_data);
-
-	if (event->button != MOUSE_BUTTON_RIGHT)
-		return FALSE;
-
-	auto mte = g_new0(MarksTextEntry, 1);
-	mte->mark_no = i;
-	mte->text_entry = g_strdup(options->marks_tooltips[i]);
-	mte->parent = widget;
-
-	mte->gd = generic_dialog_new(_("Mark text"), "mark_text",
-				     widget, FALSE,
-				     vf_marks_tooltip_cancel_cb, mte);
-	generic_dialog_add_message(mte->gd, GQ_ICON_DIALOG_QUESTION, _("Set mark text"),
-				   _("This will set or clear the mark text."), FALSE);
-	generic_dialog_add_button(mte->gd, GQ_ICON_OK, "OK",
-				  vf_marks_tooltip_ok_cb, TRUE);
-	generic_dialog_add_button(mte->gd, GQ_ICON_HELP, _("Help"),
-				  vf_marks_tooltip_help_cb, FALSE);
-
-	table = pref_table_new(mte->gd->vbox, 3, 1, FALSE, TRUE);
-	pref_table_label(table, 0, 0, g_strdup_printf("%s%d", _("Mark "), mte->mark_no + 1), GTK_ALIGN_END);
-	mte->edit_widget = gtk_entry_new();
-	gtk_widget_set_size_request(mte->edit_widget, 300, -1);
-	if (mte->text_entry)
-		{
-		gq_gtk_entry_set_text(GTK_ENTRY(mte->edit_widget), mte->text_entry);
-		}
-	gq_gtk_grid_attach_default(GTK_GRID(table), mte->edit_widget, 1, 2, 0, 1);
-	generic_dialog_attach_default(mte->gd, mte->edit_widget);
-
-	gtk_entry_set_icon_from_icon_name(GTK_ENTRY(mte->edit_widget),
-				      GTK_ENTRY_ICON_SECONDARY, GQ_ICON_CLEAR);
-	gtk_entry_set_icon_tooltip_text(GTK_ENTRY(mte->edit_widget),
-					GTK_ENTRY_ICON_SECONDARY, _("Clear"));
-	g_signal_connect(GTK_ENTRY(mte->edit_widget), "icon-press",
-			 G_CALLBACK(vf_marks_filter_on_icon_press), mte);
-
-	gtk_widget_show(mte->edit_widget);
-	gtk_widget_grab_focus(mte->edit_widget);
-	gtk_widget_show(GTK_WIDGET(mte->gd->dialog));
-
-	return TRUE;
 }
 
 static void vf_file_filter_save_cb(GtkWidget *, gpointer data)
@@ -989,31 +753,6 @@ static gboolean vf_file_filter_press_cb(GtkWidget *widget, GdkEventButton *, gpo
 	gtk_widget_grab_focus(widget);
 
 	return TRUE;
-}
-
-static GtkWidget *vf_marks_filter_init(ViewFile *vf)
-{
-	GtkWidget *frame = gtk_frame_new(nullptr);
-	GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-
-	gint i;
-
-	for (i = 0; i < FILEDATA_MARKS_SIZE ; i++)
-		{
-		GtkWidget *check = gtk_check_button_new();
-		gq_gtk_box_pack_start(GTK_BOX(hbox), check, FALSE, FALSE, 0);
-		g_signal_connect(G_OBJECT(check), "toggled",
-			 G_CALLBACK(vf_marks_filter_toggle_cb), vf);
-		g_signal_connect(G_OBJECT(check), "button_press_event",
-			 G_CALLBACK(vf_marks_tooltip_cb), GINT_TO_POINTER(i));
-		gtk_widget_set_tooltip_text(check, options->marks_tooltips[i]);
-
-		gtk_widget_show(check);
-		vf->filter_check[i] = check;
-		}
-	gq_gtk_container_add(GTK_WIDGET(frame), hbox);
-	gtk_widget_show(hbox);
-	return frame;
 }
 
 void vf_file_filter_set(ViewFile *vf, gboolean enable)
@@ -1213,13 +952,6 @@ static GtkWidget *vf_file_filter_init(ViewFile *vf)
 	return frame;
 }
 
-void vf_mark_filter_toggle(ViewFile *vf, gint mark)
-{
-	gint n = mark - 1;
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(vf->filter_check[n]),
-				     !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(vf->filter_check[n])));
-}
-
 static void vf_thumb_scroll_changed_cb(GtkAdjustment *, gpointer data);
 
 ViewFile *vf_new(FileData *dir_fd)
@@ -1237,11 +969,9 @@ ViewFile *vf_new(FileData *dir_fd)
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(vf->scrolled),
 				       GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
-	vf->filter = vf_marks_filter_init(vf);
 	vf->file_filter.frame = vf_file_filter_init(vf);
 
 	vf->widget = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-	gq_gtk_box_pack_start(GTK_BOX(vf->widget), vf->filter, FALSE, FALSE, 0);
 	gq_gtk_box_pack_start(GTK_BOX(vf->widget), vf->file_filter.frame, FALSE, FALSE, 0);
 	gq_gtk_box_pack_start(GTK_BOX(vf->widget), vf->scrolled, TRUE, TRUE, 0);
 	gtk_widget_show(vf->scrolled);
@@ -1534,121 +1264,6 @@ void vf_thumb_update(ViewFile *vf)
 	while (vf_thumb_next(vf));
 }
 
-void vf_star_cleanup(ViewFile *vf)
-{
-	if (vf->stars_id != 0)
-		{
-		g_source_remove(vf->stars_id);
-		}
-
-	vf->stars_id = 0;
-	vf->stars_filedata = nullptr;
-}
-
-void vf_star_stop(ViewFile *vf)
-{
-	 vf_star_cleanup(vf);
-}
-
-static void vf_set_star_fd(ViewFile *vf, FileData *fd)
-{
-	vficon_set_star_fd(vf, fd);
-}
-
-static void vf_star_do(ViewFile *vf, FileData *fd)
-{
-	if (!fd) return;
-
-	vf_set_star_fd(vf, fd);
-}
-
-static gboolean vf_star_next(ViewFile *vf)
-{
-	FileData *fd = nullptr;
-
-	fd = vficon_star_next_fd(vf);
-
-	if (!fd)
-		{
-		/* done */
-		vf_star_cleanup(vf);
-		return FALSE;
-		}
-
-	return TRUE;
-}
-
-gboolean vf_stars_cb(gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	FileData *fd = vf->stars_filedata;
-
-	if (fd)
-		{
-		read_rating_data(fd);
-
-		vf_star_do(vf, fd);
-
-		if (vf_star_next(vf))
-			{
-			return G_SOURCE_CONTINUE;
-			}
-
-		vf->stars_filedata = nullptr;
-		vf->stars_id = 0;
-		return G_SOURCE_REMOVE;
-		}
-
-	return G_SOURCE_REMOVE;
-}
-
-void vf_star_update(ViewFile *vf)
-{
-	vf_star_stop(vf);
-
-	if (!options->show_star_rating)
-		{
-		return;
-		}
-
-	vf_star_next(vf);
-}
-
-void vf_marks_set(ViewFile *vf, gboolean enable)
-{
-	if (vf->marks_enabled == enable) return;
-
-	vf->marks_enabled = enable;
-
-	
-	{
-
-	vficon_marks_set(vf, enable);
-	}
-	if (enable)
-		gtk_widget_show(vf->filter);
-	else
-		gtk_widget_hide(vf->filter);
-
-	vf_refresh_idle(vf);
-}
-
-guint vf_marks_get_filter(ViewFile *vf)
-{
-	guint ret = 0;
-	gint i;
-	if (!vf->marks_enabled) return 0;
-
-	for (i = 0; i < FILEDATA_MARKS_SIZE ; i++)
-		{
-		if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(vf->filter_check[i])))
-			{
-			ret |= 1 << i;
-			}
-		}
-	return ret;
-}
-
 GRegex *vf_file_filter_get_filter(ViewFile *vf)
 {
 	GRegex *ret = nullptr;
@@ -1757,7 +1372,6 @@ void vf_notify_cb(FileData *fd, NotifyType type, gpointer data)
 	gboolean refresh;
 
 	auto interested = static_cast<NotifyType>(NOTIFY_CHANGE | NOTIFY_REREAD | NOTIFY_GROUPING);
-	if (vf->marks_enabled) interested = static_cast<NotifyType>(interested | NOTIFY_MARKS | NOTIFY_METADATA);
 	/** @FIXME NOTIFY_METADATA should be checked by the keyword-to-mark functions and converted to NOTIFY_MARKS only if there was a change */
 
 	if (!(type & interested) || vf->refresh_idle_id || !vf->dir_fd) return;
@@ -1818,10 +1432,6 @@ static gboolean vf_read_metadata_in_idle_cb(gpointer data)
 			if (!fd->exifdate_digitized)
 				{
 				read_exif_time_digitized_data(fd);
-				}
-			if (fd->rating == STAR_RATING_NOT_READ)
-				{
-				read_rating_data(fd);
 				}
 			fd->metadata_in_idle_loaded = TRUE;
 			return G_SOURCE_CONTINUE;

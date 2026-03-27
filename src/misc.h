@@ -28,7 +28,6 @@
 #include <config.h>
 
 const gchar *gq_gtk_entry_get_text(GtkEntry *entry);
-gchar *convert_rating_to_stars(gint rating);
 gchar *date_get_abbreviated_day_name(gint day);
 gchar *decode_geo_parameters(const gchar *input_text);
 gchar *expand_tilde(const gchar *filename);

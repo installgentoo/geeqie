@@ -195,16 +195,9 @@ void layout_select_none(LayoutWindow *lw);
 void layout_select_invert(LayoutWindow *lw);
 void layout_select_list(LayoutWindow *lw, GList *list);
 
-void layout_mark_to_selection(LayoutWindow *lw, gint mark, MarkToSelectionMode mode);
-void layout_selection_to_mark(LayoutWindow *lw, gint mark, SelectionToMarkMode mode);
-
-void layout_mark_filter_toggle(LayoutWindow *lw, gint mark);
-
 void layout_refresh(LayoutWindow *lw);
 
 void layout_thumb_set(LayoutWindow *lw, gboolean enable);
-
-void layout_marks_set(LayoutWindow *lw, gboolean enable);
 
 void layout_file_filter_set(LayoutWindow *lw, gboolean enable);
 

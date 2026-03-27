@@ -221,56 +221,6 @@ GList *filelist_recursive_full(FileData *dir_fd, SortType method, gboolean ascen
 	return FileData::FileList::recursive_full(dir_fd, method, ascend, case_sensitive);
 }
 
-
-gboolean file_data_register_mark_func(gint n, FileData::GetMarkFunc get_mark_func, FileData::SetMarkFunc set_mark_func, gpointer data, GDestroyNotify notify)
-{
-	return FileData::file_data_register_mark_func(n, get_mark_func, set_mark_func, data, notify);
-}
-
-void file_data_get_registered_mark_func(gint n, FileData::GetMarkFunc *get_mark_func, FileData::SetMarkFunc *set_mark_func, gpointer *data)
-{
-	FileData::file_data_get_registered_mark_func(n, get_mark_func, set_mark_func, data);
-}
-
-
-
-gboolean file_data_get_mark(FileData *fd, gint n)
-{
-	return fd->file_data_get_mark(fd, n);
-}
-
-guint file_data_get_marks(FileData *fd)
-{
-	return fd->file_data_get_marks(fd);
-}
-
-void file_data_set_mark(FileData *fd, gint n, gboolean value)
-{
-	fd->file_data_set_mark(fd, n, value);
-}
-
-gboolean file_data_filter_marks(FileData *fd, guint filter)
-{
-	return fd->file_data_filter_marks(fd, filter);
-}
-
-GList *file_data_filter_marks_list(GList *list, guint filter)
-{
-	return FileData::file_data_filter_marks_list(list, filter);
-}
-
-
-gboolean file_data_mark_to_selection(FileData *fd, gint mark, MarkToSelectionMode mode, gboolean selected)
-{
-	return fd->file_data_mark_to_selection(fd, mark, mode, selected);
-}
-
-void file_data_selection_to_mark(FileData *fd, gint mark, SelectionToMarkMode mode)
-{
-	fd->file_data_selection_to_mark(fd, mark, mode);
-}
-
-
 gboolean file_data_filter_file_filter(FileData *fd, GRegex *filter)
 {
 	return fd->file_data_filter_file_filter(fd, filter);
@@ -519,27 +469,6 @@ void read_exif_time_data(FileData *file)
 void read_exif_time_digitized_data(FileData *file)
 {
 	file->read_exif_time_digitized_data(file);
-}
-
-
-gboolean marks_list_save(gchar *path, gboolean save)
-{
-	return FileData::marks_list_save(path, save);
-}
-
-gboolean marks_list_load(const gchar *path)
-{
-	return FileData::marks_list_load(path);
-}
-
-void marks_clear_all()
-{
-	FileData::marks_clear_all();
-}
-
-void read_rating_data(FileData *file)
-{
-	file->read_rating_data(file);
 }
 
 

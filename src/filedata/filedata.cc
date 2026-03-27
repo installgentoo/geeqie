@@ -167,11 +167,9 @@ const gchar *FileData::text_from_time(time_t t)
 void FileData::file_data_increment_version(FileData *fd)
 {
 	fd->version++;
-	fd->valid_marks = 0;
 	if (fd->parent)
 		{
 		fd->parent->version++;
-		fd->parent->valid_marks = 0;
 		}
 }
 
@@ -447,7 +445,6 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, gbool
 	fd->ref = 1;
 	fd->magick = FD_MAGICK;
 	fd->exifdate = 0;
-	fd->rating = STAR_RATING_NOT_READ;
 	fd->format_class = filter_file_get_class(path_utf8);
 	fd->page_num = 0;
 	fd->page_total = 0;
@@ -548,22 +545,6 @@ void FileData::read_exif_time_digitized_data(FileData *file)
 
 			file->exifdate_digitized = mktime(&time_str);
 			}
-		}
-}
-
-void FileData::read_rating_data(FileData *file)
-{
-	gchar *rating_str;
-
-	rating_str = metadata_read_string(file, RATING_KEY, METADATA_PLAIN);
-	if (rating_str)
-		{
-		file->rating = atoi(rating_str);
-		g_free(rating_str);
-		}
-	else
-		{
-		file->rating = 0;
 		}
 }
 
@@ -1255,132 +1236,8 @@ gchar *FileData::file_data_get_sidecar_path(FileData *fd, gboolean existing_only
 }
 
 /*
- * marks and orientation
+ * orientation
  */
-
-static FileData::GetMarkFunc file_data_get_mark_func[FILEDATA_MARKS_SIZE];
-static FileData::SetMarkFunc file_data_set_mark_func[FILEDATA_MARKS_SIZE];
-static gpointer file_data_mark_func_data[FILEDATA_MARKS_SIZE];
-static GDestroyNotify file_data_destroy_mark_func[FILEDATA_MARKS_SIZE];
-
-gboolean FileData::file_data_get_mark(FileData *fd, gint n)
-{
-	gboolean valid = (fd->valid_marks & (1 << n));
-
-	if (file_data_get_mark_func[n] && !valid)
-		{
-		guint old = fd->marks;
-		gboolean value = (file_data_get_mark_func[n])(fd, n, file_data_mark_func_data[n]);
-
-		if (!value != !(fd->marks & (1 << n)))
-			{
-			fd->marks = fd->marks ^ (1 << n);
-			}
-
-		fd->valid_marks |= (1 << n);
-		if (old && !fd->marks) /* keep files with non-zero marks in memory */
-			{
-			::file_data_unref(fd);
-			}
-		else if (!old && fd->marks)
-			{
-			::file_data_ref(fd);
-			}
-		}
-
-	return !!(fd->marks & (1 << n));
-}
-
-guint FileData::file_data_get_marks(FileData *fd)
-{
-	gint i;
-	for (i = 0; i < FILEDATA_MARKS_SIZE; i++) file_data_get_mark(fd, i);
-	return fd->marks;
-}
-
-void FileData::file_data_set_mark(FileData *fd, gint n, gboolean value)
-{
-	guint old;
-	if (!value == !file_data_get_mark(fd, n)) return;
-
-	if (file_data_set_mark_func[n])
-		{
-		(file_data_set_mark_func[n])(fd, n, value, file_data_mark_func_data[n]);
-		}
-
-	old = fd->marks;
-
-	fd->marks = fd->marks ^ (1 << n);
-
-	if (old && !fd->marks) /* keep files with non-zero marks in memory */
-		{
-		::file_data_unref(fd);
-		}
-	else if (!old && fd->marks)
-		{
-		::file_data_ref(fd);
-		}
-
-	file_data_increment_version(fd);
-	file_data_send_notification(fd, NOTIFY_MARKS);
-}
-
-gboolean FileData::file_data_filter_marks(FileData *fd, guint filter)
-{
-	gint i;
-	for (i = 0; i < FILEDATA_MARKS_SIZE; i++) if (filter & (1 << i)) file_data_get_mark(fd, i);
-	return ((fd->marks & filter) == filter);
-}
-
-GList *FileData::file_data_filter_marks_list(GList *list, guint filter)
-{
-	GList *work;
-
-	work = list;
-	while (work)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-		GList *link = work;
-		work = work->next;
-
-		if (!::file_data_filter_marks(fd, filter))
-			{
-			list = g_list_remove_link(list, link);
-			::file_data_unref(fd);
-			g_list_free(link);
-			}
-		}
-
-	return list;
-}
-
-gboolean FileData::file_data_mark_to_selection(FileData *fd, gint mark, MarkToSelectionMode mode, gboolean selected)
-{
-	gint n = mark - 1;
-	gboolean mark_val = file_data_get_mark(fd, n);
-
-	switch (mode)
-		{
-		case MTS_MODE_MINUS: return !mark_val && selected;
-		case MTS_MODE_SET: return mark_val;
-		case MTS_MODE_OR: return mark_val || selected;
-		case MTS_MODE_AND: return mark_val && selected;
-		}
-
-	return selected; // arbitrary value, we shouldn't get here
-}
-
-void FileData::file_data_selection_to_mark(FileData *fd, gint mark, SelectionToMarkMode mode)
-{
-	gint n = mark - 1;
-
-	switch (mode)
-		{
-		case STM_MODE_RESET: file_data_set_mark(fd, n, FALSE); break;
-		case STM_MODE_SET: file_data_set_mark(fd, n, TRUE); break;
-		case STM_MODE_TOGGLE: file_data_set_mark(fd, n, !file_data_get_mark(fd, n)); break;
-		}
-}
 
 gboolean FileData::file_data_filter_file_filter(FileData *fd, GRegex *filter)
 {
@@ -1448,42 +1305,6 @@ GList *FileData::file_data_filter_class_list(GList *list, guint filter)
 
 	return list;
 }
-
-static void file_data_notify_mark_func(gpointer, gpointer value, gpointer)
-{
-	auto fd = static_cast<FileData *>(value);
-	file_data_increment_version(fd);
-	file_data_send_notification(fd, NOTIFY_MARKS);
-}
-
-gboolean FileData::file_data_register_mark_func(gint n, GetMarkFunc get_mark_func, SetMarkFunc set_mark_func, gpointer data, GDestroyNotify notify)
-{
-	if (n < 0 || n >= FILEDATA_MARKS_SIZE) return FALSE;
-
-	if (file_data_destroy_mark_func[n]) (file_data_destroy_mark_func[n])(file_data_mark_func_data[n]);
-
-	file_data_get_mark_func[n] = get_mark_func;
-	file_data_set_mark_func[n] = set_mark_func;
-	file_data_mark_func_data[n] = data;
-	file_data_destroy_mark_func[n] = notify;
-
-	FileDataContext *context = FileData::DefaultFileDataContext();
-	if (get_mark_func)
-		{
-		/* this effectively changes all known files */
-		g_hash_table_foreach(context->file_data_pool, file_data_notify_mark_func, nullptr);
-		}
-
-	return TRUE;
-}
-
-void FileData::file_data_get_registered_mark_func(gint n, GetMarkFunc *get_mark_func, SetMarkFunc *set_mark_func, gpointer *data)
-{
-	if (get_mark_func) *get_mark_func = file_data_get_mark_func[n];
-	if (set_mark_func) *set_mark_func = file_data_set_mark_func[n];
-	if (data) *data = file_data_mark_func_data[n];
-}
-
 
 /*
  * file_data    - operates on the given fd
@@ -2801,130 +2622,6 @@ gboolean FileData::file_data_unregister_real_time_monitor(FileData *fd)
  * Uses file_data_pool
  *-----------------------------------------------------------------------------
  */
-
-static void marks_get_files(gpointer key, gpointer value, gpointer userdata)
-{
-	auto file_name = static_cast<gchar *>(key);
-	auto result = static_cast<GString *>(userdata);
-	FileData *fd;
-
-	if (isfile(file_name))
-		{
-		fd = static_cast<FileData *>(value);
-		if (fd && fd->marks > 0)
-			{
-			g_string_append_printf(result, "%s,%u\n", fd->path, fd->marks);
-			}
-		}
-}
-
-gboolean FileData::marks_list_load(const gchar *path)
-{
-	FILE *f;
-	gchar s_buf[1024];
-	gchar *pathl;
-	gchar *file_path;
-	gchar *marks_value;
-
-	pathl = path_from_utf8(path);
-	f = fopen(pathl, "r");
-	g_free(pathl);
-	if (!f) return FALSE;
-
-	/* first line must start with Marks comment */
-	if (!fgets(s_buf, sizeof(s_buf), f) ||
-					strncmp(s_buf, "#Marks", 6) != 0)
-		{
-		fclose(f);
-		return FALSE;
-		}
-
-	while (fgets(s_buf, sizeof(s_buf), f))
-		{
-		if (s_buf[0]=='#') continue;
-			file_path = strtok(s_buf, ",");
-			marks_value = strtok(nullptr, ",");
-			if (isfile(file_path))
-				{
-				FileData *fd = file_data_new_no_grouping(file_path);
-				::file_data_ref(fd);
-				gint n = 0;
-				while (n <= 9)
-					{
-					gint mark_no = 1 << n;
-					if (atoi(marks_value) & mark_no)
-						{
-						::file_data_set_mark(fd, n , 1);
-						}
-					n++;
-					}
-				}
-		}
-
-	fclose(f);
-	return TRUE;
-}
-
-gboolean FileData::marks_list_save(gchar *path, gboolean save)
-{
-	SecureSaveInfo *ssi;
-	gchar *pathl;
-
-	pathl = path_from_utf8(path);
-	ssi = secure_open(pathl);
-	g_free(pathl);
-	if (!ssi)
-		{
-		log_printf(_("Error: Unable to write marks lists to: %s\n"), path);
-		return FALSE;
-		}
-
-	secure_fprintf(ssi, "#Marks lists\n");
-
-	GString *marks = g_string_new("");
-	if (save)
-		{
-		FileDataContext *context = FileData::DefaultFileDataContext();
-		g_hash_table_foreach(context->file_data_pool, marks_get_files, marks);
-		}
-	secure_fprintf(ssi, "%s", marks->str);
-	g_string_free(marks, TRUE);
-
-	secure_fprintf(ssi, "#end\n");
-	return (secure_close(ssi) == 0);
-}
-
-static void marks_clear(gpointer key, gpointer value, gpointer)
-{
-	auto file_name = static_cast<gchar *>(key);
-	gint mark_no;
-	gint n;
-	FileData *fd;
-
-	if (isfile(file_name))
-		{
-		fd = static_cast<FileData *>(value);
-		if (fd && fd->marks > 0)
-			{
-			n = 0;
-			while (n <= 9)
-				{
-				mark_no = 1 << n;
-				if (fd->marks & mark_no)
-					{
-					file_data_set_mark(fd, n , 0);
-					}
-				n++;
-				}
-			}
-		}
-}
-
-void FileData::marks_clear_all()
-{
-	FileDataContext *context = FileData::DefaultFileDataContext();
-	g_hash_table_foreach(context->file_data_pool, marks_clear, nullptr);
-}
 
 void FileData::file_data_set_page_num(FileData *fd, gint page_num)
 {

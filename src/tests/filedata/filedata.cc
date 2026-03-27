@@ -150,28 +150,22 @@ TEST_F(FileDataTest, FileDataNewGroupAndFree)
 TEST_F(FileDataTest, BasicIncrementVersion)
 {
 	fd = g_new0(FileData, 1);
-	fd->valid_marks = 0x4;
 
 	file_data_increment_version(fd);
 
 	ASSERT_EQ(1, fd->version);
-	ASSERT_EQ(0x0, fd->valid_marks);
 }
 
 TEST_F(FileDataTest, BasicIncrementVersionWithParent)
 {
 	parent_fd = g_new0(FileData, 1);
-	parent_fd->valid_marks = 0x8;
 	fd = g_new0(FileData, 1);
-	fd->valid_marks = 0x4;
 	fd->parent = parent_fd;
 
 	file_data_increment_version(fd);
 
 	ASSERT_EQ(1, fd->version);
-	ASSERT_EQ(0x0, fd->valid_marks);
 	ASSERT_EQ(1, parent_fd->version);
-	ASSERT_EQ(0x0, parent_fd->valid_marks);
 }
 
 TEST_F(FileDataTest, FileDataRef)

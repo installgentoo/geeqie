@@ -50,8 +50,6 @@ namespace
 constexpr gint THUMB_MIN_ICON_WIDTH = 128;
 constexpr gint THUMB_MAX_ICON_WIDTH = 160;
 
-constexpr gint THUMB_MIN_ICON_WIDTH_WITH_MARKS = TOGGLE_SPACING * FILEDATA_MARKS_SIZE;
-
 constexpr gint VFICON_MAX_COLUMNS = 32;
 
 constexpr gint THUMB_BORDER_PADDING = 2;
@@ -105,14 +103,6 @@ void vficon_pop_menu_add_items(ViewFile *vf, GtkWidget *menu)
 {
 	menu_item_add_check(menu, _("Show filename _text"), VFICON(vf)->show_text,
 	                    G_CALLBACK(vficon_pop_menu_show_names_cb), vf);
-}
-
-void vficon_pop_menu_show_star_rating_cb(ViewFile *vf)
-{
-	GtkAllocation allocation;
-
-	gtk_widget_get_allocation(vf->listview, &allocation);
-	vficon_populate_at_new_size(vf, allocation.width, allocation.height, TRUE);
 }
 
 void vficon_pop_menu_refresh_cb(ViewFile *vf)
@@ -177,12 +167,11 @@ static gint vficon_get_icon_width(ViewFile *vf)
 {
 	gint width;
 
-	if (!VFICON(vf)->show_text && !vf->marks_enabled ) return options->thumbnails.max_width;
+	if (!VFICON(vf)->show_text ) return options->thumbnails.max_width;
 
 	width = options->thumbnails.max_width + options->thumbnails.max_width / 2;
 	if (width < THUMB_MIN_ICON_WIDTH) width = THUMB_MIN_ICON_WIDTH;
 	if (width > THUMB_MAX_ICON_WIDTH) width = options->thumbnails.max_width;
-	if (vf->marks_enabled && width < THUMB_MIN_ICON_WIDTH_WITH_MARKS) width = THUMB_MIN_ICON_WIDTH_WITH_MARKS;
 
 	return width;
 }
@@ -273,33 +262,6 @@ FileData *vficon_find_data_by_coord(ViewFile *vf, gint x, gint y, GtkTreeIter *i
 
 	return nullptr;
 }
-
-static void vficon_mark_toggled_cb(GtkCellRendererToggle *cell, gchar *path_str, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	GtkTreeModel *store;
-	GtkTreePath *path = gtk_tree_path_new_from_string(path_str);
-	GtkTreeIter row;
-	gint column;
-	GList *list;
-	guint toggled_mark;
-	FileData *fd;
-
-	store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-	if (!path || !gtk_tree_model_get_iter(store, &row, path)) return;
-
-	gtk_tree_model_get(store, &row, FILE_COLUMN_POINTER, &list, -1);
-
-	column = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(cell), "column_number"));
-	g_object_get(G_OBJECT(cell), "toggled_mark", &toggled_mark, NULL);
-
-	fd = static_cast<FileData *>(g_list_nth_data(list, column));
-	if (fd)
-		{
-		file_data_set_mark(fd, toggled_mark, !file_data_get_mark(fd, toggled_mark));
-		}
-}
-
 
 /*
  *-------------------------------------------------------------------
@@ -517,13 +479,6 @@ static void vficon_selection_remove(ViewFile *vf, FileData *fd, SelectionType ma
 	if (!fd) return;
 
 	vficon_selection_set(vf, fd, static_cast<SelectionType>(fd->selected & ~mask), iter);
-}
-
-void vficon_marks_set(ViewFile *vf, gint)
-{
-	GtkAllocation allocation;
-	gtk_widget_get_allocation(vf->listview, &allocation);
-	vficon_populate_at_new_size(vf, allocation.width, allocation.height, TRUE);
 }
 
 /*
@@ -808,39 +763,6 @@ void vficon_select_list(ViewFile *vf, GList *list)
 			}
 		work = work->next;
 		}
-}
-
-void vficon_mark_to_selection(ViewFile *vf, gint mark, MarkToSelectionMode mode)
-{
-	g_assert(mark >= 1 && mark <= FILEDATA_MARKS_SIZE);
-
-	for (GList *work = vf->list; work; work = work->next)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-		gboolean selected;
-
-		g_assert(fd->magick == FD_MAGICK);
-
-		selected = file_data_mark_to_selection(fd, mark, mode, fd->selected & SELECTION_SELECTED);
-
-		vficon_select_util(vf, fd, selected);
-		}
-}
-
-void vficon_selection_to_mark(ViewFile *vf, gint mark, SelectionToMarkMode mode)
-{
-	GList *slist;
-
-	g_assert(mark >= 1 && mark <= FILEDATA_MARKS_SIZE);
-
-	slist = vficon_selection_get_list(vf);
-	for (GList *work = slist; work; work = work->next)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-
-		file_data_selection_to_mark(fd, mark, mode);
-		}
-	filelist_free(slist);
 }
 
 static void vficon_select_closest(ViewFile *vf, FileData *sel_fd)
@@ -1415,9 +1337,7 @@ static void vficon_populate(ViewFile *vf, gboolean resize, gboolean keep_positio
 				{
 				g_object_set(G_OBJECT(cell), "fixed_width", thumb_width,
 							     "fixed_height", options->thumbnails.max_height,
-							     "show_text", VFICON(vf)->show_text || options->show_star_rating,
-							     "show_marks", vf->marks_enabled,
-							     "num_marks", FILEDATA_MARKS_SIZE,
+							     "show_text", VFICON(vf)->show_text,
 							     NULL);
 				}
 			}
@@ -1495,7 +1415,6 @@ static void vficon_populate(ViewFile *vf, gboolean resize, gboolean keep_positio
 
 	vf_send_update(vf);
 	vf_thumb_update(vf);
-	vf_star_update(vf);
 }
 
 static void vficon_populate_at_new_size(ViewFile *vf, gint w, gint, gboolean force)
@@ -1659,86 +1578,6 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 	return nullptr;
 }
 
-void vficon_set_star_fd(ViewFile *vf, FileData *fd)
-{
-	GtkTreeModel *store;
-	GtkTreeIter iter;
-	GList *list;
-
-	if (!g_list_find(vf->list, fd)) return;
-	if (!vficon_find_iter(vf, fd, &iter, nullptr)) return;
-
-	store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-
-	gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
-}
-
-FileData *vficon_star_next_fd(ViewFile *vf)
-{
-	GtkTreePath *tpath;
-
-	/* first check the visible files */
-
-	if (gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
-		{
-		GtkTreeModel *store;
-		GtkTreeIter iter;
-		gboolean valid = TRUE;
-
-		store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-		gtk_tree_model_get_iter(store, &iter, tpath);
-		gtk_tree_path_free(tpath);
-		tpath = nullptr;
-
-		while (valid && tree_view_row_get_visibility(GTK_TREE_VIEW(vf->listview), &iter, FALSE) == 0)
-			{
-			GList *list;
-			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-
-			for (; list; list = list->next)
-				{
-				auto fd = static_cast<FileData *>(list->data);
-				if (fd && fd->rating == STAR_RATING_NOT_READ)
-					{
-					vf->stars_filedata = fd;
-
-					if (vf->stars_id == 0)
-						{
-						vf->stars_id = g_idle_add_full(G_PRIORITY_LOW, vf_stars_cb, vf, nullptr);
-						}
-
-					return fd;
-					}
-				}
-
-			valid = gtk_tree_model_iter_next(store, &iter);
-			}
-		}
-
-	/* Then iterate through the entire list to load all of them. */
-
-	GList *work;
-	for (work = vf->list; work; work = work->next)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-
-		if (fd && fd->rating == STAR_RATING_NOT_READ)
-			{
-			vf->stars_filedata = fd;
-
-			if (vf->stars_id == 0)
-				{
-				vf->stars_id = g_idle_add_full(G_PRIORITY_LOW, vf_stars_cb, vf, nullptr);
-				}
-
-			return fd;
-			}
-		}
-
-	return nullptr;
-}
-
 /*
  *-----------------------------------------------------------------------------
  * row stuff
@@ -1777,7 +1616,6 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean keep_position)
 	if (vf->dir_fd)
 		{
 		ret = filelist_read(vf->dir_fd, &new_filelist, nullptr);
-		new_filelist = file_data_filter_marks_list(new_filelist, vf_marks_get_filter(vf));
 		new_filelist = g_list_first(new_filelist);
 		new_filelist = file_data_filter_file_filter_list(new_filelist, vf_file_filter_get_filter(vf));
 
@@ -1969,18 +1807,6 @@ static void vficon_cell_data_cb(GtkTreeViewColumn *, GtkCellRenderer *cell,
 				}
 			}
 
-		if (options->show_star_rating)
-			{
-			if (name_sidecars->len > 0)
-				{
-				name_sidecars = g_string_append_c(name_sidecars, '\n');
-				}
-
-			gchar *star_rating = (fd->rating != STAR_RATING_NOT_READ) ? convert_rating_to_stars(fd->rating) : nullptr;
-			name_sidecars = g_string_append(name_sidecars, star_rating);
-			g_free(star_rating);
-			}
-
 		GtkStyle *style = gtk_widget_get_style(vf->listview);
 		GtkStateType state = (fd->selected & SELECTION_SELECTED) ? GTK_STATE_SELECTED : GTK_STATE_NORMAL;
 
@@ -1997,8 +1823,6 @@ static void vficon_cell_data_cb(GtkTreeViewColumn *, GtkCellRenderer *cell,
 		g_object_set(cell,
 		             "pixbuf", fd->thumb_pixbuf,
 		             "text", name_sidecars->str,
-		             "marks", file_data_get_marks(fd),
-		             "show_marks", vf->marks_enabled,
 		             "cell-background-rgba", &color_bg,
 		             "cell-background-set", TRUE,
 		             "foreground-rgba", &color_fg,
@@ -2011,7 +1835,6 @@ static void vficon_cell_data_cb(GtkTreeViewColumn *, GtkCellRenderer *cell,
 		{
 		g_object_set(cell,	"pixbuf", NULL,
 					"text", NULL,
-					"show_marks", FALSE,
 					"cell-background-set", FALSE,
 					"foreground-set", FALSE,
 					"has-focus", FALSE, NULL);
@@ -2044,8 +1867,6 @@ static void vficon_append_column(ViewFile *vf, gint n)
 	gtk_tree_view_column_set_cell_data_func(column, renderer, vficon_cell_data_cb, cd, g_free);
 
 	gtk_tree_view_append_column(GTK_TREE_VIEW(vf->listview), column);
-
-	g_signal_connect(G_OBJECT(renderer), "toggled", G_CALLBACK(vficon_mark_toggled_cb), vf);
 }
 
 /*
@@ -2088,7 +1909,6 @@ void vficon_destroy_cb(ViewFile *vf)
 	tip_unschedule(vf);
 
 	vf_thumb_cleanup(vf);
-	vf_star_cleanup(vf);
 
 	g_list_free(vf->list);
 	g_list_free(VFICON(vf)->selection);

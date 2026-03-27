@@ -54,7 +54,6 @@ gboolean pixbuf_scale_aspect(gint req_w, gint req_h, gint old_w, gint old_h, gin
 #define PIXBUF_INLINE_ICON_HEIF             "gq-icon-heic"
 #define PIXBUF_INLINE_ICON_HIDETOOLS        "gq-icon-hidetools"
 #define PIXBUF_INLINE_ICON_MAINTENANCE      "gq-icon-maintenance"
-#define PIXBUF_INLINE_ICON_MARKS            "gq-icon-marks"
 #define PIXBUF_INLINE_ICON_MOVE             "gq-icon-move"
 #define PIXBUF_INLINE_ICON_ORIGINAL         "gq-icon-original"
 #define PIXBUF_INLINE_ICON_PANORAMA         "gq-icon-panorama"

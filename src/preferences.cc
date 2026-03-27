@@ -48,7 +48,6 @@
 #include <pango/pango.h>
 
 #include "archives.h"
-#include "bar-keywords.h"
 #include "cache.h"
 #include "color-man.h"
 #include "compat.h"
@@ -86,7 +85,6 @@ namespace
 {
 
 constexpr gint PRE_FORMATTED_COLUMNS = 5;
-constexpr gint KEYWORD_DIALOG_WIDTH = 400;
 
 } // namespace
 
@@ -98,9 +96,6 @@ enum {
 };
 
 static void image_overlay_set_text_colors();
-
-GtkWidget *keyword_text;
-static void config_tab_keywords_save();
 
 struct ThumbSize
 {
@@ -404,7 +399,6 @@ static void config_window_apply()
 	options->metadata.confirm_after_timeout = c_options->metadata.confirm_after_timeout;
 	options->metadata.confirm_on_image_change = c_options->metadata.confirm_on_image_change;
 	options->metadata.confirm_on_dir_change = c_options->metadata.confirm_on_dir_change;
-	options->metadata.keywords_case_sensitive = c_options->metadata.keywords_case_sensitive;
 	options->metadata.write_orientation = c_options->metadata.write_orientation;
 	options->metadata.check_spelling = c_options->metadata.check_spelling;
 	options->stereo.mode = (c_options->stereo.mode & (PR_STEREO_HORIZ | PR_STEREO_VERT | PR_STEREO_FIXED | PR_STEREO_ANAGLYPH | PR_STEREO_HALF)) |
@@ -429,20 +423,15 @@ static void config_window_apply()
 	options->stereo.fixed_x2 = c_options->stereo.fixed_x2;
 	options->stereo.fixed_y2 = c_options->stereo.fixed_y2;
 
-	options->info_keywords.height = c_options->info_keywords.height;
 	options->info_title.height = c_options->info_title.height;
 	options->info_comment.height = c_options->info_comment.height;
-	options->info_rating.height = c_options->info_rating.height;
 
-	options->show_predefined_keyword_tree = c_options->show_predefined_keyword_tree;
 	options->expand_menu_toolbar = c_options->expand_menu_toolbar;
-	options->hamburger_menu = c_options->hamburger_menu;
 
 	options->selectable_bars.menu_bar = c_options->selectable_bars.menu_bar;
 	options->selectable_bars.tool_bar = c_options->selectable_bars.tool_bar;
 	options->selectable_bars.status_bar = c_options->selectable_bars.status_bar;
 
-	options->marks_save = c_options->marks_save;
 	options->with_rename = c_options->with_rename;
 	options->collections_duplicates = c_options->collections_duplicates;
 	options->collections_on_top = c_options->collections_on_top;
@@ -455,9 +444,6 @@ static void config_window_apply()
 	config_entry_to_option(external_preview_extract_entry, &options->external_preview.extract, nullptr);
 
 	options->read_metadata_in_idle = c_options->read_metadata_in_idle;
-
-	options->star_rating.star = c_options->star_rating.star;
-	options->star_rating.rejected = c_options->star_rating.rejected;
 
 	options->threads.duplicates = c_options->threads.duplicates > 0 ? c_options->threads.duplicates : -1;
 
@@ -488,8 +474,6 @@ static void config_window_apply()
 	options->mouse_button_9 = c_options->mouse_button_9;
 
 	options->override_disable_gpu = c_options->override_disable_gpu;
-
-	config_tab_keywords_save();
 
 	image_options_sync();
 
@@ -1821,92 +1805,6 @@ static void help_search_engine_entry_icon_cb(GtkEntry *, GtkEntryIconPosition po
 		}
 }
 
-static void star_rating_star_icon_cb(GtkEntry *, GtkEntryIconPosition pos, GdkEvent *, gpointer userdata)
-{
-	gchar *rating_symbol;
-
-	if (pos == GTK_ENTRY_ICON_PRIMARY)
-		{
-		rating_symbol = g_strdup_printf("U+%X", STAR_RATING_STAR);
-		gq_gtk_entry_set_text(GTK_ENTRY(userdata), rating_symbol);
-		g_free(rating_symbol);
-		}
-	else
-		{
-		gq_gtk_entry_set_text(GTK_ENTRY(userdata), "U+");
-		gtk_widget_grab_focus(GTK_WIDGET(userdata));
-		gtk_editable_select_region(GTK_EDITABLE(userdata), 2, 2);
-		}
-}
-
-static void star_rating_rejected_icon_cb(GtkEntry *, GtkEntryIconPosition pos, GdkEvent *, gpointer userdata)
-{
-	gchar *rating_symbol;
-
-	if (pos == GTK_ENTRY_ICON_PRIMARY)
-		{
-		rating_symbol = g_strdup_printf("U+%X", STAR_RATING_REJECTED);
-		gq_gtk_entry_set_text(GTK_ENTRY(userdata), rating_symbol);
-		g_free(rating_symbol);
-		}
-	else
-		{
-		gq_gtk_entry_set_text(GTK_ENTRY(userdata), "U+");
-		gtk_widget_grab_focus(GTK_WIDGET(userdata));
-		gtk_editable_select_region(GTK_EDITABLE(userdata), 2, 2);
-		}
-}
-
-static guint star_rating_symbol_test(GtkWidget *, gpointer data)
-{
-	auto hbox = static_cast<GtkContainer *>(data);
-	GString *str = g_string_new(nullptr);
-	GtkEntry *hex_code_entry;
-	gchar *hex_code_full;
-	gchar **hex_code;
-	GList *list;
-	guint64 hex_value = 0;
-
-	list = gtk_container_get_children(hbox);
-
-	hex_code_entry = static_cast<GtkEntry *>(g_list_nth_data(list, 2));
-	hex_code_full = g_strdup(gq_gtk_entry_get_text(hex_code_entry));
-
-	hex_code = g_strsplit(hex_code_full, "+", 2);
-	if (hex_code[0] && hex_code[1])
-		{
-		hex_value = strtoull(hex_code[1], nullptr, 16);
-		}
-	if (!hex_value || hex_value > 0x10FFFF)
-		{
-		hex_value = 0x003F; // Unicode 'Question Mark'
-		}
-	str = g_string_append_unichar(str, static_cast<gunichar>(hex_value));
-	gtk_label_set_text(static_cast<GtkLabel *>(g_list_nth_data(list, 1)), str->str);
-
-	g_strfreev(hex_code);
-	g_string_free(str, TRUE);
-	g_free(hex_code_full);
-
-	return hex_value;
-}
-
-static void star_rating_star_test_cb(GtkWidget *widget, gpointer data)
-{
-	guint64 star_symbol;
-
-	star_symbol = star_rating_symbol_test(widget, data);
-	c_options->star_rating.star = star_symbol;
-}
-
-static void star_rating_rejected_test_cb(GtkWidget *widget, gpointer data)
-{
-	guint64 rejected_symbol;
-
-	rejected_symbol = star_rating_symbol_test(widget, data);
-	c_options->star_rating.rejected = rejected_symbol;
-}
-
 /* general options tab */
 static void timezone_database_install_cb(GtkWidget *widget, gpointer data);
 struct TZData
@@ -1930,9 +1828,7 @@ static void config_tab_general(GtkWidget *notebook)
 	GtkWidget *button;
 	GtkWidget *ct_button;
 	GtkWidget *table;
-	GtkWidget *star_rating_entry;
 	GString *str;
-	gchar *rating_symbol;
 	gchar *path;
 	gchar *basename;
 	gchar *download_locn;
@@ -1995,77 +1891,6 @@ static void config_tab_general(GtkWidget *notebook)
 
 	pref_spacer(group, PREF_PAD_GROUP);
 
-	group = pref_group_new(vbox, FALSE, _("Star Rating"), GTK_ORIENTATION_VERTICAL);
-
-	c_options->star_rating.star = options->star_rating.star;
-	c_options->star_rating.rejected = options->star_rating.rejected;
-
-	str = g_string_new(nullptr);
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	pref_label_new(hbox, _("Star character: "));
-	str = g_string_append_unichar(str, options->star_rating.star);
-	pref_label_new(hbox, g_strdup(str->str));
-	rating_symbol = g_strdup_printf("U+%X", options->star_rating.star);
-	star_rating_entry = gtk_entry_new();
-	gq_gtk_entry_set_text(GTK_ENTRY(star_rating_entry), rating_symbol);
-	gq_gtk_box_pack_start(GTK_BOX(hbox), star_rating_entry, FALSE, FALSE, 0);
-	gtk_entry_set_width_chars(GTK_ENTRY(star_rating_entry), 15);
-	gtk_widget_show(star_rating_entry);
-	button = pref_button_new(nullptr, nullptr, _("Set"),
-					G_CALLBACK(star_rating_star_test_cb), hbox);
-	gtk_widget_set_tooltip_text(button, _("Display selected character"));
-	gq_gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
-	gtk_widget_show(button);
-	gtk_widget_set_tooltip_text(star_rating_entry, _("Hexadecimal representation of a Unicode character. A list of all Unicode characters may be found on the Internet."));
-	gtk_entry_set_icon_from_icon_name(GTK_ENTRY(star_rating_entry),
-						GTK_ENTRY_ICON_SECONDARY, GQ_ICON_CLEAR);
-	gtk_entry_set_icon_tooltip_text (GTK_ENTRY(star_rating_entry),
-						GTK_ENTRY_ICON_SECONDARY, _("Clear"));
-	gtk_entry_set_icon_from_icon_name(GTK_ENTRY(star_rating_entry),
-						GTK_ENTRY_ICON_PRIMARY, GQ_ICON_REVERT);
-	gtk_entry_set_icon_tooltip_text (GTK_ENTRY(star_rating_entry),
-						GTK_ENTRY_ICON_PRIMARY, _("Default"));
-	g_signal_connect(GTK_ENTRY(star_rating_entry), "icon-press",
-						G_CALLBACK(star_rating_star_icon_cb),
-						star_rating_entry);
-
-	g_string_free(str, TRUE);
-	g_free(rating_symbol);
-
-	str = g_string_new(nullptr);
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	pref_label_new(hbox, _("Rejected character: "));
-	str = g_string_append_unichar(str, options->star_rating.rejected);
-	pref_label_new(hbox, g_strdup(str->str));
-	rating_symbol = g_strdup_printf("U+%X", options->star_rating.rejected);
-	star_rating_entry = gtk_entry_new();
-	gq_gtk_entry_set_text(GTK_ENTRY(star_rating_entry), rating_symbol);
-	gq_gtk_box_pack_start(GTK_BOX(hbox), star_rating_entry, FALSE, FALSE, 0);
-	gtk_entry_set_width_chars(GTK_ENTRY(star_rating_entry), 15);
-	gtk_widget_show(star_rating_entry);
-	button = pref_button_new(nullptr, nullptr, _("Set"),
-					G_CALLBACK(star_rating_rejected_test_cb), hbox);
-	gtk_widget_set_tooltip_text(button, _("Display selected character"));
-	gq_gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
-	gtk_widget_show(button);
-	gtk_widget_set_tooltip_text(star_rating_entry, _("Hexadecimal representation of a Unicode character. A list of all Unicode characters may be found on the Internet."));
-	gtk_entry_set_icon_from_icon_name(GTK_ENTRY(star_rating_entry),
-						GTK_ENTRY_ICON_SECONDARY, GQ_ICON_CLEAR);
-	gtk_entry_set_icon_tooltip_text (GTK_ENTRY(star_rating_entry),
-						GTK_ENTRY_ICON_SECONDARY, _("Clear"));
-	gtk_entry_set_icon_from_icon_name(GTK_ENTRY(star_rating_entry),
-						GTK_ENTRY_ICON_PRIMARY, GQ_ICON_REVERT);
-	gtk_entry_set_icon_tooltip_text (GTK_ENTRY(star_rating_entry),
-						GTK_ENTRY_ICON_PRIMARY, _("Default"));
-	g_signal_connect(GTK_ENTRY(star_rating_entry), "icon-press",
-						G_CALLBACK(star_rating_rejected_icon_cb),
-						star_rating_entry);
-
-	g_string_free(str, TRUE);
-	g_free(rating_symbol);
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
 	group = pref_group_new(vbox, FALSE, _("Image loading and caching"), GTK_ORIENTATION_VERTICAL);
 
 	pref_spin_new_int(group, _("Decoded image cache size (MiB):"), nullptr,
@@ -2076,14 +1901,6 @@ static void config_tab_general(GtkWidget *notebook)
 	pref_checkbox_new_int(group, _("Refresh on file change"),
 			      options->update_on_time_change, &c_options->update_on_time_change);
 
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("Menu style"), GTK_ORIENTATION_VERTICAL);
-
-	pref_checkbox_new_int(group, _("☰ style menu button (NOTE! Geeqie must be restarted for change to take effect)"),
-				options->hamburger_menu, &c_options->hamburger_menu);
-	gtk_widget_set_tooltip_text(group, _("Use a ☰ style menu button instead of the classic style across the top of the frame"));
 
 	pref_spacer(group, PREF_PAD_GROUP);
 
@@ -2872,9 +2689,6 @@ static void config_tab_metadata(GtkWidget *notebook)
 	tmp_widget = pref_checkbox_new_int(group, _("Write the same description tags to all grouped sidecars"), options->metadata.sync_grouped_files, &c_options->metadata.sync_grouped_files);
 	gtk_widget_set_tooltip_text(tmp_widget, _("See the Help file for a list of the tags used"));
 
-	tmp_widget = pref_checkbox_new_int(group, _("Permit Keywords to be case-sensitive"), options->metadata.keywords_case_sensitive, &c_options->metadata.keywords_case_sensitive);
-	gtk_widget_set_tooltip_text(tmp_widget, _("When selected, 'Place' and 'place' are two different keywords"));
-
 	ct_button = pref_checkbox_new_int(group, _("Write altered image orientation to the metadata"), options->metadata.write_orientation, &c_options->metadata.write_orientation);
 	gtk_widget_set_tooltip_text(ct_button, _("If checked, the results of orientation commands (Rotate, Mirror and Flip) issued on an image will be written to metadata\nNote: If this option is not checked, the results of orientation commands will be lost when Geeqie closes"));
 
@@ -2912,346 +2726,6 @@ static void config_tab_metadata(GtkWidget *notebook)
 
 	ct_button = pref_checkbox_new_int(group, _("Read metadata in background"), options->read_metadata_in_idle, &c_options->read_metadata_in_idle);
 	gtk_widget_set_tooltip_text(ct_button,_("On folder change, read DateTimeOriginal, DateTimeDigitized and Star Rating in the idle loop.\nIf this is not selected, initial loading of the folder will be faster but sorting on these items will be slower"));
-}
-
-/* keywords tab */
-
-struct KeywordFindData
-{
-	GenericDialog *gd;
-
-	GList *list;
-	GList *list_dir;
-
-	GtkWidget *button_close;
-	GtkWidget *button_stop;
-	GtkWidget *button_start;
-	GtkWidget *progress;
-	GtkWidget *spinner;
-
-	GtkWidget *group;
-	GtkWidget *entry;
-
-	gboolean recurse;
-
-	guint idle_id; /* event source id */
-};
-
-static void keywords_find_folder(KeywordFindData *kfd, FileData *dir_fd)
-{
-	GList *list_d = nullptr;
-	GList *list_f = nullptr;
-
-	if (kfd->recurse)
-		{
-		filelist_read(dir_fd, &list_f, &list_d);
-		}
-	else
-		{
-		filelist_read(dir_fd, &list_f, nullptr);
-		}
-
-	list_f = filelist_filter(list_f, FALSE);
-	list_d = filelist_filter(list_d, TRUE);
-
-	kfd->list = g_list_concat(list_f, kfd->list);
-	kfd->list_dir = g_list_concat(list_d, kfd->list_dir);
-}
-
-static void keywords_find_reset(KeywordFindData *kfd)
-{
-	filelist_free(kfd->list);
-	kfd->list = nullptr;
-
-	filelist_free(kfd->list_dir);
-	kfd->list_dir = nullptr;
-}
-
-static void keywords_find_close_cb(GenericDialog *, gpointer data)
-{
-	auto kfd = static_cast<KeywordFindData *>(data);
-
-	if (!gtk_widget_get_sensitive(kfd->button_close)) return;
-
-	keywords_find_reset(kfd);
-	generic_dialog_close(kfd->gd);
-	g_free(kfd);
-}
-
-static void keywords_find_finish(KeywordFindData *kfd)
-{
-	keywords_find_reset(kfd);
-
-	gq_gtk_entry_set_text(GTK_ENTRY(kfd->progress), _("done"));
-	gtk_spinner_stop(GTK_SPINNER(kfd->spinner));
-
-	gtk_widget_set_sensitive(kfd->group, TRUE);
-	gtk_widget_set_sensitive(kfd->button_start, TRUE);
-	gtk_widget_set_sensitive(kfd->button_stop, FALSE);
-	gtk_widget_set_sensitive(kfd->button_close, TRUE);
-}
-
-static void keywords_find_stop_cb(GenericDialog *, gpointer data)
-{
-	auto kfd = static_cast<KeywordFindData *>(data);
-
-	g_idle_remove_by_data(kfd);
-
-	keywords_find_finish(kfd);
-}
-
-static gboolean keywords_find_file(gpointer data)
-{
-	auto kfd = static_cast<KeywordFindData *>(data);
-	GtkTextIter iter;
-	GtkTextBuffer *buffer;
-	gchar *tmp;
-	GList *keywords;
-
-	if (kfd->list)
-		{
-		FileData *fd;
-
-		fd = static_cast<FileData *>(kfd->list->data);
-		kfd->list = g_list_remove(kfd->list, fd);
-
-		keywords = metadata_read_list(fd, KEYWORD_KEY, METADATA_PLAIN);
-		buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(keyword_text));
-
-		while (keywords)
-			{
-			gtk_text_buffer_get_end_iter(buffer, &iter);
-			tmp = g_strconcat(static_cast<const gchar *>(keywords->data), "\n", NULL);
-			gtk_text_buffer_insert(buffer, &iter, tmp, -1);
-			g_free(tmp);
-			keywords = keywords->next;
-			}
-
-		gq_gtk_entry_set_text(GTK_ENTRY(kfd->progress), fd->path);
-		file_data_unref(fd);
-		g_list_free_full(keywords, g_free);
-
-		return (G_SOURCE_CONTINUE);
-		}
-
-	if (kfd->list_dir)
-		{
-		FileData *fd;
-
-		fd = static_cast<FileData *>(kfd->list_dir->data);
-		kfd->list_dir = g_list_remove(kfd->list_dir, fd);
-
-		keywords_find_folder(kfd, fd);
-
-		file_data_unref(fd);
-
-		return G_SOURCE_CONTINUE;
-		}
-
-	keywords_find_finish(kfd);
-
-	return G_SOURCE_REMOVE;
-}
-
-static void keywords_find_start_cb(GenericDialog *, gpointer data)
-{
-	auto kfd = static_cast<KeywordFindData *>(data);
-	gchar *path;
-
-	if (kfd->list || !gtk_widget_get_sensitive(kfd->button_start)) return;
-
-	path = remove_trailing_slash((gq_gtk_entry_get_text(GTK_ENTRY(kfd->entry))));
-	parse_out_relatives(path);
-
-	if (!isdir(path))
-		{
-		warning_dialog(_("Invalid folder"),
-				_("The specified folder can not be found."),
-				GQ_ICON_DIALOG_WARNING, kfd->gd->dialog);
-		}
-	else
-		{
-		FileData *dir_fd;
-
-		gtk_widget_set_sensitive(kfd->group, FALSE);
-		gtk_widget_set_sensitive(kfd->button_start, FALSE);
-		gtk_widget_set_sensitive(kfd->button_stop, TRUE);
-		gtk_widget_set_sensitive(kfd->button_close, FALSE);
-		gtk_spinner_start(GTK_SPINNER(kfd->spinner));
-
-		dir_fd = file_data_new_dir(path);
-		keywords_find_folder(kfd, dir_fd);
-		file_data_unref(dir_fd);
-		kfd->idle_id = g_idle_add(keywords_find_file, kfd);
-		}
-
-	g_free(path);
-}
-
-static void keywords_find_dialog(GtkWidget *widget, const gchar *path)
-{
-	KeywordFindData *kfd;
-	GtkWidget *hbox;
-	GtkWidget *label;
-
-	kfd = g_new0(KeywordFindData, 1);
-
-	kfd->gd = generic_dialog_new(_("Search for keywords"),
-									"search_for_keywords",
-									widget, FALSE,
-									nullptr, kfd);
-	gtk_window_set_default_size(GTK_WINDOW(kfd->gd->dialog), KEYWORD_DIALOG_WIDTH, -1);
-	kfd->gd->cancel_cb = keywords_find_close_cb;
-	kfd->button_close = generic_dialog_add_button(kfd->gd, GQ_ICON_CLOSE, _("Close"),
-						     keywords_find_close_cb, FALSE);
-	kfd->button_start = generic_dialog_add_button(kfd->gd, GQ_ICON_OK, _("S_tart"),
-						     keywords_find_start_cb, FALSE);
-	kfd->button_stop = generic_dialog_add_button(kfd->gd, GQ_ICON_STOP, _("Stop"),
-						    keywords_find_stop_cb, FALSE);
-	gtk_widget_set_sensitive(kfd->button_stop, FALSE);
-
-	generic_dialog_add_message(kfd->gd, nullptr, _("Search for keywords"), nullptr, FALSE);
-
-	hbox = pref_box_new(kfd->gd->vbox, FALSE, GTK_ORIENTATION_HORIZONTAL, 0);
-	pref_spacer(hbox, PREF_PAD_INDENT);
-	kfd->group = pref_box_new(hbox, TRUE, GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
-
-	hbox = pref_box_new(kfd->group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	pref_label_new(hbox, _("Folder:"));
-
-	label = tab_completion_new(&kfd->entry, path, nullptr, nullptr, nullptr, nullptr);
-	tab_completion_add_select_button(kfd->entry,_("Select folder") , TRUE);
-	gq_gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
-	gtk_widget_show(label);
-
-	pref_checkbox_new_int(kfd->group, _("Include subfolders"), FALSE, &kfd->recurse);
-
-	pref_line(kfd->gd->vbox, PREF_PAD_SPACE);
-	hbox = pref_box_new(kfd->gd->vbox, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-
-	kfd->progress = gtk_entry_new();
-	gtk_widget_set_can_focus(kfd->progress, FALSE);
-	gtk_editable_set_editable(GTK_EDITABLE(kfd->progress), FALSE);
-	gq_gtk_entry_set_text(GTK_ENTRY(kfd->progress), _("click start to begin"));
-	gq_gtk_box_pack_start(GTK_BOX(hbox), kfd->progress, TRUE, TRUE, 0);
-	gtk_widget_show(kfd->progress);
-
-	kfd->spinner = gtk_spinner_new();
-	gq_gtk_box_pack_start(GTK_BOX(hbox), kfd->spinner, FALSE, FALSE, 0);
-	gtk_widget_show(kfd->spinner);
-
-	kfd->list = nullptr;
-
-	gtk_widget_show(kfd->gd->dialog);
-}
-
-static void keywords_find_cb(GtkWidget *widget, gpointer)
-{
-	const gchar *path = layout_get_path(nullptr);
-
-	if (!path || !*path) path = homedir();
-	keywords_find_dialog(widget, path);
-}
-
-static void config_tab_keywords_save()
-{
-	GtkTextIter start;
-	GtkTextIter end;
-	GtkTextBuffer *buffer;
-	GList *kw_list = nullptr;
-	gchar *buffer_text;
-	gchar *kw_split;
-
-	buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(keyword_text));
-	gtk_text_buffer_get_bounds(buffer, &start, &end);
-
-	buffer_text = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
-
-	kw_split = strtok(buffer_text, "\n");
-	while (kw_split != nullptr)
-		{
-		if (!g_list_find_custom(kw_list, kw_split, reinterpret_cast<GCompareFunc>(g_strcmp0)))
-			{
-			kw_list = g_list_append(kw_list, g_strdup(kw_split));
-			}
-		kw_split = strtok(nullptr, "\n");
-		}
-
-	keyword_list_set(kw_list);
-
-	g_list_free_full(kw_list, g_free);
-	g_free(buffer_text);
-}
-
-static void config_tab_keywords(GtkWidget *notebook)
-{
-	GtkWidget *hbox;
-	GtkWidget *vbox;
-	GtkWidget *group;
-	GtkWidget *button;
-	GtkWidget *scrolled;
-	GtkTextIter iter;
-	GtkTextBuffer *buffer;
-	gchar *tmp;
-#if HAVE_SPELL
-	GspellTextView *gspell_view;
-#endif
-
-	vbox = scrolled_notebook_page(notebook, _("Keywords"));
-
-	group = pref_group_new(vbox, TRUE, _("Edit keywords autocompletion list"), GTK_ORIENTATION_VERTICAL);
-
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_BUTTON_GAP);
-
-	button = pref_button_new(hbox, GQ_ICON_RUN, _("Search"),
-				   G_CALLBACK(keywords_find_cb), keyword_text);
-	gtk_widget_set_tooltip_text(button, _("Search for existing keywords"));
-
-
-	keyword_text = gtk_text_view_new();
-	gtk_widget_set_size_request(keyword_text, 20, 20);
-	scrolled = gq_gtk_scrolled_window_new(nullptr, nullptr);
-	gq_gtk_box_pack_start(GTK_BOX(group), scrolled, TRUE, TRUE, 0);
-	gtk_widget_show(scrolled);
-
-#if HAVE_SPELL
-	if (options->metadata.check_spelling)
-		{
-		gspell_view = gspell_text_view_get_from_gtk_text_view(GTK_TEXT_VIEW(keyword_text));
-		gspell_text_view_basic_setup(gspell_view);
-		}
-#endif
-
-	gq_gtk_container_add(GTK_WIDGET(scrolled), keyword_text);
-	gtk_widget_show(keyword_text);
-
-	gtk_text_view_set_editable(GTK_TEXT_VIEW(keyword_text), TRUE);
-
-	buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(keyword_text));
-	gtk_text_buffer_create_tag(buffer, "monospace",
-				"family", "monospace", NULL);
-
-	gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(keyword_text), GTK_WRAP_WORD);
-	gtk_text_buffer_get_start_iter(buffer, &iter);
-	gtk_text_buffer_create_mark(buffer, "end", &iter, FALSE);
-	gchar *path;
-
-	path = g_build_filename(get_rc_dir(), "keywords", NULL);
-
-	GList *kwl = keyword_list_get();
-	kwl = g_list_first(kwl);
-	while (kwl)
-	{
-		gtk_text_buffer_get_end_iter (buffer, &iter);
-	    tmp = g_strconcat(static_cast<const gchar *>(kwl->data), "\n", NULL);
-		gtk_text_buffer_insert(buffer, &iter, tmp, -1);
-		kwl = kwl->next;
-		g_free(tmp);
-	}
-
-	gtk_text_buffer_set_modified(buffer, FALSE);
-
-	g_free(path);
 }
 
 /* metadata tab */
@@ -3502,10 +2976,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 	tmp = pref_checkbox_new_int(group, _("Circular selection lists"),
 			      options->circular_selection_lists, &c_options->circular_selection_lists);
 	gtk_widget_set_tooltip_text(tmp, _("Traverse selection lists in a circular manner"));
-
-	marks = pref_checkbox_new_int(group, _("Save marks on exit"),
-				options->marks_save, &c_options->marks_save);
-	gtk_widget_set_tooltip_text(marks,_("Note that marks linked to a keyword will be saved irrespective of this setting"));
 
 	with_rename = pref_checkbox_new_int(group, _("Use 'With Rename' as default for Copy/Move dialogs"),
 				options->with_rename, &c_options->with_rename);
@@ -4010,7 +3480,6 @@ static void config_window_create(LayoutWindow *lw)
 	config_tab_accelerators(notebook);
 	config_tab_files(notebook);
 	config_tab_metadata(notebook);
-	config_tab_keywords(notebook);
 	config_tab_color(notebook);
 	config_tab_stereo(notebook);
 	config_tab_behavior(notebook);

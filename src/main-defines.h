@@ -57,8 +57,7 @@
 				"(%number%/%total%) [%zoom%] <b>%name%</b>\n" \
 				"%res%|%date%|%size%\n" \
 				"%formatted.Aperture%|%formatted.ShutterSpeed%|%formatted.ISOSpeedRating:ISO *%|%formatted.FocalLength%|%formatted.ExposureBias:* Ev%\n" \
-				"%formatted.Camera:40%|%formatted.Flash%\n"            \
-				"%formatted.star_rating%"
+				"%formatted.Camera:40%|%formatted.Flash%\n"
 
 #define GQ_LINK_STR "↩"
 
@@ -66,10 +65,6 @@
 #define TIMEZONE_DATABASE_FILE "timezone21.bin"
 #define TIMEZONE_DATABASE_VERSION "out_v1"
 #define HELP_SEARCH_ENGINE "https://duckduckgo.com/?q=site:geeqie.org/help "
-
-#define STAR_RATING_NOT_READ -12345
-#define STAR_RATING_REJECTED 0x274C //Unicode Character 'Cross Mark'
-#define STAR_RATING_STAR 0x2738 //Unicode Character 'Heavy Eight Pointed Rectilinear Black Star'
 
 #define GQ_ICON_ADD "list-add"
 #define GQ_ICON_REMOVE "list-remove"

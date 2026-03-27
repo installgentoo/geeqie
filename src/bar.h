@@ -34,9 +34,7 @@ enum PaneType {
 	PANE_COMMENT,
 	PANE_EXIF,
 	PANE_HISTOGRAM,
-	PANE_KEYWORDS,
-	PANE_GPS,
-	PANE_RATING
+	PANE_GPS
 };
 
 struct PaneData {

@@ -146,9 +146,6 @@ class FileData {
 	mode_t mode; /**< this is needed at least for notification in view_dir because it is preserved after the file/directory is deleted */
 	gint sidecar_priority;
 
-	guint marks; /**< each bit represents one mark */
-	guint valid_marks; /**< zero bit means that the corresponding mark needs to be reread */
-
 
 	GList *sidecar_files;
 	FileData *parent; /**< parent file if this is a sidecar file, NULL otherwise */
@@ -173,7 +170,6 @@ class FileData {
 	time_t exifdate_digitized;
 	GHashTable *modified_xmp; /**< hash table which contains unwritten xmp metadata in format: key->list of string values */
 	GList *cached_metadata;
-	gint rating;
 	gboolean metadata_in_idle_loaded;
 
 	SelectionType selected;  /**< Used by view-file-icon. */
@@ -232,15 +228,6 @@ class FileData {
 	static gboolean file_data_register_mark_func(gint n, GetMarkFunc get_mark_func, SetMarkFunc set_mark_func, gpointer data, GDestroyNotify notify);
 	static void file_data_get_registered_mark_func(gint n, GetMarkFunc *get_mark_func, SetMarkFunc *set_mark_func, gpointer *data);
 
-
-	gboolean file_data_get_mark(FileData *fd, gint n);
-	guint file_data_get_marks(FileData *fd);
-	void file_data_set_mark(FileData *fd, gint n, gboolean value);
-	gboolean file_data_filter_marks(FileData *fd, guint filter);
-	static GList *file_data_filter_marks_list(GList *list, guint filter);
-
-	gboolean file_data_mark_to_selection(FileData *fd, gint mark, MarkToSelectionMode mode, gboolean selected);
-	void file_data_selection_to_mark(FileData *fd, gint mark, SelectionToMarkMode mode);
 
 	gboolean file_data_filter_file_filter(FileData *fd, GRegex *filter);
 	static GList *file_data_filter_file_filter_list(GList *list, GRegex *filter);
@@ -309,11 +296,6 @@ class FileData {
 
 	void read_exif_time_data(FileData *file);
 	void read_exif_time_digitized_data(FileData *file);
-
-	static gboolean marks_list_save(gchar *path, gboolean save);
-	static gboolean marks_list_load(const gchar *path);
-	static void marks_clear_all();
-	void read_rating_data(FileData *file);
 
 	void file_data_inc_page_num(FileData *fd);
 	void file_data_dec_page_num(FileData *fd);
@@ -462,15 +444,6 @@ gboolean file_data_register_mark_func(gint n, FileData::GetMarkFunc get_mark_fun
 void file_data_get_registered_mark_func(gint n, FileData::GetMarkFunc *get_mark_func, FileData::SetMarkFunc *set_mark_func, gpointer *data);
 
 
-gboolean file_data_get_mark(FileData *fd, gint n);
-guint file_data_get_marks(FileData *fd);
-void file_data_set_mark(FileData *fd, gint n, gboolean value);
-gboolean file_data_filter_marks(FileData *fd, guint filter);
-GList *file_data_filter_marks_list(GList *list, guint filter);
-
-gboolean file_data_mark_to_selection(FileData *fd, gint mark, MarkToSelectionMode mode, gboolean selected);
-void file_data_selection_to_mark(FileData *fd, gint mark, SelectionToMarkMode mode);
-
 gboolean file_data_filter_file_filter(FileData *fd, GRegex *filter);
 GList *file_data_filter_file_filter_list(GList *list, GRegex *filter);
 
@@ -537,11 +510,6 @@ gboolean file_data_unregister_real_time_monitor(FileData *fd);
 
 void read_exif_time_data(FileData *file);
 void read_exif_time_digitized_data(FileData *file);
-
-gboolean marks_list_save(gchar *path, gboolean save);
-gboolean marks_list_load(const gchar *path);
-void marks_clear_all();
-void read_rating_data(FileData *file);
 
 void file_data_inc_page_num(FileData *fd);
 void file_data_dec_page_num(FileData *fd);

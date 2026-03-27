@@ -56,14 +56,7 @@ struct GQvCellRendererIcon
 	gboolean foreground_set;
 	gboolean background_set;
 
-	gint num_marks;
-
 	gboolean show_text;
-	gboolean show_marks;
-
-	guint marks;
-	guint toggled_mark;
-
 };
 
 struct GQvCellRendererIconClass

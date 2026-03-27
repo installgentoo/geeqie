@@ -91,7 +91,6 @@ const gchar *predefined_tags[][2] = {
 	{"%formatted.countryname%",			N_("Country name")},
 	{"%formatted.countrycode%",			N_("Country code")},
 	{"%rating%",						N_("Rating")},
-	{"%formatted.star_rating%",			N_("Star rating")},
 	{"%Xmp.dc.creator%",				N_("© Creator")},
 	{"%Xmp.dc.contributor%",			N_("© Contributor")},
 	{"%Xmp.dc.rights%",					N_("© Rights")},
@@ -208,42 +207,6 @@ GtkWidget *osd_new(gint max_cols, GtkWidget *template_view)
 		}
 	return vbox;
 }
-static gchar *keywords_to_string(FileData *fd)
-{
-	GList *keywords;
-	GString *kwstr = nullptr;
-
-	g_assert(fd);
-
-	keywords = metadata_read_list(fd, KEYWORD_KEY, METADATA_PLAIN);
-
-	if (keywords)
-		{
-		GList *work = keywords;
-
-		while (work)
-			{
-			auto kw = static_cast<gchar *>(work->data);
-			work = work->next;
-
-			if (!kw) continue;
-			if (!kwstr)
-				kwstr = g_string_new("");
-			else
-				g_string_append(kwstr, ", ");
-
-			g_string_append(kwstr, kw);
-			}
-		g_list_free_full(keywords, g_free);
-		}
-
-	if (kwstr)
-		{
-		return g_string_free(kwstr, FALSE);
-		}
-
-	return nullptr;
-}
 
 gchar *image_osd_mkinfo(const gchar *str, FileData *fd, GHashTable *vars)
 {
@@ -314,21 +277,13 @@ gchar *image_osd_mkinfo(const gchar *str, FileData *fd, GHashTable *vars)
 		pos = start - osd_info->str;
 		data = nullptr;
 
-		if (strcmp(name, "keywords") == 0)
-			{
-			data = keywords_to_string(fd);
-			}
-		else if (strcmp(name, "comment") == 0)
+		if (strcmp(name, "comment") == 0)
 			{
 			data = metadata_read_string(fd, COMMENT_KEY, METADATA_PLAIN);
 			}
 		else if (strcmp(name, "imagecomment") == 0)
 			{
 			data = exif_get_image_comment(fd);
-			}
-		else if (strcmp(name, "rating") == 0)
-			{
-			data = metadata_read_string(fd, RATING_KEY, METADATA_PLAIN);
 			}
 #if HAVE_LUA
 		else if (strncmp(name, "lua/", 4) == 0)

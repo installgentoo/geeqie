@@ -32,11 +32,9 @@
 #include "main-defines.h"
 
 #define TARGET_APP_EXIF_ENTRY_STRING "application/x-" GQ_APPNAME_LC "-exif-entry"
-#define TARGET_APP_KEYWORD_PATH_STRING "application/x-" GQ_APPNAME_LC "-keyword-path"
 
 enum {
 	TARGET_APP_EXIF_ENTRY,
-	TARGET_APP_KEYWORD_PATH,
 	TARGET_URI_LIST,
 	TARGET_TEXT_PLAIN
 };

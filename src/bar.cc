@@ -88,28 +88,11 @@ static const gchar default_config_headline[] =
 "    </layout>"
 "</gq>";
 
-static const gchar default_config_keywords[] =
-"<gq>"
-"    <layout id = '_current_'>"
-"        <bar>"
-"            <pane_keywords id = 'keywords' expanded = 'true' key = '" KEYWORD_KEY "' />"
-"        </bar>"
-"    </layout>"
-"</gq>";
-
 static const gchar default_config_comment[] =
 "<gq>"
 "    <layout id = '_current_'>"
 "        <bar>"
 "            <pane_comment id = 'comment' expanded = 'true' key = '" COMMENT_KEY "' height = '150' />"
-"        </bar>"
-"    </layout>"
-"</gq>";
-static const gchar default_config_rating[] =
-"<gq>"
-"    <layout id = '_current_'>"
-"        <bar>"
-"            <pane_rating id = 'rating' expanded = 'true' />"
 "        </bar>"
 "    </layout>"
 "</gq>";
@@ -136,7 +119,6 @@ static const gchar default_config_exif[] =
 "                <entry key = 'formatted.SubjectDistance' if_set = 'true' editable = 'false' />"
 "                <entry key = 'formatted.Resolution' if_set = 'true' editable = 'false' />"
 "                <entry key = '" ORIENTATION_KEY "' if_set = 'true' editable = 'false' />"
-"                <entry key = 'formatted.star_rating' if_set = 'true' editable = 'false' />"
 "            </pane_exif>"
 "        </bar>"
 "    </layout>"
@@ -209,9 +191,7 @@ static const KnownPanes known_panes[] = {
 /* default sidebar */
 	{PANE_HISTOGRAM,	"histogram",	N_("Histogram"),	default_config_histogram},
 	{PANE_COMMENT,		"title",	N_("Title"),		default_config_title},
-	{PANE_KEYWORDS,		"keywords",	N_("Keywords"),		default_config_keywords},
 	{PANE_COMMENT,		"comment",	N_("Comment"),		default_config_comment},
-	{PANE_RATING,		"rating",	N_("Star Rating"),	default_config_rating},
 	{PANE_COMMENT,		"headline",	N_("Headline"),		default_config_headline},
 	{PANE_EXIF,		"exif",		N_("Exif"),		default_config_exif},
 /* other pre-configured panes */

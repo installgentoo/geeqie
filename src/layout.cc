@@ -401,7 +401,6 @@ static GtkWidget *layout_tool_setup(LayoutWindow *lw)
 		scroll_window = gq_gtk_scrolled_window_new(nullptr, nullptr);
 		gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
 
-		if (!options->hamburger_menu)
 			{
 			menu_bar = layout_actions_menu_bar(lw);
 			gq_gtk_box_pack_start(GTK_BOX(menu_toolbar_box), menu_bar, FALSE, FALSE, 0);
@@ -428,18 +427,6 @@ static GtkWidget *layout_tool_setup(LayoutWindow *lw)
 	tab_completion_add_tab_func(lw->path_entry, layout_path_entry_tab_cb, lw);
 	tab_completion_add_append_func(lw->path_entry, layout_path_entry_tab_append_cb, lw);
 
-	if (options->hamburger_menu)
-		{
-		box_menu_tabcomp = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-		gtk_widget_show(box_menu_tabcomp);
-
-		open_menu = layout_actions_menu_bar(lw);
-		gtk_widget_set_tooltip_text(open_menu, _("Open application menu"));
-		gq_gtk_box_pack_start(GTK_BOX(box_menu_tabcomp), open_menu, FALSE, FALSE, 0);
-		gq_gtk_box_pack_start(GTK_BOX(box_menu_tabcomp), tabcomp, TRUE, TRUE, 0);
-		gq_gtk_box_pack_start(GTK_BOX(box), box_menu_tabcomp, FALSE, FALSE, 0);
-		}
-	else
 		{
 		gq_gtk_box_pack_start(GTK_BOX(box), tabcomp, FALSE, FALSE, 0);
 		}
@@ -495,7 +482,7 @@ static void layout_sort_menu_cb(GtkWidget *widget, gpointer data)
 
 	type = static_cast<SortType>GPOINTER_TO_INT(data);
 
-	if (type == SORT_EXIFTIME || type == SORT_EXIFTIMEDIGITIZED || type == SORT_RATING)
+	if (type == SORT_EXIFTIME || type == SORT_EXIFTIMEDIGITIZED)
 		{
 		vf_read_metadata_in_idle(lw->vf);
 		}
@@ -976,16 +963,9 @@ static GtkWidget *layout_list_new(LayoutWindow *lw)
 	vf_set_status_func(lw->vf, layout_list_status_cb, lw);
 	vf_set_thumb_status_func(lw->vf, layout_list_thumb_cb, lw);
 
-	vf_marks_set(lw->vf, lw->options.show_marks);
-
 	layout_list_sync_file_filter(lw);
 
 	return lw->vf->widget;
-}
-
-static void layout_list_sync_marks(LayoutWindow *lw)
-{
-	if (lw->vf) vf_marks_set(lw->vf, lw->options.show_marks);
 }
 
 static void layout_list_scroll_to_subpart(LayoutWindow *lw, const gchar *)
@@ -1099,29 +1079,6 @@ void layout_select_list(LayoutWindow *lw, GList *list)
 		{
 		vf_select_list(lw->vf, list);
 		}
-}
-
-void layout_mark_to_selection(LayoutWindow *lw, gint mark, MarkToSelectionMode mode)
-{
-	if (!layout_valid(&lw)) return;
-
-	if (lw->vf) vf_mark_to_selection(lw->vf, mark, mode);
-}
-
-void layout_selection_to_mark(LayoutWindow *lw, gint mark, SelectionToMarkMode mode)
-{
-	if (!layout_valid(&lw)) return;
-
-	if (lw->vf) vf_selection_to_mark(lw->vf, mark, mode);
-
-	layout_status_update_info(lw, nullptr); /* osd in fullscreen mode */
-}
-
-void layout_mark_filter_toggle(LayoutWindow *lw, gint mark)
-{
-	if (!layout_valid(&lw)) return;
-
-	if (lw->vf) vf_mark_filter_toggle(lw->vf, mark);
 }
 
 guint layout_window_count()
@@ -1258,7 +1215,7 @@ gboolean layout_set_fd(LayoutWindow *lw, FileData *fd)
 	if (options->metadata.confirm_on_dir_change && dir_changed)
 		metadata_write_queue_confirm(FALSE, nullptr, nullptr);
 
-	if (lw->vf && (options->read_metadata_in_idle || (lw->options.file_view_list_sort.method == SORT_EXIFTIME || lw->options.file_view_list_sort.method == SORT_EXIFTIMEDIGITIZED || lw->options.file_view_list_sort.method == SORT_RATING)))
+	if (lw->vf && (options->read_metadata_in_idle || (lw->options.file_view_list_sort.method == SORT_EXIFTIME || lw->options.file_view_list_sort.method == SORT_EXIFTIMEDIGITIZED)))
 		{
 		vf_read_metadata_in_idle(lw->vf);
 		}
@@ -1309,18 +1266,6 @@ void layout_file_filter_set(LayoutWindow *lw, gboolean enable)
 
 	layout_util_sync_file_filter(lw);
 	layout_list_sync_file_filter(lw);
-}
-
-void layout_marks_set(LayoutWindow *lw, gboolean enable)
-{
-	if (!layout_valid(&lw)) return;
-
-	if (lw->options.show_marks == enable) return;
-
-	lw->options.show_marks = enable;
-
-	layout_util_sync_marks(lw);
-	layout_list_sync_marks(lw);
 }
 
 void layout_sort_set_files(LayoutWindow *lw, SortType type, gboolean ascend, gboolean case_sensitive)
@@ -2698,7 +2643,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_UINT(*layout, dir_view_list_sort.method);
 	WRITE_NL(); WRITE_BOOL(*layout, dir_view_list_sort.ascend);
 	WRITE_NL(); WRITE_BOOL(*layout, dir_view_list_sort.case_sensitive);
-	WRITE_NL(); WRITE_BOOL(*layout, show_marks);
 	WRITE_NL(); WRITE_BOOL(*layout, show_file_filter);
 	WRITE_NL(); WRITE_BOOL(*layout, show_thumbnails);
 	WRITE_NL(); WRITE_BOOL(*layout, show_directory_date);
@@ -2817,7 +2761,6 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_UINT_ENUM(*layout, dir_view_list_sort.method)) continue;
 		if (READ_BOOL(*layout, dir_view_list_sort.ascend)) continue;
 		if (READ_BOOL(*layout, dir_view_list_sort.case_sensitive)) continue;
-		if (READ_BOOL(*layout, show_marks)) continue;
 		if (READ_BOOL(*layout, show_file_filter)) continue;
 		if (READ_BOOL(*layout, show_thumbnails)) continue;
 		if (READ_BOOL(*layout, show_directory_date)) continue;

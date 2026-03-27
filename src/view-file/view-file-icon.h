@@ -69,13 +69,11 @@ gboolean vficon_set_fd(ViewFile *vf, FileData *dir_fd);
 gboolean vficon_refresh(ViewFile *vf);
 
 
-void vficon_marks_set(ViewFile *vf, gboolean enable);
 void vficon_sort_set(ViewFile *vf, SortType type, gboolean ascend, gboolean case_sensitive);
 
 GList *vficon_selection_get_one(ViewFile *vf, FileData *fd);
 void vficon_pop_menu_rename_cb(ViewFile *vf);
 void vficon_pop_menu_add_items(ViewFile *vf, GtkWidget *menu);
-void vficon_pop_menu_show_star_rating_cb(ViewFile *vf);
 void vficon_pop_menu_refresh_cb(ViewFile *vf);
 void vficon_popup_destroy_cb(ViewFile *vf);
 
@@ -93,17 +91,11 @@ void vficon_select_invert(ViewFile *vf);
 void vficon_select_by_fd(ViewFile *vf, FileData *fd);
 void vficon_select_list(ViewFile *vf, GList *list);
 
-void vficon_mark_to_selection(ViewFile *vf, gint mark, MarkToSelectionMode mode);
-void vficon_selection_to_mark(ViewFile *vf, gint mark, SelectionToMarkMode mode);
-
 
 void vficon_thumb_progress_count(const GList *list, gint &count, gint &done);
 void vficon_read_metadata_progress_count(const GList *list, gint &count, gint &done);
 void vficon_set_thumb_fd(ViewFile *vf, FileData *fd);
 FileData *vficon_thumb_next_fd(ViewFile *vf);
-
-FileData *vficon_star_next_fd(ViewFile *vf);
-void vficon_set_star_fd(ViewFile *vf, FileData *fd);
 
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

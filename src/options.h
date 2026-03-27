@@ -61,12 +61,9 @@ struct ConfOptions
 	gboolean image_l_click_video;
 	gchar *image_l_click_video_editor;
 	gboolean show_icon_names;
-	gboolean show_star_rating;
 	gboolean draw_rectangle;
-	gboolean show_predefined_keyword_tree;
 	gboolean overunderexposed;
 	gboolean expand_menu_toolbar;
-	gboolean hamburger_menu;
 
 	/* various */
 	gboolean tree_descend_subdirs;
@@ -100,9 +97,6 @@ struct ConfOptions
 	gboolean show_window_ids;
 
 	gint log_window_lines;
-
-	gboolean marks_save;		/**< save marks on exit */
-	gchar *marks_tooltips[FILEDATA_MARKS_SIZE];
 
 	gboolean appimage_notifications;
 
@@ -316,7 +310,6 @@ struct ConfOptions
 		gboolean confirm_after_timeout;
 		gboolean confirm_on_image_change;
 		gboolean confirm_on_dir_change;
-		gboolean keywords_case_sensitive;
 		gboolean write_orientation;
 		gboolean sidecar_extended_name;
 
@@ -376,12 +369,6 @@ struct ConfOptions
 		gboolean timer_data;
 		gchar *action; /** Used with F1 key */
 	} log_window;
-
-	/* star rating */
-	struct {
-		gunichar star;
-		gunichar rejected;
-	} star_rating;
 
 	/* Printer */
 	struct {
@@ -495,7 +482,6 @@ struct LayoutOptions
 	SortParams file_view_list_sort;
 
 	gboolean show_thumbnails;
-	gboolean show_marks;
 	gboolean show_file_filter;
 	gboolean show_directory_date;
 	gboolean show_info_pixel;

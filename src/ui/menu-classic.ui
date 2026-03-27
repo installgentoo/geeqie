@@ -1,8 +1,6 @@
 <ui>
   <menubar name="MainMenu">
       <menu action="FileMenu">
-        <menuitem action="NewCollection"/>
-        <menuitem action="OpenCollection"/>
         <menuitem action="OpenRecent"/>
         <placeholder name="OpenSection"/>
         <separator/>
@@ -59,11 +57,6 @@
         <menuitem action="CopyImage"/>
         <menuitem action="CutPath"/>
         <placeholder name="ClipboardSection"/>
-        <separator/>
-        <menuitem action="ShowMarks"/>
-        <menuitem action="ClearMarks"/>
-        <placeholder name="MarksSection"/>
-        <separator/>
       </menu>
       <menu action="EditMenu">
         <placeholder name="EditSection"/>
@@ -82,18 +75,7 @@
           <menuitem action="WriteRotationKeepDate"/>
           <separator/>
         </menu>
-        <menu action="RatingMenu">
-          <menuitem action="Rating0"/>
-          <menuitem action="Rating1"/>
-          <menuitem action="Rating2"/>
-          <menuitem action="Rating3"/>
-          <menuitem action="Rating4"/>
-          <menuitem action="Rating5"/>
-          <menuitem action="RatingM1"/>
-          <separator/>
-        </menu>
         <menuitem action="SaveMetadata"/>
-        <menuitem action="KeywordAutocomplete"/>
         <placeholder name="PropertiesSection"/>
         <separator/>
         <menuitem action="DrawRectangle"/>
@@ -126,8 +108,6 @@
           <menuitem action="FolderTree"/>
           <placeholder name="FolderSection"/>
           <separator/>
-          <menuitem action="ViewList"/>
-          <menuitem action="ViewIcons"/>
           <menuitem action="Thumbnails"/>
           <placeholder name="ListSection"/>
           <separator/>
@@ -220,7 +200,6 @@
         <placeholder name="ViewSection"/>
         <separator/>
         <menuitem action="SBar"/>
-        <menuitem action="SBarSort"/>
         <menuitem action="HideBars"/>
         <menuitem action="HideSelectableToolbars"/>
         <menuitem action="ShowInfoPixel"/>
@@ -228,10 +207,6 @@
         <placeholder name="ToolsSection"/>
         <separator/>
         <menuitem action="Animate"/>
-        <menuitem action="SlideShow"/>
-        <menuitem action="SlideShowPause"/>
-        <menuitem action="SlideShowFaster"/>
-        <menuitem action="SlideShowSlower"/>
         <separator/>
         <menuitem action="Refresh"/>
         <placeholder name="SlideShowSection"/>

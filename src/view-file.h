@@ -40,8 +40,6 @@ struct ViewFile
 	GtkWidget *widget;
 	GtkWidget *listview;
 	GtkWidget *scrolled;
-	GtkWidget *filter;
-	GtkWidget *filter_check[FILEDATA_MARKS_SIZE];
 
 	struct {
 		GtkWidget *combo;
@@ -80,11 +78,6 @@ struct ViewFile
 	GQueue *thumbs_lru;
 	GHashTable *thumbs_lru_index;
 
-	/* marks */
-	gboolean marks_enabled;
-	gint active_mark;
-	gint clicked_mark;
-
 	/* stars */
 	FileData *stars_filedata;
 	guint stars_id;
@@ -113,11 +106,7 @@ gboolean vf_set_fd(ViewFile *vf, FileData *fd);
 gboolean vf_refresh(ViewFile *vf);
 void vf_refresh_idle(ViewFile *vf);
 
-void vf_marks_set(ViewFile *vf, gboolean enable);
 void vf_sort_set(ViewFile *vf, SortType type, gboolean ascend, gboolean case_sensitive);
-
-guint vf_marks_get_filter(ViewFile *vf);
-void vf_mark_filter_toggle(ViewFile *vf, gint mark);
 
 guint vf_class_get_filter(ViewFile *vf);
 
@@ -141,9 +130,6 @@ void vf_select_invert(ViewFile *vf);
 void vf_select_by_fd(ViewFile *vf, FileData *fd);
 void vf_select_list(ViewFile *vf, GList *list);
 
-void vf_mark_to_selection(ViewFile *vf, gint mark, MarkToSelectionMode mode);
-void vf_selection_to_mark(ViewFile *vf, gint mark, SelectionToMarkMode mode);
-
 void vf_refresh_idle_cancel(ViewFile *vf);
 void vf_notify_cb(FileData *fd, NotifyType type, gpointer data);
 
@@ -153,11 +139,6 @@ void vf_thumb_stop(ViewFile *vf);
 void vf_read_metadata_in_idle(ViewFile *vf);
 void vf_file_filter_set(ViewFile *vf, gboolean enable);
 GRegex *vf_file_filter_get_filter(ViewFile *vf);
-
-void vf_star_update(ViewFile *vf);
-gboolean vf_stars_cb(gpointer data);
-void vf_star_stop(ViewFile *vf);
-void vf_star_cleanup(ViewFile *vf);
 
 #endif /* VIEW_FILE_H */
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

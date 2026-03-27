@@ -146,7 +146,7 @@ TEST_F(FileDataSortTest, CompareByEachNonPathTrait)
 	// Sorting by things that aren't name, so excluding SORT_NONE, SORT_NAME,
 	// SORT_NUMBER, and SORT_PATH.
 	for (const auto &sort_type : {SORT_SIZE, SORT_TIME, SORT_CTIME, SORT_NUMBER,
-				      SORT_EXIFTIME, SORT_EXIFTIMEDIGITIZED, SORT_RATING,
+				      SORT_EXIFTIME, SORT_EXIFTIMEDIGITIZED,
 				      SORT_CLASS})
 		{
 		// This shows the sort_type in any assertion failure messages.
@@ -231,7 +231,7 @@ TEST_F(FileDataSortTest, TieBreakerFallbackBehavior)
 	// Sorting by things that aren't name, so excluding SORT_NONE, SORT_NAME,
 	// SORT_NUMBER, and SORT_PATH.
 	for (const auto &sort_type : {SORT_SIZE, SORT_TIME, SORT_CTIME, SORT_NUMBER,
-				      SORT_EXIFTIME, SORT_EXIFTIMEDIGITIZED, SORT_RATING,
+				      SORT_EXIFTIME, SORT_EXIFTIMEDIGITIZED,
 				      SORT_CLASS})
 		{
 		// This shows the sort_type in any assertion failure messages.

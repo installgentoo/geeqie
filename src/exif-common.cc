@@ -905,15 +905,6 @@ static gchar *exif_build_formatted_countrycode(ExifData *exif)
 	return countryalpha2;
 }
 
-static gchar *exif_build_formatted_star_rating(ExifData *exif)
-{
-	gint n = 0;
-
-	exif_get_integer(exif, "Xmp.xmp.Rating", &n);
-
-	return convert_rating_to_stars(n);
-}
-
 /* List of custom formatted pseudo-exif tags */
 #define EXIF_FORMATTED_TAG(name, label) { EXIF_FORMATTED()#name, label, exif_build_formatted##_##name }
 
@@ -937,7 +928,6 @@ ExifFormattedText ExifFormattedList[] = {
 	EXIF_FORMATTED_TAG(timezone,		N_("Time zone")),
 	EXIF_FORMATTED_TAG(countryname,		N_("Country name")),
 	EXIF_FORMATTED_TAG(countrycode,		N_("Country code")),
-	EXIF_FORMATTED_TAG(star_rating,		N_("Star rating")),
 	{"file.size",				N_("File size"), 	nullptr},
 	{"file.date",				N_("File date"), 	nullptr},
 	{"file.mode",				N_("File mode"), 	nullptr},

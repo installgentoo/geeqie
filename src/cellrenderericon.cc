@@ -59,13 +59,6 @@ static void gqv_cell_renderer_icon_render(GtkCellRenderer *cell,
 					   const GdkRectangle *cell_area,
 					   GtkCellRendererState flags);
 
-static gboolean gqv_cell_renderer_icon_activate(GtkCellRenderer      *cell,
-						GdkEvent             *event,
-						GtkWidget            *widget,
-						const gchar          *path,
-						const GdkRectangle   *background_area,
-						const GdkRectangle   *cell_area,
-						GtkCellRendererState  flags);
 enum {
   TOGGLED,
   LAST_SIGNAL
@@ -84,10 +77,6 @@ enum {
 	PROP_BACKGROUND_SET,
 	PROP_FOREGROUND_SET,
 	PROP_SHOW_TEXT,
-	PROP_SHOW_MARKS,
-	PROP_NUM_MARKS,
-	PROP_MARKS,
-	PROP_TOGGLED
 };
 
 static guint toggle_cell_signals[LAST_SIGNAL] = { 0 };
@@ -150,7 +139,7 @@ gqv_cell_renderer_icon_class_init(GQvCellRendererIconClass *icon_class)
 
 	cell_class->get_size = gqv_cell_renderer_icon_get_size;
 	cell_class->render = gqv_cell_renderer_icon_render;
-	cell_class->activate = gqv_cell_renderer_icon_activate;
+	cell_class->activate = FALSE;
 
 	g_object_class_install_property(object_class,
 					PROP_PIXBUF,
@@ -234,40 +223,6 @@ gqv_cell_renderer_icon_class_init(GQvCellRendererIconClass *icon_class)
 							TRUE,
 							G_PARAM_READWRITE));
 
-	g_object_class_install_property(object_class,
-					PROP_SHOW_MARKS,
-					g_param_spec_boolean("show_marks",
-							"Show marks",
-							"Whether the marks are displayed",
-							TRUE,
-							G_PARAM_READWRITE));
-
-	g_object_class_install_property(object_class,
-					PROP_NUM_MARKS,
-					g_param_spec_int("num_marks",
-							"Number of marks",
-							"Number of marks",
-							0, 32,
-							6,
-							G_PARAM_READWRITE));
-
-	g_object_class_install_property(object_class,
-					PROP_MARKS,
-					g_param_spec_uint("marks",
-							"Marks",
-							"Marks bit array",
-							0, 0xffffffff,
-							0,
-							G_PARAM_READWRITE));
-
-	g_object_class_install_property(object_class,
-					PROP_TOGGLED,
-					g_param_spec_uint("toggled_mark",
-							"Toggled mark",
-							"Toggled mark",
-							0, 32,
-							0,
-							G_PARAM_READWRITE));
 	toggle_cell_signals[TOGGLED] =
 		g_signal_new("toggled",
 		G_OBJECT_CLASS_TYPE (object_class),
@@ -347,18 +302,6 @@ gqv_cell_renderer_icon_get_property(GObject	*object,
 		break;
 	case PROP_SHOW_TEXT:
 		g_value_set_boolean(value, cellicon->show_text);
-		break;
-	case PROP_SHOW_MARKS:
-		g_value_set_boolean(value, cellicon->show_marks);
-		break;
-	case PROP_NUM_MARKS:
-		g_value_set_int(value, cellicon->num_marks);
-		break;
-	case PROP_MARKS:
-		g_value_set_uint(value, cellicon->marks);
-		break;
-	case PROP_TOGGLED:
-		g_value_set_uint(value, cellicon->toggled_mark);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, param_id, pspec);
@@ -467,15 +410,6 @@ gqv_cell_renderer_icon_set_property(GObject		*object,
 		break;
 	case PROP_SHOW_TEXT:
 		cellicon->show_text = g_value_get_boolean(value);
-		break;
-	case PROP_SHOW_MARKS:
-		cellicon->show_marks = g_value_get_boolean(value);
-		break;
-	case PROP_NUM_MARKS:
-		cellicon->num_marks = g_value_get_int(value);
-		break;
-	case PROP_MARKS:
-		cellicon->marks = g_value_get_uint(value);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, param_id, pspec);
@@ -590,12 +524,6 @@ static void gqv_cell_renderer_icon_get_size(GtkCellRenderer    *cell,
 
 		calc_width = MAX(calc_width, rect.width);
 		calc_height += rect.height;
-		}
-
-	if (cellicon->show_marks)
-		{
-		calc_height += TOGGLE_SPACING;
-		calc_width = MAX(calc_width, TOGGLE_SPACING * cellicon->num_marks);
 		}
 
 	calc_width += xpad * 2;
@@ -720,126 +648,10 @@ static void gqv_cell_renderer_icon_render(GtkCellRenderer *cell,
 		pix_rect.x = cell_area->x + xpad + (cell_rect.width - text_rect.width + 1) / 2;
 		pix_rect.y = cell_area->y + ypad + (cell_rect.height - text_rect.height);
 
-		if (cellicon->show_marks)
-			{
-			pix_rect.y -= TOGGLE_SPACING;
-			}
-
 		if (gdk_rectangle_intersect(cell_area, &pix_rect, &draw_rect))
 			{
 			gtk_render_layout(context, cr, pix_rect.x - text_rect.x, pix_rect.y, layout);
 			}
 		g_object_unref(layout);
 		}
-
-	if (cellicon->show_marks)
-		{
-		GdkRectangle pix_rect;
-		GdkRectangle draw_rect;
-		gint i;
-
-		pix_rect.width = TOGGLE_SPACING * cellicon->num_marks;
-		pix_rect.height = TOGGLE_SPACING;
-		pix_rect.x = cell_area->x + xpad + (cell_rect.width - pix_rect.width + 1) / 2 + (TOGGLE_SPACING - TOGGLE_WIDTH) / 2;
-		pix_rect.y = cell_area->y + ypad + (cell_rect.height - pix_rect.height) + (TOGGLE_SPACING - TOGGLE_WIDTH) / 2;
-
-		if (gdk_rectangle_intersect(cell_area, &pix_rect, &draw_rect))
-			{
-			for (i = 0; i < cellicon->num_marks; i++)
-				{
-  				state = static_cast<GtkStateFlags>(state & ~GTK_STATE_FLAG_CHECKED);
-
-				if ((cellicon->marks & (1 << i)))
-					state = static_cast<GtkStateFlags>(state | GTK_STATE_FLAG_CHECKED);
-				cairo_save (cr);
-
-				cairo_rectangle(cr,
-						pix_rect.x + i * TOGGLE_SPACING + (TOGGLE_WIDTH - TOGGLE_SPACING) / 2.0,
-						pix_rect.y,
-						TOGGLE_WIDTH, TOGGLE_WIDTH);
-				cairo_clip (cr);
-
-				gtk_style_context_save(context);
-				gtk_style_context_set_state(context, state);
-
-				gtk_style_context_add_class(context, GTK_STYLE_CLASS_CHECK);
-
-				gtk_style_context_add_class(context, "marks");
-
-				if (state & GTK_STATE_FLAG_CHECKED)
-					{
-					gtk_render_check(context, cr,
-						pix_rect.x + i * TOGGLE_SPACING + (TOGGLE_WIDTH - TOGGLE_SPACING) / 2.0,
-						pix_rect.y,
-						TOGGLE_WIDTH, TOGGLE_WIDTH);
-					}
-				gtk_render_frame(context, cr,
-					 pix_rect.x + i * TOGGLE_SPACING + (TOGGLE_WIDTH - TOGGLE_SPACING) / 2.0,
-					 pix_rect.y,
-					 TOGGLE_WIDTH, TOGGLE_WIDTH);
-
-				if (cellicon->focused && gtk_widget_has_focus(widget))
-					{
-					gtk_render_focus(context, cr,
-						pix_rect.x + i * TOGGLE_SPACING + (TOGGLE_WIDTH - TOGGLE_SPACING) / 2.0,
-						pix_rect.y, TOGGLE_WIDTH, TOGGLE_WIDTH);
-					}
-				gtk_style_context_restore(context);
-				cairo_restore(cr);
-				}
-			}
-		}
 }
-
-static gboolean gqv_cell_renderer_icon_activate(GtkCellRenderer      *cell,
-						GdkEvent             *event,
-						GtkWidget            *widget,
-						const gchar          *path,
-						const GdkRectangle   *,
-						const GdkRectangle   *cell_area,
-						GtkCellRendererState)
-{
-	GQvCellRendererIcon *cellicon = GQV_CELL_RENDERER_ICON(cell);
-	GdkEventButton *bevent = &event->button;
-
-	if (cellicon->show_marks &&
-	    event->type == GDK_BUTTON_PRESS &&
-            !(bevent->state & GDK_SHIFT_MASK ) &&
-            !(bevent->state & GDK_CONTROL_MASK ))
-		{
-		GdkRectangle rect;
-		GdkRectangle cell_rect;
-		gint i;
-		gint xpad;
-		gint ypad;
-
-		gtk_cell_renderer_get_padding(cell, &xpad, &ypad);
-
-		gqv_cell_renderer_icon_get_size(cell, widget, cell_area,
-						&cell_rect.x, &cell_rect.y,
-						&cell_rect.width, &cell_rect.height);
-
-		cell_rect.x += xpad;
-		cell_rect.y += ypad;
-		cell_rect.width -= xpad * 2;
-		cell_rect.height -= ypad * 2;
-
-		rect.width = TOGGLE_WIDTH;
-		rect.height = TOGGLE_WIDTH;
-		rect.y = cell_area->y + ypad + (cell_rect.height - TOGGLE_SPACING) + (TOGGLE_SPACING - TOGGLE_WIDTH) / 2;
-		for (i = 0; i < cellicon->num_marks; i++)
-			{
-			rect.x = cell_area->x + xpad + (cell_rect.width - TOGGLE_SPACING * cellicon->num_marks + 1) / 2 + i * TOGGLE_SPACING;
-
-			if (bevent->x >= rect.x && bevent->x < rect.x + rect.width &&
-			    bevent->y >= rect.y && bevent->y < rect.y + rect.height)
-				{
-				cellicon->toggled_mark = i;
-				g_signal_emit(cell, toggle_cell_signals[TOGGLED], 0, path);
-				break;
-				}
-			}
-		}
-	return FALSE;
-}
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

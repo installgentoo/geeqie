@@ -33,7 +33,6 @@
 #include <glib.h>
 #include <gtk/gtk.h>
 
-#include "bar-keywords.h"
 #include "cache.h"
 #include "compat.h"
 #include "debug.h"
@@ -145,10 +144,6 @@ struct SearchData
 	GtkWidget *spin_similarity;
 	GtkWidget *entry_similarity;
 
-	GtkWidget *check_keywords;
-	GtkWidget *menu_keywords;
-	GtkWidget *entry_keywords;
-
 	GtkWidget *check_comment;
 	GtkWidget *menu_comment;
 	GtkWidget *entry_comment;
@@ -158,16 +153,9 @@ struct SearchData
 	GtkWidget *entry_exif_tag;
 	GtkWidget *entry_exif_value;
 
-	GtkWidget *check_rating;
-	GtkWidget *menu_rating;
-	GtkWidget *spin_rating;
-	GtkWidget *spin_rating_end;
-
 	GtkWidget *check_class;
 	GtkWidget *menu_class;
 	GtkWidget *class_type;
-	GtkWidget *marks_type;
-	GtkWidget *menu_marks;
 
 	FileData *search_dir_fd;
 	gboolean   search_path_recurse;
@@ -190,7 +178,6 @@ struct SearchData
 	gint   search_similarity;
 	gchar *search_similarity_path;
 	CacheData *search_similarity_cd;
-	GList *search_keyword_list;
 	gchar *search_comment;
 	GRegex *search_comment_regex;
 	gchar *search_exif;
@@ -198,8 +185,6 @@ struct SearchData
 	gchar *search_exif_tag;
 	gchar *search_exif_value;
 	gboolean search_exif_match_case;
-	gint   search_rating;
-	gint   search_rating_end;
 	gboolean   search_comment_match_case;
 
 	MatchType search_type;
@@ -208,25 +193,19 @@ struct SearchData
 	MatchType match_size;
 	MatchType match_date;
 	MatchType match_dimensions;
-	MatchType match_keywords;
 	MatchType match_comment;
 	MatchType match_exif;
-	MatchType match_rating;
 	MatchType match_gps;
 	MatchType match_class;
-	MatchType match_marks;
 
 	gboolean match_name_enable;
 	gboolean match_size_enable;
 	gboolean match_date_enable;
 	gboolean match_dimensions_enable;
 	gboolean match_similarity_enable;
-	gboolean match_keywords_enable;
 	gboolean match_comment_enable;
 	gboolean match_exif_enable;
-	gboolean match_rating_enable;
 	gboolean match_class_enable;
-	gboolean match_marks_enable;
 	gboolean match_broken_enable;
 
 	GList *search_folder_list;
@@ -319,13 +298,6 @@ const MatchList text_search_menu_exif[] = {
 	{ N_("miss"),		SEARCH_MATCH_NONE }
 };
 
-const MatchList text_search_menu_rating[] = {
-	{ N_("equal to"),	SEARCH_MATCH_EQUAL },
-	{ N_("less than"),	SEARCH_MATCH_UNDER },
-	{ N_("greater than"),	SEARCH_MATCH_OVER },
-	{ N_("between"),	SEARCH_MATCH_BETWEEN }
-};
-
 const MatchList text_search_menu_gps[] = {
 	{ N_("not geocoded"),	SEARCH_MATCH_NONE },
 	{ N_("less than"),	SEARCH_MATCH_UNDER },
@@ -333,11 +305,6 @@ const MatchList text_search_menu_gps[] = {
 };
 
 const MatchList text_search_menu_class[] = {
-	{ N_("is"),	SEARCH_MATCH_EQUAL },
-	{ N_("is not"),	SEARCH_MATCH_NONE }
-};
-
-const MatchList text_search_menu_marks[] = {
 	{ N_("is"),	SEARCH_MATCH_EQUAL },
 	{ N_("is not"),	SEARCH_MATCH_NONE }
 };
@@ -2072,66 +2039,6 @@ static gboolean search_file_next(SearchData *sd)
 			}
 		}
 
-	if (match && sd->match_keywords_enable && sd->search_keyword_list)
-		{
-		GList *list;
-
-		tested = TRUE;
-		match = FALSE;
-
-		list = metadata_read_list(fd, KEYWORD_KEY, METADATA_PLAIN);
-
-		if (list)
-			{
-			GList *needle = sd->search_keyword_list;
-
-			if (sd->match_keywords == SEARCH_MATCH_ALL)
-				{
-				gboolean found = TRUE;
-
-				while (needle && found)
-					{
-					found = (g_list_find_custom(list, needle->data,
-					                            reinterpret_cast<GCompareFunc>(g_ascii_strcasecmp)) != nullptr);
-					needle = needle->next;
-					}
-
-				match = found;
-				}
-			else if (sd->match_keywords == SEARCH_MATCH_ANY)
-				{
-				gboolean found = FALSE;
-
-				while (needle && !found)
-					{
-					found = (g_list_find_custom(list, needle->data,
-					                            reinterpret_cast<GCompareFunc>(g_ascii_strcasecmp)) != nullptr);
-					needle = needle->next;
-					}
-
-				match = found;
-				}
-			else if (sd->match_keywords == SEARCH_MATCH_NONE)
-				{
-				gboolean found = FALSE;
-
-				while (needle && !found)
-					{
-					found = (g_list_find_custom(list, needle->data,
-					                            reinterpret_cast<GCompareFunc>(g_ascii_strcasecmp)) != nullptr);
-					needle = needle->next;
-					}
-
-				match = !found;
-				}
-			g_list_free_full(list, g_free);
-			}
-		else
-			{
-			match = (sd->match_keywords == SEARCH_MATCH_NONE);
-			}
-		}
-
 	if (match && sd->match_comment_enable && sd->search_comment && strlen(sd->search_comment))
 		{
 		gchar *comment;
@@ -2197,31 +2104,6 @@ static gboolean search_file_next(SearchData *sd)
 		else
 			{
 			match = (sd->match_exif == SEARCH_MATCH_NONE);
-			}
-		}
-
-	if (match && sd->match_rating_enable)
-		{
-		tested = TRUE;
-		match = FALSE;
-		gint rating;
-
-		rating = metadata_read_int(fd, RATING_KEY, 0);
-		if (sd->match_rating == SEARCH_MATCH_EQUAL)
-			{
-			match = (rating == sd->search_rating);
-			}
-		else if (sd->match_rating == SEARCH_MATCH_UNDER)
-			{
-			match = (rating < sd->search_rating);
-			}
-		else if (sd->match_rating == SEARCH_MATCH_OVER)
-			{
-			match = (rating > sd->search_rating);
-			}
-		else if (sd->match_rating == SEARCH_MATCH_BETWEEN)
-			{
-			match = MATCH_IS_BETWEEN(rating, sd->search_rating, sd->search_rating_end);
 			}
 		}
 
@@ -2294,59 +2176,6 @@ static gboolean search_file_next(SearchData *sd)
 			else
 				{
 				sd->match_broken_enable = FALSE;
-				}
-			}
-		}
-
-	if (match && sd->match_marks_enable)
-		{
-		tested = TRUE;
-		match = FALSE;
-		gint search_marks = -1;
-		gint i = 0;
-		gchar *marks_string = nullptr;
-
-		if (g_strcmp0(gtk_combo_box_text_get_active_text(
-						GTK_COMBO_BOX_TEXT(sd->marks_type)), _("Any mark")) == 0)
-			{
-			search_marks = -1;
-			}
-		else
-			{
-			for (i = 0; i < FILEDATA_MARKS_SIZE; i++)
-				{
-				marks_string = g_strdup_printf("%s%d", _("Mark "), i + 1);
-				if (g_strcmp0(marks_string, options->marks_tooltips[i]) != 0)
-					{
-					g_free(marks_string);
-					marks_string = g_strdup_printf("%s%d %s", _("Mark "), i + 1,
-													options->marks_tooltips[i]);
-					}
-
-				if (g_strcmp0(gtk_combo_box_text_get_active_text(
-								GTK_COMBO_BOX_TEXT(sd->marks_type)),
-								marks_string) == 0)
-					{
-					search_marks = 1 << i;
-					}
-				g_free(marks_string);
-				marks_string = nullptr;
-				}
-			}
-
-		if (sd->match_marks == SEARCH_MATCH_EQUAL)
-			{
-			match = (fd->marks & search_marks);
-			}
-		else
-			{
-			if (search_marks == -1)
-				{
-				match = fd->marks ? FALSE : TRUE;
-				}
-			else
-				{
-				match = (fd->marks & search_marks) ? FALSE : TRUE;
 				}
 			}
 		}
@@ -2753,9 +2582,6 @@ static void search_start_cb(GtkWidget *, gpointer data)
 			}
 		}
 
-	g_list_free_full(sd->search_keyword_list, g_free);
-	sd->search_keyword_list = keyword_list_pull(sd->entry_keywords);
-
 	date = date_selection_get(sd->date_sel);
 	sd->search_date_d = g_date_time_get_day_of_month(date);
 	sd->search_date_m = g_date_time_get_month(date);
@@ -2994,28 +2820,11 @@ static void menu_choice_size_cb(GtkWidget *combo, gpointer data)
 				(sd->match_size == SEARCH_MATCH_BETWEEN));
 }
 
-static void menu_choice_rating_cb(GtkWidget *combo, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-
-	if (!menu_choice_get_match_type(combo, &sd->match_rating)) return;
-
-	menu_choice_set_visible(gtk_widget_get_parent(sd->spin_rating_end),
-				(sd->match_rating == SEARCH_MATCH_BETWEEN));
-}
-
 static void menu_choice_class_cb(GtkWidget *combo, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
 
 	if (!menu_choice_get_match_type(combo, &sd->match_class)) return;
-}
-
-static void menu_choice_marks_cb(GtkWidget *combo, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-
-	if (!menu_choice_get_match_type(combo, &sd->match_marks)) return;
 }
 
 static void menu_choice_date_cb(GtkWidget *combo, gpointer data)
@@ -3036,13 +2845,6 @@ static void menu_choice_dimensions_cb(GtkWidget *combo, gpointer data)
 
 	menu_choice_set_visible(gtk_widget_get_parent(sd->spin_width_end),
 				(sd->match_dimensions == SEARCH_MATCH_BETWEEN));
-}
-
-static void menu_choice_keyword_cb(GtkWidget *combo, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-
-	if (!menu_choice_get_match_type(combo, &sd->match_keywords)) return;
 }
 
 static void menu_choice_comment_cb(GtkWidget *combo, gpointer data)
@@ -3251,7 +3053,6 @@ static void search_window_destroy_cb(GtkWidget *, gpointer data)
 		g_regex_unref(sd->search_comment_regex);
 		}
 	g_free(sd->search_similarity_path);
-	g_list_free_full(sd->search_keyword_list, g_free);
 
 	file_data_unregister_notify_func(search_notify_cb, sd);
 
@@ -3319,7 +3120,6 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	GtkWidget *combo;
 	GdkGeometry geometry;
 	gint i;
-	gchar *marks_string;
 	LayoutWindow *lw = nullptr;
 
 	layout_valid(&lw);
@@ -3340,12 +3140,9 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	sd->match_size = SEARCH_MATCH_EQUAL;
 	sd->match_date = SEARCH_MATCH_EQUAL;
 	sd->match_dimensions = SEARCH_MATCH_EQUAL;
-	sd->match_keywords = SEARCH_MATCH_ALL;
 	sd->match_comment = SEARCH_MATCH_CONTAINS;
 	sd->match_exif = SEARCH_MATCH_CONTAINS;
-	sd->match_rating = SEARCH_MATCH_EQUAL;
 	sd->match_class = SEARCH_MATCH_EQUAL;
-	sd->match_marks = SEARCH_MATCH_EQUAL;
 
 	sd->match_name_enable = TRUE;
 
@@ -3523,18 +3320,6 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	pref_checkbox_new_int(hbox, _("Ignore rotation"),
 				options->rot_invariant_sim, &options->rot_invariant_sim);
 
-	/* Search for image keywords */
-	hbox = menu_choice(sd->box_search, &sd->check_keywords, &sd->menu_keywords,
-			   _("Keywords"), &sd->match_keywords_enable,
-			   text_search_menu_keyword, sizeof(text_search_menu_keyword) / sizeof(MatchList),
-			   G_CALLBACK(menu_choice_keyword_cb), sd);
-	sd->entry_keywords = gtk_entry_new();
-	gq_gtk_box_pack_start(GTK_BOX(hbox), sd->entry_keywords, TRUE, TRUE, 0);
-	gtk_widget_set_sensitive(sd->entry_keywords, sd->match_keywords_enable);
-	g_signal_connect(G_OBJECT(sd->check_keywords), "toggled",
-			 G_CALLBACK(menu_choice_check_cb), sd->entry_keywords);
-	gtk_widget_show(sd->entry_keywords);
-
 	/* Search for image comment */
 	hbox = menu_choice(sd->box_search, &sd->check_comment, &sd->menu_comment,
 			_("Comment"), &sd->match_comment_enable,
@@ -3577,19 +3362,6 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	gtk_widget_set_tooltip_text(GTK_WIDGET(sd->entry_exif_value), _("e.g. Canon EOS\n\nThis field uses Perl Compatible Regular Expressions.\ne.g. use \nabc.*ghk\n and not \nabc*ghk\n\nSee the Help file."));
 
 	pref_checkbox_new_int(hbox, _("Match case"), sd->search_exif_match_case, &sd->search_exif_match_case);
-
-	/* Search for image rating */
-	hbox = menu_choice(sd->box_search, &sd->check_rating, &sd->menu_rating,
-			   _("Image rating is"), &sd->match_rating_enable,
-			   text_search_menu_rating, sizeof(text_search_menu_rating) / sizeof(MatchList),
-			   G_CALLBACK(menu_choice_rating_cb), sd);
-	sd->spin_size = menu_spin(hbox, -1, 5, sd->search_rating,
-				  G_CALLBACK(menu_choice_spin_cb), &sd->search_rating);
-	hbox2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	gq_gtk_box_pack_start(GTK_BOX(hbox), hbox2, FALSE, FALSE, 0);
-	pref_label_new(hbox2, _("and"));
-	sd->spin_rating_end = menu_spin(hbox2, -1, 5, sd->search_rating_end,
-				      G_CALLBACK(menu_choice_spin_cb), &sd->search_rating_end);
 
 	/* Search for images within a specified range of a lat/long coordinate
 	*/
@@ -3641,34 +3413,6 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	gq_gtk_box_pack_start(GTK_BOX(hbox), sd->class_type, FALSE, FALSE, 0);
 	gtk_combo_box_set_active(GTK_COMBO_BOX(sd->class_type), 0);
 	gtk_widget_show(sd->class_type);
-
-	/* Search for image marks */
-	hbox = menu_choice(sd->box_search, &sd->check_class, &sd->menu_marks,
-			   _("Marks"), &sd->match_marks_enable,
-			   text_search_menu_marks, sizeof(text_search_menu_marks) / sizeof(MatchList),
-			   G_CALLBACK(menu_choice_marks_cb), sd);
-
-	sd->marks_type = gtk_combo_box_text_new();
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->marks_type), _("Any mark"));
-	for (i = 0; i < FILEDATA_MARKS_SIZE; i++)
-		{
-		marks_string = g_strdup_printf("%s%d", _("Mark "), i + 1);
-		if (g_strcmp0(marks_string, options->marks_tooltips[i]) != 0)
-			{
-			g_free(marks_string);
-			marks_string = g_strdup_printf("%s%d %s", _("Mark "), i + 1,
-											options->marks_tooltips[i]);
-			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->marks_type), marks_string);
-			}
-		else
-			{
-			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->marks_type), marks_string);
-			}
-		g_free(marks_string);
-		}
-	gq_gtk_box_pack_start(GTK_BOX(hbox), sd->marks_type, FALSE, FALSE, 0);
-	gtk_combo_box_set_active(GTK_COMBO_BOX(sd->marks_type), 0);
-	gtk_widget_show(sd->marks_type);
 
 	/* Done the types of searches */
 

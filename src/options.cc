@@ -102,7 +102,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->fullscreen.screen = -1;
 
 	options->appimage_notifications = TRUE;
-	options->marks_save = TRUE;
 	options->with_rename = FALSE;
 	options->collections_duplicates = FALSE;
 	options->collections_on_top = FALSE;
@@ -180,16 +179,12 @@ ConfOptions *init_options(ConfOptions *options)
 	options->metadata.confirm_timeout = 10;
 	options->metadata.confirm_on_image_change = FALSE;
 	options->metadata.confirm_on_dir_change = TRUE;
-	options->metadata.keywords_case_sensitive = FALSE;
 	options->metadata.write_orientation = TRUE;
 	options->metadata.sidecar_extended_name = FALSE;
 	options->metadata.check_spelling = TRUE;
 
 	options->show_icon_names = TRUE;
-	options->show_star_rating = FALSE;
-	options->show_predefined_keyword_tree = TRUE;
 	options->expand_menu_toolbar = FALSE;
-	options->hamburger_menu = FALSE;
 
 	options->thumbnails.cache_into_dirs = FALSE;
 	options->thumbnails.enable_caching = TRUE;
@@ -223,8 +218,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->log_window.action = g_strdup("echo");
 
 	options->read_metadata_in_idle = FALSE;
-	options->star_rating.star = STAR_RATING_STAR;
-	options->star_rating.rejected = STAR_RATING_REJECTED;
 
 	options->printer.template_string = nullptr;
 	options->printer.image_font = g_strdup("Serif 10");
@@ -279,11 +272,6 @@ void setup_default_options(ConfOptions *options)
 	options->shell.path = g_strdup(GQ_DEFAULT_SHELL_PATH);
 	options->shell.options = g_strdup(GQ_DEFAULT_SHELL_OPTIONS);
 
-	for (i = 0; i < FILEDATA_MARKS_SIZE; i++)
-		{
-		options->marks_tooltips[i] = g_strdup_printf("%s%d", _("Mark "), i + 1);
-		}
-
 	options->help_search_engine = g_strdup(HELP_SEARCH_ENGINE);
 }
 
@@ -331,7 +319,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->folder_window.vdivider_pos = 100;
 	options->order = g_strdup("123");
 	options->show_directory_date = FALSE;
-	options->show_marks = FALSE;
 	options->show_file_filter = FALSE;
 	options->show_thumbnails = FALSE;
 	options->style = 0;

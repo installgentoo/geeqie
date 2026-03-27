@@ -683,7 +683,6 @@ static void process_command_line_for_cache_maintenance_option(gint argc, gchar *
  */
 
 #define RC_HISTORY_NAME "history"
-#define RC_MARKS_NAME "marks"
 
 static void setup_env_path()
 {
@@ -715,24 +714,6 @@ static void keys_save()
 	const gchar *path = get_history_path();
 
 	history_list_save(path);
-}
-
-static void marks_load()
-{
-	gchar *path;
-
-	path = g_build_filename(get_rc_dir(), RC_MARKS_NAME, NULL);
-	marks_list_load(path);
-	g_free(path);
-}
-
-static void marks_save(gboolean save)
-{
-	gchar *path;
-
-	path = g_build_filename(get_rc_dir(), RC_MARKS_NAME, NULL);
-	marks_list_save(path, save);
-	g_free(path);
 }
 
 static void mkdir_if_not_exists(const gchar *path)
@@ -999,8 +980,6 @@ void exit_program()
 	layout_image_full_screen_stop(nullptr);
 
 	if (metadata_write_queue_confirm(FALSE, exit_program_write_metadata_cb, nullptr)) return;
-
-	marks_save(options->marks_save);
 
 	if (exit_confirm_dlg()) return;
 
@@ -1348,8 +1327,6 @@ gint main(gint argc, gchar *argv[])
 				}
 			layout_select_list(lw, selected);
 			}
-
-		marks_load();
 
 		default_settings = gtk_settings_get_default();
 		g_signal_connect(default_settings, "notify::gtk-theme-name", G_CALLBACK(theme_change_cb), NULL);

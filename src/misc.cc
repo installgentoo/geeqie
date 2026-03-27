@@ -352,28 +352,6 @@ gchar *date_get_abbreviated_day_name(gint day)
 	return abday;
 }
 
-gchar *convert_rating_to_stars(gint rating)
-{
-	GString *str = g_string_new(nullptr);
-
-	if (rating == -1)
-		{
-		str = g_string_append_unichar(str, options->star_rating.rejected);
-		return g_string_free(str, FALSE);
-		}
-
-	if (rating > 0 && rating < 6)
-		{
-		for (; rating > 0; --rating)
-			{
-			str = g_string_append_unichar(str, options->star_rating.star);
-			}
-		return g_string_free(str, FALSE);
-		}
-
-	return g_strdup("");
-}
-
 gchar *get_file_group(const gchar *path_utf8)
 {
 	struct passwd *user;

@@ -257,11 +257,6 @@ gint FileData::FileList::sort_compare_filedata(
 			if (fa->exifdate_digitized > fb->exifdate_digitized) return 1;
 			/* fall back to name */
 			break;
-		case SORT_RATING:
-			if (fa->rating < fb->rating) return -1;
-			if (fa->rating > fb->rating) return 1;
-			/* fall back to name */
-			break;
 		case SORT_CLASS:
 			if (fa->format_class < fb->format_class) return -1;
 			if (fa->format_class > fb->format_class) return 1;
