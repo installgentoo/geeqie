@@ -26,15 +26,11 @@
 
 extern gboolean thumb_format_changed;
 
-extern gchar *gq_prefix;
 extern gchar *gq_localedir;
-extern gchar *gq_helpdir;
-extern gchar *gq_htmldir;
 extern gchar *gq_appdir;
 extern gchar *gq_bindir;
 extern gchar *gq_executable_path;
 extern gchar *desktop_file_template;
-extern gchar *instance_identifier;
 
 void exit_program();
 

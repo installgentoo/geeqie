@@ -99,7 +99,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->fullscreen.disable_saver = TRUE;
 	options->fullscreen.screen = -1;
 
-	options->appimage_notifications = TRUE;
 	options->with_rename = FALSE;
 	options->collections_duplicates = FALSE;
 	options->collections_on_top = FALSE;
@@ -253,7 +252,6 @@ void setup_default_options(ConfOptions *options)
 	path = g_build_filename(homedir(), "Desktop", NULL);
 	bookmark_add_default(_("Desktop"), path);
 	g_free(path);
-	bookmark_add_default(_("Collections"), get_collections_dir());
 
 	g_free(options->file_ops.safe_delete_path);
 	options->file_ops.safe_delete_path = g_strdup(get_trash_dir());
@@ -318,7 +316,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->order = g_strdup("123");
 	options->show_directory_date = FALSE;
 	options->show_file_filter = FALSE;
-	options->show_thumbnails = FALSE;
 	options->style = 0;
 	options->show_info_pixel = FALSE;
 	options->selectable_toolbars_hidden = FALSE;

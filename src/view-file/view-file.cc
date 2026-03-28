@@ -25,7 +25,6 @@
 #include <gdk/gdk.h>
 #include <glib-object.h>
 
-#include "archives.h"
 #include "compat.h"
 #include "debug.h"
 #include "dnd.h"
@@ -359,45 +358,6 @@ static void vf_pop_menu_edit_cb(GtkWidget *widget, gpointer data)
 	file_util_start_editor_from_filelist(key, vf_pop_menu_file_list(vf), vf->dir_fd->path, vf->listview);
 }
 
-static void vf_pop_menu_view_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-
-	if (!vf->click_fd) return;
-
-	if (vf_is_selected(vf, vf->click_fd))
-		{
-		GList *list;
-
-		list = vf_selection_get_list(vf);
-		view_window_new_from_list(list);
-		filelist_free(list);
-		}
-	else
-		{
-		view_window_new(vf->click_fd);
-		}
-}
-
-static void vf_pop_menu_open_archive_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-	LayoutWindow *lw_new;
-	gchar *dest_dir;
-
-	dest_dir = open_archive(vf->click_fd);
-	if (dest_dir)
-		{
-		lw_new = layout_new_from_default();
-		layout_set_path(lw_new, dest_dir);
-		g_free(dest_dir);
-		}
-	else
-		{
-		warning_dialog(_("Cannot open archive file"), _("See the Log Window"), GQ_ICON_DIALOG_WARNING, nullptr);
-		}
-}
-
 static void vf_pop_menu_copy_cb(GtkWidget *, gpointer data)
 {
 	auto vf = static_cast<ViewFile *>(data);
@@ -568,11 +528,9 @@ GtkWidget *vf_pop_menu(ViewFile *vf)
 	GtkWidget *item;
 	GtkWidget *submenu;
 	gboolean active = FALSE;
-	gboolean class_archive = FALSE;
 	GtkAccelGroup *accel_group;
 
 	active = (vf->click_fd != nullptr);
-	class_archive = (vf->click_fd != nullptr && vf->click_fd->format_class == FORMAT_CLASS_ARCHIVE);
 
 	menu = popup_menu_short_lived();
 
@@ -588,11 +546,6 @@ GtkWidget *vf_pop_menu(ViewFile *vf)
 	vf->editmenu_fd_list = vf_pop_menu_file_list(vf);
 	submenu_add_edit(menu, &item, G_CALLBACK(vf_pop_menu_edit_cb), vf, vf->editmenu_fd_list);
 	gtk_widget_set_sensitive(item, active);
-
-	menu_item_add_icon_sensitive(menu, _("View in _new window"), GQ_ICON_NEW, active,
-				      G_CALLBACK(vf_pop_menu_view_cb), vf);
-
-	menu_item_add_icon_sensitive(menu, _("Open archive"), GQ_ICON_OPEN, active & class_archive, G_CALLBACK(vf_pop_menu_open_archive_cb), vf);
 
 	menu_item_add_divider(menu);
 	menu_item_add_icon_sensitive(menu, _("_Copy..."), GQ_ICON_COPY, active,

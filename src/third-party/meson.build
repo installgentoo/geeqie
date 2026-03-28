@@ -13,8 +13,6 @@
 
 third_party_sources = files('backward.h',
 'whereami.cc',
-'whereami.h',
-'zonedetect.cc',
-'zonedetect.h')
+'whereami.h')
 
 project_sources += third_party_sources

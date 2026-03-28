@@ -32,7 +32,6 @@
 
 #include <config.h>
 
-#include "archives.h"
 #include "compat.h"
 #include "debug.h"
 #include "dnd.h"
@@ -412,13 +411,6 @@ static void li_pop_menu_edit_cb(GtkWidget *widget, gpointer data)
 	file_util_start_editor_from_file(key, layout_image_get_fd(lw), lw->window);
 }
 
-static void li_pop_menu_new_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	view_window_new(layout_image_get_fd(lw));
-}
-
 static GtkWidget *li_pop_menu_click_parent(GtkWidget *widget, LayoutWindow *lw)
 {
 	GtkWidget *menu;
@@ -539,51 +531,6 @@ static void li_pop_menu_hide_cb(GtkWidget *, gpointer data)
 	layout_tools_hide_toggle(lw);
 }
 
-static void li_set_layout_path_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	FileData *fd;
-
-	if (!layout_valid(&lw)) return;
-
-	fd = layout_image_get_fd(lw);
-	if (fd) layout_set_fd(lw, fd);
-}
-
-static void li_open_archive_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	LayoutWindow *lw_new;
-	gchar *dest_dir;
-
-	if (!layout_valid(&lw)) return;
-
-	dest_dir = open_archive(layout_image_get_fd(lw));
-	if (dest_dir)
-		{
-		lw_new = layout_new_from_default();
-		layout_set_path(lw_new, dest_dir);
-		g_free(dest_dir);
-		}
-	else
-		{
-		warning_dialog(_("Cannot open archive file"), _("See the Log Window"), GQ_ICON_DIALOG_WARNING, nullptr);
-		}
-}
-
-static gboolean li_check_if_current_path(LayoutWindow *lw, const gchar *path)
-{
-	gchar *dirname;
-	gboolean ret;
-
-	if (!path || !layout_valid(&lw) || !lw->dir_fd) return FALSE;
-
-	dirname = g_path_get_dirname(path);
-	ret = (strcmp(lw->dir_fd->path, dirname) == 0);
-	g_free(dirname);
-	return ret;
-}
-
 static void layout_image_popup_menu_destroy_cb(GtkWidget *, gpointer data)
 {
 	auto editmenu_fd_list = static_cast<GList *>(data);
@@ -641,20 +588,6 @@ static GtkWidget *layout_image_pop_menu(LayoutWindow *lw)
 	submenu = submenu_add_edit(menu, &item, G_CALLBACK(li_pop_menu_edit_cb), lw, editmenu_fd_list);
 	if (!path) gtk_widget_set_sensitive(item, FALSE);
 	menu_item_add_divider(submenu);
-
-	item = menu_item_add_icon(menu, _("View in _new window"), GQ_ICON_NEW, G_CALLBACK(li_pop_menu_new_cb), lw);
-	if (!path || fullscreen) gtk_widget_set_sensitive(item, FALSE);
-
-	item = menu_item_add(menu, _("_Go to directory view"), G_CALLBACK(li_set_layout_path_cb), lw);
-	if (!path || li_check_if_current_path(lw, path)) gtk_widget_set_sensitive(item, FALSE);
-
-	item = menu_item_add_icon(menu, _("Open archive"), GQ_ICON_OPEN, G_CALLBACK(li_open_archive_cb), lw);
-	if (!path || lw->image->image_fd->format_class != FORMAT_CLASS_ARCHIVE)
-		{
-		gtk_widget_set_sensitive(item, FALSE);
-		}
-
-	menu_item_add_divider(menu);
 
 	item = menu_item_add_icon(menu, _("_Copy..."), GQ_ICON_COPY, G_CALLBACK(li_pop_menu_copy_cb), lw);
 	if (!path) gtk_widget_set_sensitive(item, FALSE);
@@ -1313,8 +1246,6 @@ static void layout_image_button_cb(ImageWindow *imd, GdkEventButton *event, gpoi
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 	GtkWidget *menu;
-	LayoutWindow *lw_new;
-	gchar *dest_dir;
 
 	switch (event->button)
 		{
@@ -1322,21 +1253,6 @@ static void layout_image_button_cb(ImageWindow *imd, GdkEventButton *event, gpoi
 			if (event->type == GDK_2BUTTON_PRESS)
 				{
 				layout_image_full_screen_toggle(lw);
-				}
-
-			else if (options->image_l_click_archive && imd-> image_fd && imd->image_fd->format_class == FORMAT_CLASS_ARCHIVE)
-				{
-				dest_dir = open_archive(imd->image_fd);
-				if (dest_dir)
-					{
-					lw_new = layout_new_from_default();
-					layout_set_path(lw_new, dest_dir);
-					g_free(dest_dir);
-					}
-				else
-					{
-					warning_dialog(_("Cannot open archive file"), _("See the Log Window"), GQ_ICON_DIALOG_WARNING, nullptr);
-					}
 				}
 			else if (options->image_l_click_video && options->image_l_click_video_editor && imd-> image_fd && imd->image_fd->format_class == FORMAT_CLASS_VIDEO)
 				{

@@ -61,9 +61,7 @@ const gchar *xdg_config_home_get();
 const gchar *xdg_cache_home_get();
 const gchar *homedir();
 const gchar *get_rc_dir();
-const gchar *get_collections_dir();
 const gchar *get_trash_dir();
-const gchar *get_window_layouts_dir();
 
 gboolean stat_utf8(const gchar *s, struct stat *st);
 gboolean lstat_utf8(const gchar *s, struct stat *st);

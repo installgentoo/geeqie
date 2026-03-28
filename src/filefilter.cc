@@ -182,9 +182,6 @@ void filter_add_defaults()
 #if HAVE_J2K
 	filter_add_if_missing("jp2", "JPEG 2000", ".jp2", FORMAT_CLASS_IMAGE, FALSE, FALSE, TRUE);
 #endif
-#if HAVE_ARCHIVE
-	filter_add_if_missing("zip", "Archive files", ".zip;.rar;.tar;.tar.gz;.tar.bz2;.tar.xz;.tgz;.tbz;.txz;.cbr;.cbz;.gz;.bz2;.xz;.lzh;.lza;.7z", FORMAT_CLASS_ARCHIVE, FALSE, FALSE, TRUE);
-#endif
 	filter_add_if_missing("scr", "ZX Spectrum screen Format", ".scr", FORMAT_CLASS_IMAGE, FALSE, FALSE, TRUE);
 	filter_add_if_missing("psd", "Adobe Photoshop Document", ".psd", FORMAT_CLASS_IMAGE, FALSE, FALSE, TRUE);
 	filter_add_if_missing("apng", "Animated Portable Network Graphic", ".apng", FORMAT_CLASS_IMAGE, FALSE, FALSE, TRUE);
@@ -453,7 +450,6 @@ FileFormatClass filter_file_get_class(const gchar *name)
 	if (filter_file_class(name, FORMAT_CLASS_META)) return FORMAT_CLASS_META;
 	if (filter_file_class(name, FORMAT_CLASS_VIDEO)) return FORMAT_CLASS_VIDEO;
 	if (filter_file_class(name, FORMAT_CLASS_DOCUMENT)) return FORMAT_CLASS_DOCUMENT;
-	if (filter_file_class(name, FORMAT_CLASS_ARCHIVE)) return FORMAT_CLASS_ARCHIVE;
 	return FORMAT_CLASS_UNKNOWN;
 }
 

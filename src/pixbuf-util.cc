@@ -58,9 +58,7 @@ struct PixbufInline
 };
 
 constexpr PixbufInline inline_pixbuf_data[] = {
-	{ PIXBUF_INLINE_ARCHIVE,                "gq-icon-archive-file" },
 	{ PIXBUF_INLINE_BROKEN,                 "gq-icon-broken" },
-	{ PIXBUF_INLINE_COLLECTION,             "gq-icon-collection" },
 	{ PIXBUF_INLINE_ICON_180,               "gq-icon-rotate-180" },
 	{ PIXBUF_INLINE_ICON_BOOK,              "gq-icon-book" },
 	{ PIXBUF_INLINE_ICON_CONFIG,            "gq-icon-config" },
@@ -352,9 +350,6 @@ GdkPixbuf *pixbuf_fallback(FileData *fd, gint requested_width, gint requested_he
 			break;
 		case FORMAT_CLASS_DOCUMENT:
 			pixbuf = pixbuf_inline(PIXBUF_INLINE_ICON_PDF);
-			break;
-		case FORMAT_CLASS_ARCHIVE:
-			pixbuf = pixbuf_inline(PIXBUF_INLINE_ARCHIVE);
 			break;
 		default:
 			pixbuf = pixbuf_inline(PIXBUF_INLINE_BROKEN);

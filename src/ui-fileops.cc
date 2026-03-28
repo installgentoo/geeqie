@@ -238,17 +238,6 @@ const gchar *get_rc_dir()
 	return rc_dir;
 }
 
-const gchar *get_collections_dir()
-{
-#if USE_XDG
-	static gchar *collections_dir = g_build_filename(xdg_data_home_get(), GQ_APPNAME_LC, GQ_COLLECTIONS_DIR, NULL);
-#else
-	static gchar *collections_dir = g_build_filename(get_rc_dir(), GQ_COLLECTIONS_DIR, NULL);
-#endif
-
-	return collections_dir;
-}
-
 const gchar *get_trash_dir()
 {
 #if USE_XDG
@@ -258,17 +247,6 @@ const gchar *get_trash_dir()
 #endif
 
 	return trash_dir;
-}
-
-const gchar *get_window_layouts_dir()
-{
-#if USE_XDG
-	static gchar *window_layouts_dir = g_build_filename(xdg_config_home_get(), GQ_APPNAME_LC, GQ_WINDOW_LAYOUTS_DIR, NULL);
-#else
-	static gchar *window_layouts_dir = g_build_filename(get_rc_dir(), GQ_WINDOW_LAYOUTS_DIR, NULL);
-#endif
-
-	return window_layouts_dir;
 }
 
 gboolean stat_utf8(const gchar *s, struct stat *st)

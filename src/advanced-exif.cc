@@ -370,11 +370,6 @@ static gboolean advanced_exif_keypress(GtkWidget *, GdkEventKey *event, gpointer
 			default:
 				break;
 			}
-		} // if (event->state & GDK_CONTROL...
-	if (!stop_signal && is_help_key(event))
-		{
-		help_window_show("GuideOtherWindowsExif.html");
-		stop_signal = TRUE;
 		}
 
 	return stop_signal;
@@ -402,11 +397,6 @@ static gboolean search_function_cb(GtkTreeModel *model, gint column, const gchar
 	g_free(key_nocase);
 
 	return ret;
-}
-
-static void exif_window_help_cb(GtkWidget *, gpointer)
-{
-	help_window_show("GuideOtherWindowsExif.html");
 }
 
 static void exif_window_close(ExifWin *ew)
@@ -531,10 +521,6 @@ GtkWidget *advanced_exif_new(LayoutWindow *lw)
 	hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_box_set_spacing(GTK_BOX(hbox), PREF_PAD_SPACE);
 	gq_gtk_box_pack_end(GTK_BOX(button_box), hbox, FALSE, FALSE, 0);
-
-	ew->button_help = pref_button_new(hbox, GQ_ICON_HELP, _("Help"), G_CALLBACK(exif_window_help_cb), ew);
-	gtk_widget_set_tooltip_text(GTK_WIDGET(ew->button_help), "F1");
-	gtk_widget_set_sensitive(ew->button_help, TRUE);
 
 	ew->button_close = pref_button_new(hbox, GQ_ICON_CLOSE, _("Close"), G_CALLBACK(exif_window_close_cb), ew);
 	gtk_widget_set_tooltip_text(GTK_WIDGET(ew->button_close), _("Ctrl-W"));

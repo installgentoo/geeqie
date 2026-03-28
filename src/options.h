@@ -96,8 +96,6 @@ struct ConfOptions
 
 	gint log_window_lines;
 
-	gboolean appimage_notifications;
-
 	gboolean with_rename;
 	gboolean collections_duplicates;
 	gboolean collections_on_top;
@@ -479,7 +477,6 @@ struct LayoutOptions
 	SortParams dir_view_list_sort;
 	SortParams file_view_list_sort;
 
-	gboolean show_thumbnails;
 	gboolean show_file_filter;
 	gboolean show_directory_date;
 	gboolean show_info_pixel;

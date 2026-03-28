@@ -4245,11 +4245,6 @@ static gboolean dupe_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, g
 				break;
 			}
 		}
-	if (!stop_signal && is_help_key(event))
-		{
-		help_window_show("GuideImageSearchFindingDuplicates.html");
-		stop_signal = TRUE;
-		}
 
 	return stop_signal;
 }
@@ -4327,11 +4322,6 @@ static gint dupe_window_delete(GtkWidget *, GdkEvent *, gpointer data)
 	dupe_window_close(dw);
 
 	return TRUE;
-}
-
-static void dupe_help_cb(GtkAction *, gpointer)
-{
-	help_window_show("GuideImageSearchFindingDuplicates.html");
 }
 
 static gint default_sort_cb(GtkTreeModel *, GtkTreeIter *, GtkTreeIter *, gpointer)
@@ -4682,12 +4672,6 @@ DupeWindow *dupe_window_new()
 	gtk_box_set_spacing(GTK_BOX(hbox), PREF_PAD_SPACE);
 	gq_gtk_box_pack_end(GTK_BOX(button_box), hbox, FALSE, FALSE, 0);
 	gtk_widget_show(hbox);
-
-	button = pref_button_new(nullptr, GQ_ICON_HELP, _("Help"), G_CALLBACK(dupe_help_cb), nullptr);
-	gtk_widget_set_tooltip_text(GTK_WIDGET(button), "F1");
-	gq_gtk_container_add(GTK_WIDGET(hbox), button);
-	gtk_widget_set_can_default(button, TRUE);
-	gtk_widget_show(button);
 
 	button = pref_button_new(nullptr, GQ_ICON_STOP, _("Stop"), G_CALLBACK(dupe_check_stop_cb), dw);
 	gq_gtk_container_add(GTK_WIDGET(hbox), button);

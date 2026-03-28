@@ -250,7 +250,6 @@ static void set_mem_src (j_decompress_ptr cinfo, void* buffer, long nbytes)
 gboolean ImageLoaderJpeg::write(const guchar *buf, gsize &chunk_size, gsize count, GError **error)
 {
 	struct jpeg_decompress_struct cinfo;
-	struct jpeg_decompress_struct cinfo2;
 	guchar *dptr;
 	guint rowstride;
 

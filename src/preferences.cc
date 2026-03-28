@@ -47,7 +47,6 @@
 
 #include <pango/pango.h>
 
-#include "archives.h"
 #include "cache.h"
 #include "color-man.h"
 #include "compat.h"
@@ -70,7 +69,6 @@
 #include "osd.h"
 #include "pixbuf-util.h"
 #include "rcfile.h"
-#include "third-party/zonedetect.h"
 #include "toolbar.h"
 #include "trash.h"
 #include "typedefs.h"
@@ -337,8 +335,6 @@ static void config_window_apply()
 
 	options->image.enable_read_ahead = c_options->image.enable_read_ahead;
 
-	options->appimage_notifications = c_options->appimage_notifications;
-
 
 	if (options->image.use_custom_border_color != c_options->image.use_custom_border_color
 	    || options->image.use_custom_border_color_in_fullscreen != c_options->image.use_custom_border_color_in_fullscreen
@@ -479,33 +475,6 @@ static void config_window_close_cb(GtkWidget *, gpointer)
 	gq_gtk_widget_destroy(configwindow);
 	configwindow = nullptr;
 	filter_store = nullptr;
-}
-
-static void config_window_help_cb(GtkWidget *, gpointer data)
-{
-	auto notebook = static_cast<GtkWidget *>(data);
-	gint i;
-
-	static const gchar *html_section[] =
-	{
-	"GuideOptionsGeneral.html",
-	"GuideOptionsImage.html",
-	"GuideOptionsOSD.html",
-	"GuideOptionsWindow.html",
-	"GuideOptionsKeyboard.html",
-	"GuideOptionsFiltering.html",
-	"GuideOptionsMetadata.html",
-	"GuideOptionsKeywords.html",
-	"GuideOptionsColor.html",
-	"GuideOptionsStereo.html",
-	"GuideOptionsBehavior.html",
-	"GuideOptionsToolbar.html",
-	"GuideOptionsToolbar.html",
-	"GuideOptionsAdvanced.html"
-	};
-
-	i = gtk_notebook_get_current_page(GTK_NOTEBOOK(notebook));
-	help_window_show(html_section[i]);
 }
 
 static gboolean config_window_delete(GtkWidget *, GdkEventAny *, gpointer)
@@ -1258,11 +1227,6 @@ static void image_overlay_default_template_cb(GtkWidget *widget, gpointer data)
 	gtk_widget_show(gd->dialog);
 }
 
-static void image_overlay_help_cb(GtkWidget *, gpointer)
-{
-	help_window_show("GuideOptionsOSD.html");
-}
-
 static void font_activated_cb(GtkFontChooser *widget, gchar *fontname, gpointer)
 {
 	g_free(c_options->image_overlay.font);
@@ -1665,19 +1629,6 @@ static void help_search_engine_entry_icon_cb(GtkEntry *, GtkEntryIconPosition po
 		}
 }
 
-/* general options tab */
-static void timezone_database_install_cb(GtkWidget *widget, gpointer data);
-struct TZData
-{
-	GenericDialog *gd;
-	GCancellable *cancellable;
-
-	GtkWidget *progress;
-	GFile *tmp_g_file;
-	GFile *timezone_database_gq;
-	gchar *timezone_database_user;
-};
-
 static void config_tab_general(GtkWidget *notebook)
 {
 	GtkWidget *vbox;
@@ -1688,13 +1639,6 @@ static void config_tab_general(GtkWidget *notebook)
 	GtkWidget *button;
 	GtkWidget *ct_button;
 	GtkWidget *table;
-	gchar *path;
-	gchar *basename;
-	gchar *download_locn;
-	GNetworkMonitor *net_mon;
-	GSocketConnectable *tz_org;
-	gboolean internet_available = FALSE;
-	TZData *tz;
 
 	vbox = scrolled_notebook_page(notebook, _("General"));
 
@@ -1782,66 +1726,6 @@ static void config_tab_general(GtkWidget *notebook)
 	pref_checkbox_new_int(group, _("Status bar"),
 				options->selectable_bars.status_bar, &c_options->selectable_bars.status_bar);
 	gtk_widget_set_tooltip_text(group, _("The Hide Selectable Bars menu item (default keystroke is control-backtick) will toggle the display of the bars selected here"));
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	if ((g_getenv("APPDIR") && strstr(g_getenv("APPDIR"), "/tmp/.mount_Geeqie")) || (g_strstr_len(gq_executable_path, -1, "squashfs-root")))
-		{
-		group = pref_group_new(vbox, FALSE, _("AppImage updates notifications"), GTK_ORIENTATION_VERTICAL);
-		hbox = pref_box_new(group, TRUE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-		pref_checkbox_new_int(group, _("Enable"), options->appimage_notifications, &c_options->appimage_notifications);
-		gtk_widget_set_tooltip_text(group, _("Show a notification on start-up if the server has a newer version than the current. Requires an Internet connection"));
-
-		pref_spacer(group, PREF_PAD_GROUP);
-		}
-
-
-	net_mon = g_network_monitor_get_default();
-	tz_org = g_network_address_parse_uri(TIMEZONE_DATABASE_WEB, 80, nullptr);
-	if (tz_org)
-		{
-		internet_available = g_network_monitor_can_reach(net_mon, tz_org, nullptr, nullptr);
-		g_object_unref(tz_org);
-		}
-
-	group = pref_group_new(vbox, FALSE, _("Timezone database"), GTK_ORIENTATION_VERTICAL);
-	hbox = pref_box_new(group, TRUE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-
-	if (!internet_available)
-		{
-		gtk_widget_set_sensitive(group, FALSE);
-		}
-
-	tz = g_new0(TZData, 1);
-
-	path = path_from_utf8(TIMEZONE_DATABASE_WEB);
-	basename = g_path_get_basename(path);
-	tz->timezone_database_user = g_build_filename(get_rc_dir(), TIMEZONE_DATABASE_FILE, NULL);
-	g_free(path);
-	g_free(basename);
-
-	if (isfile(tz->timezone_database_user))
-		{
-		button = pref_button_new(GTK_WIDGET(hbox), nullptr, _("Update"), G_CALLBACK(timezone_database_install_cb), tz);
-		}
-	else
-		{
-		button = pref_button_new(GTK_WIDGET(hbox), nullptr, _("Install"), G_CALLBACK(timezone_database_install_cb), tz);
-		}
-
-	download_locn = g_strconcat(_("Download database from: "), TIMEZONE_DATABASE_WEB, NULL);
-	pref_label_new(GTK_WIDGET(hbox), download_locn);
-	g_free(download_locn);
-
-	if (!internet_available)
-		{
-		gtk_widget_set_tooltip_text(button, _("No Internet connection!\nThe timezone database is used to display exif time and date\ncorrected for UTC offset and Daylight Saving Time"));
-		}
-	else
-		{
-		gtk_widget_set_tooltip_text(button, _("The timezone database is used to display exif time and date\ncorrected for UTC offset and Daylight Saving Time"));
-		}
-	gtk_widget_show(button);
 
 	pref_spacer(group, PREF_PAD_GROUP);
 
@@ -2140,11 +2024,6 @@ static void config_tab_osd(GtkWidget *notebook)
 
 	button = pref_button_new(nullptr, nullptr, _("Defaults"),
 				 G_CALLBACK(image_overlay_default_template_cb), image_overlay_template_view);
-	gq_gtk_box_pack_end(GTK_BOX(hbox), button, FALSE, FALSE, 0);
-	gtk_widget_show(button);
-
-	button = pref_button_new(nullptr, GQ_ICON_HELP, _("Help"),
-				 G_CALLBACK(image_overlay_help_cb), nullptr);
 	gq_gtk_box_pack_end(GTK_BOX(hbox), button, FALSE, FALSE, 0);
 	gtk_widget_show(button);
 
@@ -2759,7 +2638,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 	GtkWidget *spin;
 	GtkWidget *table;
 	GtkWidget *with_rename;
-	GtkWidget *collections_on_top;
 	GtkWidget *hide_window_in_fullscreen;
 	GtkWidget *hide_osd_in_fullscreen;
 	GtkWidget *checkbox;
@@ -2838,14 +2716,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 	with_rename = pref_checkbox_new_int(group, _("Use 'With Rename' as default for Copy/Move dialogs"),
 				options->with_rename, &c_options->with_rename);
 	gtk_widget_set_tooltip_text(with_rename,_("Change the default button for Copy/Move dialogs"));
-
-	collections_on_top = pref_checkbox_new_int(group, _("Permit duplicates in Collections"),
-				options->collections_duplicates, &c_options->collections_duplicates);
-	gtk_widget_set_tooltip_text(collections_on_top, _("Allow the same image to be in a Collection more than once"));
-
-	collections_on_top = pref_checkbox_new_int(group, _("Open collections on top"),
-				options->collections_on_top, &c_options->collections_on_top);
-	gtk_widget_set_tooltip_text(collections_on_top, _("Open collections window on top"));
 
 	hide_window_in_fullscreen = pref_checkbox_new_int(group, _("Hide window in fullscreen"),
 				options->hide_window_in_fullscreen, &c_options->hide_window_in_fullscreen);
@@ -3275,12 +3145,6 @@ static void config_window_create(LayoutWindow *lw)
 	gq_gtk_box_pack_end(GTK_BOX(win_vbox), hbox, FALSE, FALSE, 0);
 	gtk_widget_show(hbox);
 
-	button = pref_button_new(nullptr, GQ_ICON_HELP, _("Help"),
-				 G_CALLBACK(config_window_help_cb), notebook);
-	gq_gtk_container_add(GTK_WIDGET(hbox), button);
-	gtk_widget_set_can_default(button, TRUE);
-	gtk_widget_show(button);
-
 	button = pref_button_new(nullptr, GQ_ICON_OK, "OK",
 				 G_CALLBACK(config_window_ok_cb), notebook);
 	gq_gtk_container_add(GTK_WIDGET(hbox), button);
@@ -3335,11 +3199,9 @@ void show_about_window(LayoutWindow *lw)
 	GInputStream *in_stream_authors;
 	GInputStream *in_stream_translators;
 	GString *copyright;
-	ZoneDetect *cd;
 	gchar *author_line;
 	gchar *authors[1000];
 	gchar *comment;
-	gchar *timezone_path;
 	gchar *translators;
 	gint i_authors = 0;
 	gint n = 0;
@@ -3349,23 +3211,6 @@ void show_about_window(LayoutWindow *lw)
 	guint32 flags;
 
 	copyright = g_string_new(_("This program comes with absolutely no warranty.\nGNU General Public License, version 2 or later.\nSee https://www.gnu.org/licenses/old-licenses/gpl-2.0.html\n\n"));
-
-	timezone_path = g_build_filename(get_rc_dir(), TIMEZONE_DATABASE_FILE, NULL);
-	if (g_file_test(timezone_path, G_FILE_TEST_EXISTS))
-		{
-		cd = ZDOpenDatabase(timezone_path);
-		if (cd)
-			{
-			copyright = g_string_append(copyright, ZDGetNotice(cd));
-			}
-		else
-			{
-			log_printf("Error: Init of timezone database %s failed\n", timezone_path);
-			}
-		ZDCloseDatabase(cd);
-		}
-	g_free(timezone_path);
-
 	copyright = g_string_append(copyright, _("\n\nSome icons by https://www.flaticon.com"));
 
 	in_stream_authors = g_resources_open_stream(GQ_RESOURCE_PATH_CREDITS "/authors", G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr);
@@ -3442,122 +3287,3 @@ static void image_overlay_set_text_colors()
 	c_options->image_overlay.background_blue = options->image_overlay.background_blue;
 	c_options->image_overlay.background_alpha = options->image_overlay.background_alpha;
 }
-
-/*
- *-----------------------------------------------------------------------------
- * timezone database routines
- *-----------------------------------------------------------------------------
- */
-
-static void timezone_async_ready_cb(GObject *source_object, GAsyncResult *res, gpointer data)
-{
-	GError *error = nullptr;
-	auto tz = static_cast<TZData *>(data);
-	gchar *tmp_filename;
-	gchar *timezone_bin;
-	gchar *tmp_dir = nullptr;
-	FileData *fd;
-
-	if (!g_cancellable_is_cancelled(tz->cancellable))
-		{
-		generic_dialog_close(tz->gd);
-		}
-
-
-	if (g_file_copy_finish(G_FILE(source_object), res, &error))
-		{
-		tmp_filename = g_file_get_path(tz->tmp_g_file);
-		fd = file_data_new_simple(tmp_filename);
-		tmp_dir = open_archive(fd);
-
-		if (tmp_dir)
-			{
-			timezone_bin = g_build_filename(tmp_dir, TIMEZONE_DATABASE_VERSION, TIMEZONE_DATABASE_FILE, NULL);
-			if (isfile(timezone_bin))
-				{
-				move_file(timezone_bin, tz->timezone_database_user);
-				}
-			else
-				{
-				warning_dialog(_("Warning: Cannot open timezone database file"), _("See the Log Window"), GQ_ICON_DIALOG_WARNING, nullptr);
-				}
-
-			g_free(timezone_bin);
-			g_free(tmp_dir); // The folder in /tmp is deleted in exit_program_final()
-			}
-		else
-			{
-			warning_dialog(_("Warning: Cannot open timezone database file"), _("See the Log Window"), GQ_ICON_DIALOG_WARNING, nullptr);
-			}
-		g_free(tmp_filename);
-		file_data_unref(fd);
-		}
-	else
-		{
-		file_util_warning_dialog(_("Error: Timezone database download failed"), error->message, GQ_ICON_DIALOG_ERROR, nullptr);
-		}
-
-	g_file_delete(tz->tmp_g_file, nullptr, &error);
-	g_object_unref(tz->tmp_g_file);
-	tz->tmp_g_file = nullptr;
-	g_object_unref(tz->cancellable);
-	g_object_unref(tz->timezone_database_gq);
-}
-
-static void timezone_progress_cb(goffset current_num_bytes, goffset total_num_bytes, gpointer data)
-{
-	auto tz = static_cast<TZData *>(data);
-
-	if (!g_cancellable_is_cancelled(tz->cancellable))
-		{
-		gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(tz->progress), static_cast<gdouble>(current_num_bytes) / total_num_bytes);
-		}
-}
-
-static void timezone_cancel_button_cb(GenericDialog *, gpointer data)
-{
-	auto tz = static_cast<TZData *>(data);
-
-	g_cancellable_cancel(tz->cancellable);
-}
-
-static void timezone_database_install_cb(GtkWidget *widget, gpointer data)
-{
-	auto tz = static_cast<TZData *>(data);
-	GError *error = nullptr;
-	GFileIOStream *io_stream;
-
-	if (tz->tmp_g_file)
-		{
-		return;
-		}
-
-	tz->tmp_g_file = g_file_new_tmp("geeqie_timezone_XXXXXX", &io_stream, &error);
-
-	if (error)
-		{
-		file_util_warning_dialog(_("Timezone database download failed"), error->message, GQ_ICON_DIALOG_ERROR, nullptr);
-		log_printf("Error: Download timezone database failed:\n%s", error->message);
-		g_error_free(error);
-		g_object_unref(tz->tmp_g_file);
-		}
-	else
-		{
-		tz->timezone_database_gq = g_file_new_for_uri(TIMEZONE_DATABASE_WEB);
-
-		tz->gd = generic_dialog_new(_("Timezone database"), "download_timezone_database", nullptr, TRUE, timezone_cancel_button_cb, tz);
-
-		generic_dialog_add_message(tz->gd, GQ_ICON_DIALOG_INFO, _("Downloading timezone database"), nullptr, FALSE);
-
-		tz->progress = gtk_progress_bar_new();
-		gq_gtk_box_pack_start(GTK_BOX(tz->gd->vbox), tz->progress, FALSE, FALSE, 0);
-		gtk_widget_show(tz->progress);
-
-		gtk_widget_show(tz->gd->dialog);
-		tz->cancellable = g_cancellable_new();
-		g_file_copy_async(tz->timezone_database_gq, tz->tmp_g_file, G_FILE_COPY_OVERWRITE, G_PRIORITY_LOW, tz->cancellable, timezone_progress_cb, tz, timezone_async_ready_cb, tz);
-
-		gtk_button_set_label(GTK_BUTTON(widget), _("Update"));
-		}
-}
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

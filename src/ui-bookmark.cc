@@ -119,10 +119,7 @@ GList *bookmark_default_list = nullptr;
 const gchar *bookmark_icon(const gchar *path)
 {
 	if (!isfile(path)) return nullptr;
-
-	g_autofree gchar *real_path = realpath(path, nullptr);
-
-	return strstr(real_path, get_collections_dir()) ? PIXBUF_INLINE_COLLECTION : GQ_ICON_FILE;
+	return GQ_ICON_FILE;
 }
 
 } // namespace

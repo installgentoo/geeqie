@@ -25,6 +25,3 @@ ui_resources_c = custom_target('ui_resources_c',
 
 project_sources += ui_resources_h
 project_sources += ui_resources_c
-
-ui_sources += files('appimage-notification.ui',
-'search-and-run.ui')

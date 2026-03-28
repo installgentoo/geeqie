@@ -195,8 +195,6 @@ void layout_select_list(LayoutWindow *lw, GList *list);
 
 void layout_refresh(LayoutWindow *lw);
 
-void layout_thumb_set(LayoutWindow *lw, gboolean enable);
-
 void layout_file_filter_set(LayoutWindow *lw, gboolean enable);
 
 void layout_sort_set_files(LayoutWindow *lw, SortType type, gboolean ascend, gboolean case_sensitive);
@@ -229,7 +227,6 @@ void layout_info_pixel_set(LayoutWindow *lw, gboolean show);
 
 void layout_split_change(LayoutWindow *lw);
 
-void save_layout(LayoutWindow *lw);
 gchar *layout_get_unique_id();
 guint layout_window_count();
 

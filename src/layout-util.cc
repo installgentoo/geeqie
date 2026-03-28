@@ -35,7 +35,6 @@
 #include <config.h>
 
 #include "advanced-exif.h"
-#include "archives.h"
 #include "bar.h"
 #include "cache-maint.h"
 #include "color-man.h"
@@ -65,7 +64,6 @@
 #include "preferences.h"
 #include "print.h"
 #include "rcfile.h"
-#include "search-and-run.h"
 #include "search.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
@@ -79,7 +77,6 @@
 static gboolean layout_bar_enabled(LayoutWindow *lw);
 static void layout_bars_hide_toggle(LayoutWindow *lw);
 static void layout_util_sync_views(LayoutWindow *lw);
-static void layout_search_and_run_window_new(LayoutWindow *lw);
 
 /*
  *-----------------------------------------------------------------------------
@@ -268,13 +265,6 @@ static void layout_exit_fullscreen(LayoutWindow *lw)
 	layout_image_full_screen_stop(lw);
 }
 
-static void layout_menu_new_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-}
-
 static void layout_menu_search_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -397,14 +387,6 @@ static void layout_menu_enable_grouping_cb(GtkAction *, gpointer data)
 	auto lw = static_cast<LayoutWindow *>(data);
 
 	file_data_disable_grouping_list(layout_selection_list(lw), FALSE);
-}
-
-void layout_menu_close_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	layout_close(lw);
 }
 
 static void layout_menu_exit_cb(GtkAction *, gpointer)
@@ -650,15 +632,6 @@ static void layout_menu_connect_zoom_1_4_cb(GtkAction *, gpointer data)
 	layout_image_zoom_set(lw, -4.0);
 }
 
-
-static void layout_menu_thumb_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_thumb_set(lw, gq_gtk_toggle_action_get_active(action));
-}
-
-
 static void layout_menu_view_dir_as_cb(GtkToggleAction *action,  gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -673,14 +646,6 @@ static void layout_menu_view_dir_as_cb(GtkToggleAction *action,  gpointer data)
 		{
 		layout_views_set(lw, DIRVIEW_LIST);
 		}
-}
-
-static void layout_menu_view_in_new_window_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	view_window_new(layout_image_get_fd(lw));
 }
 
 struct OpenWithData
@@ -772,32 +737,6 @@ static void layout_menu_open_with_cb(GtkAction *, gpointer data)
 		}
 }
 
-static void layout_menu_open_archive_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	LayoutWindow *lw_new;
-	gchar *dest_dir;
-	FileData *fd;
-
-	layout_exit_fullscreen(lw);
-	fd = layout_image_get_fd(lw);
-
-	if (fd->format_class == FORMAT_CLASS_ARCHIVE)
-		{
-		dest_dir = open_archive(layout_image_get_fd(lw));
-		if (dest_dir)
-			{
-			lw_new = layout_new_from_default();
-			layout_set_path(lw_new, dest_dir);
-			g_free(dest_dir);
-			}
-		else
-			{
-			warning_dialog(_("Cannot open archive file"), _("See the Log Window"), GQ_ICON_DIALOG_WARNING, nullptr);
-			}
-		}
-}
-
 static void layout_menu_fullscreen_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -866,15 +805,6 @@ static void layout_menu_bar_exif_cb(GtkAction *, gpointer data)
 	layout_exif_window_new(lw);
 }
 
-static void layout_menu_search_and_run_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	layout_search_and_run_window_new(lw);
-}
-
-
 static void layout_menu_float_cb(GtkToggleAction *action, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -933,208 +863,6 @@ static void layout_menu_hide_bars_cb(GtkToggleAction *action, gpointer data)
 		return;
 		}
 	layout_bars_hide_toggle(lw);
-}
-
-
-static void layout_menu_help_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	help_window_show("index.html");
-}
-
-static void layout_menu_help_search_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	help_search_window_show();
-}
-
-static void layout_menu_help_pdf_cb(GtkAction *, gpointer)
-{
-	help_pdf();
-}
-
-static void layout_menu_help_keys_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	help_window_show("GuideReferenceKeyboardShortcuts.html");
-}
-
-static void layout_menu_notes_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	help_window_show("release_notes");
-}
-
-static void layout_menu_changelog_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	help_window_show("changelog");
-}
-
-static constexpr const char *keyboard_map_hardcoded[][2] = {
-	{"Scroll","Left"},
-	{"FastScroll", "&lt;Shift&gt;Left"},
-	{"Left Border", "&lt;Primary&gt;Left"},
-	{"Left Border", "&lt;Primary&gt;&lt;Shift&gt;Left"},
-	{"Scroll", "Right"},
-	{"FastScroll", "&lt;Shift&gt;Right"},
-	{"Right Border", "&lt;Primary&gt;Right"},
-	{"Right Border", "&lt;Primary&gt;&lt;Shift&gt;Right"},
-	{"Scroll", "Up"},
-	{"FastScroll", "&lt;Shift&gt;Up"},
-	{"Upper Border", "&lt;Primary&gt;Up"},
-	{"Upper Border", "&lt;Primary&gt;&lt;Shift&gt;Up"},
-	{"Scroll", "Down"},
-	{"FastScroll", "&lt;Shift&gt;Down"},
-	{"Lower Border", "&lt;Primary&gt;Down"},
-	{"Lower Border", "&lt;Primary&gt;&lt;Shift&gt;Down"},
-	{"Next/Drag", "M1"},
-	{"FastDrag", "&lt;Shift&gt;M1"},
-	{"DnD Start", "M2"},
-	{"Menu", "M3"},
-	{"PrevImage", "MW4"},
-	{"NextImage", "MW5"},
-	{"ScrollUp", "&lt;Shift&gt;MW4"},
-	{"ScrollDown", "&lt;Shift&gt;MW5"},
-	{"ZoomIn", "&lt;Primary&gt;MW4"},
-	{"ZoomOut", "&lt;Primary&gt;MW5"},
-};
-
-static void layout_menu_foreach_func(
-					gpointer data,
-					const gchar *accel_path,
-					guint accel_key,
-					GdkModifierType accel_mods,
-					gboolean)
-{
-	gchar *path;
-	gchar *name;
-	gchar *key_name;
-	gchar *menu_name;
-	auto array = static_cast<GPtrArray *>(data);
-
-	path = g_strescape(accel_path, nullptr);
-	name = gtk_accelerator_name(accel_key, accel_mods);
-
-	menu_name = g_strdup(strrchr(path, '/') + 1);
-
-	if (strrchr(name, '>'))
-		{
-		g_auto(GStrv) subset_lt_arr = g_strsplit_set(name, "<", 4);
-		g_autofree gchar *subset_lt = g_strjoinv("&lt;", subset_lt_arr);
-		g_auto(GStrv) subset_gt_arr = g_strsplit_set(subset_lt, ">", 4);
-
-		key_name = g_strjoinv("&gt;", subset_gt_arr);
-		}
-	else
-		key_name = g_strdup(name);
-
-	g_ptr_array_add(array, menu_name);
-	g_ptr_array_add(array, key_name);
-
-	g_free(name);
-	g_free(path);
-}
-
-static void layout_menu_kbd_map_cb(GtkAction *, gpointer)
-{
-	gint fd = -1;
-	GPtrArray *array;
-	char * tmp_file;
-	GError *error = nullptr;
-	GIOChannel *channel;
-	char **pre_key;
-	char **post_key;
-	const char *key_name;
-	char *converted_line;
-	int keymap_index;
-	guint index;
-
-	fd = g_file_open_tmp("geeqie_keymap_XXXXXX.svg", &tmp_file, &error);
-	if (error)
-		{
-		log_printf("Error: Keyboard Map - cannot create file:%s\n",error->message);
-		g_error_free(error);
-		}
-	else
-		{
-		array = g_ptr_array_new();
-
-		gtk_accel_map_foreach(array, layout_menu_foreach_func);
-
-		channel = g_io_channel_unix_new(fd);
-
-		keymap_index = 0;
-		while (keymap_template[keymap_index])
-			{
-			if (g_strrstr(keymap_template[keymap_index], ">key:"))
-				{
-				pre_key = g_strsplit(keymap_template[keymap_index],">key:",2);
-				post_key = g_strsplit(pre_key[1],"<",2);
-
-				index=0;
-				key_name = " ";
-				for (index=0; index < array->len-2; index=index+2)
-					{
-					if (!(g_ascii_strcasecmp(static_cast<const gchar *>(g_ptr_array_index(array,index+1)), post_key[0])))
-						{
-						key_name = static_cast<const gchar *>(g_ptr_array_index(array,index+0));
-						break;
-						}
-					}
-
-				for (const auto& m : keyboard_map_hardcoded)
-					{
-					if (!(g_strcmp0(m[1], post_key[0])))
-						{
-						key_name = m[0];
-						break;
-						}
-					}
-
-				converted_line = g_strconcat(pre_key[0], ">", key_name, "<", post_key[1], "\n", NULL);
-				g_io_channel_write_chars(channel, converted_line, -1, nullptr, &error);
-				if (error) {log_printf("Warning: Keyboard Map:%s\n",error->message); g_error_free(error);}
-
-				g_free(converted_line);
-				g_strfreev(pre_key);
-				g_strfreev(post_key);
-				}
-			else
-				{
-				g_io_channel_write_chars(channel, keymap_template[keymap_index], -1, nullptr, &error);
-				if (error) {log_printf("Warning: Keyboard Map:%s\n",error->message); g_error_free(error);}
-				g_io_channel_write_chars(channel, "\n", -1, nullptr, &error);
-				if (error) {log_printf("Warning: Keyboard Map:%s\n",error->message); g_error_free(error);}
-				}
-			keymap_index++;
-			}
-
-		g_io_channel_flush(channel, &error);
-		if (error) {log_printf("Warning: Keyboard Map:%s\n",error->message); g_error_free(error);}
-		g_io_channel_unref(channel);
-
-		index=0;
-		for (index=0; index < array->len-2; index=index+2)
-			{
-			g_free(g_ptr_array_index(array,index));
-			g_free(g_ptr_array_index(array,index+1));
-			}
-		g_ptr_array_unref(array);
-
-		view_window_new(file_data_new_simple(tmp_file));
-		g_free(tmp_file);
-		}
 }
 
 static void layout_menu_about_cb(GtkAction *, gpointer data)
@@ -1436,469 +1164,6 @@ void layout_recent_add_path(const gchar *path)
 
 /*
  *-----------------------------------------------------------------------------
- * window layout menu
- *-----------------------------------------------------------------------------
- */
-struct WindowNames
-{
-	gboolean displayed;
-	gchar *name;
-	gchar *path;
-};
-
-struct RenameWindow
-{
-	GenericDialog *gd;
-	LayoutWindow *lw;
-
-	GtkWidget *button_ok;
-	GtkWidget *window_name_entry;
-};
-
-struct DeleteWindow
-{
-	GenericDialog *gd;
-	LayoutWindow *lw;
-
-	GtkWidget *button_ok;
-	GtkWidget *group;
-};
-
-static gint layout_window_menu_list_sort_cb(gconstpointer a, gconstpointer b)
-{
-	auto wna = static_cast<const WindowNames *>(a);
-	auto wnb = static_cast<const WindowNames *>(b);
-
-	return g_strcmp0(wna->name, wnb->name);
-}
-
-static GList *layout_window_menu_list(GList *listin)
-{
-	WindowNames *wn;
-	DIR *dp;
-	struct dirent *dir;
-	gchar *pathl;
-
-	pathl = path_from_utf8(get_window_layouts_dir());
-	dp = opendir(pathl);
-	if (!dp)
-		{
-		/* dir not found */
-		g_free(pathl);
-		return listin;
-		}
-
-	while ((dir = readdir(dp)) != nullptr)
-		{
-		gchar *name_file = dir->d_name;
-
-		if (g_str_has_suffix(name_file, ".xml"))
-			{
-			gchar *name_utf8 = path_to_utf8(name_file);
-			gchar *name_base = g_strndup(name_utf8, strlen(name_utf8) - 4);
-
-			wn  = g_new0(WindowNames, 1);
-			wn->displayed = g_list_find_custom(layout_window_list, name_base, reinterpret_cast<GCompareFunc>(layout_compare_options_id)) ? TRUE : FALSE;
-			wn->name = name_base;
-			wn->path = g_build_filename(pathl, name_utf8, NULL);
-			listin = g_list_append(listin, wn);
-
-			g_free(name_utf8);
-			}
-		}
-	closedir(dp);
-
-	g_free(pathl);
-
-	return g_list_sort(listin, layout_window_menu_list_sort_cb);
-}
-
-static void layout_menu_new_window_cb(GtkWidget *, gpointer data)
-{
-	gint n;
-
-	n = GPOINTER_TO_INT(data);
-	GList *menulist = nullptr;
-
-	menulist = layout_window_menu_list(menulist);
-	auto wn = static_cast<WindowNames *>(g_list_nth(menulist, n )->data);
-
-	if (wn->path)
-		{
-		load_config_from_file(wn->path, FALSE);
-		}
-	else
-		{
-		log_printf(_("Error: window layout name: %s does not exist\n"), wn->path);
-		}
-}
-
-static void layout_menu_new_window_update(LayoutWindow *lw)
-{
-	GtkWidget *menu;
-	GtkWidget *sub_menu;
-	GtkWidget *item;
-	GList *children;
-	GList *iter;
-	gint n;
-	GList *list = nullptr;
-	gint i = 0;
-	WindowNames *wn;
-
-	if (!lw->ui_manager) return;
-
-	list = layout_window_menu_list(list);
-
-	menu = gq_gtk_ui_manager_get_widget(lw->ui_manager, "/MainMenu/WindowsMenu/NewWindow");
-	sub_menu = gtk_menu_item_get_submenu(GTK_MENU_ITEM(menu));
-
-	children = gtk_container_get_children(GTK_CONTAINER(sub_menu));
-	for (iter = children; iter != nullptr; iter = g_list_next(iter), i++)
-		{
-		if (i >= 4) // separator, default, from current, separator
-			{
-			gq_gtk_widget_destroy(GTK_WIDGET(iter->data));
-			}
-		}
-	g_list_free(children);
-
-	menu_item_add_divider(sub_menu);
-
-	n = 0;
-	while (list)
-		{
-		wn = static_cast<WindowNames *>(list->data);
-		item = menu_item_add_simple(sub_menu, wn->name, G_CALLBACK(layout_menu_new_window_cb), GINT_TO_POINTER(n));
-		if (wn->displayed)
-			{
-			gtk_widget_set_sensitive(item, FALSE);
-			}
-		list = list->next;
-		n++;
-		}
-}
-
-static void window_rename_cancel_cb(GenericDialog *, gpointer data)
-{
-	auto rw = static_cast<RenameWindow *>(data);
-
-	generic_dialog_close(rw->gd);
-	g_free(rw);
-}
-
-static void window_rename_ok(GenericDialog *, gpointer data)
-{
-	auto rw = static_cast<RenameWindow *>(data);
-	gchar *path;
-	gchar *xml_name;
-	gchar *new_id;
-
-	new_id = g_strdup(gq_gtk_entry_get_text(GTK_ENTRY(rw->window_name_entry)));
-
-	const auto window_names_compare_name = [](gconstpointer data, gconstpointer user_data)
-	{
-		return g_strcmp0(static_cast<const WindowNames *>(data)->name, static_cast<const gchar *>(user_data));
-	};
-
-	if (g_list_find_custom(layout_window_menu_list(nullptr), new_id, window_names_compare_name))
-		{
-		gchar *buf;
-		buf = g_strdup_printf(_("Window layout name \"%s\" already exists."), new_id);
-		warning_dialog(_("Rename window"), buf, GQ_ICON_DIALOG_WARNING, rw->gd->dialog);
-		g_free(buf);
-		}
-	else
-		{
-		xml_name = g_strdup_printf("%s.xml", rw->lw->options.id);
-		path = g_build_filename(get_window_layouts_dir(), xml_name, NULL);
-
-		if (isfile(path))
-			{
-			unlink_file(path);
-			}
-		g_free(xml_name);
-		g_free(path);
-
-		g_free(rw->lw->options.id);
-		rw->lw->options.id = g_strdup(new_id);
-		layout_menu_new_window_update(rw->lw);
-		layout_refresh(rw->lw);
-		image_update_title(rw->lw->image);
-		}
-
-	save_layout(rw->lw);
-
-	g_free(new_id);
-	generic_dialog_close(rw->gd);
-	g_free(rw);
-}
-
-static void window_rename_ok_cb(GenericDialog *gd, gpointer data)
-{
-	auto rw = static_cast<RenameWindow *>(data);
-
-	window_rename_ok(gd, rw);
-}
-
-static void window_rename_entry_activate_cb(GenericDialog *gd, gpointer data)
-{
-	auto rw = static_cast<RenameWindow *>(data);
-
-	window_rename_ok(gd, rw);
-}
-
-static void window_delete_cancel_cb(GenericDialog *, gpointer data)
-{
-	auto dw = static_cast<DeleteWindow *>(data);
-
-	g_free(dw);
-}
-
-static void window_delete_ok_cb(GenericDialog *, gpointer data)
-{
-	auto dw = static_cast<DeleteWindow *>(data);
-	gchar *path;
-	gchar *xml_name;
-
-	xml_name = g_strdup_printf("%s.xml", dw->lw->options.id);
-	path = g_build_filename(get_window_layouts_dir(), xml_name, NULL);
-
-	layout_close(dw->lw);
-	g_free(dw);
-
-	if (isfile(path))
-		{
-		unlink_file(path);
-		}
-	g_free(xml_name);
-	g_free(path);
-}
-
-static void layout_menu_window_default_cb(GtkWidget *, gpointer)
-{
-	layout_new_from_default();
-}
-
-static void layout_menu_windows_menu_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	GtkWidget *menu;
-	GtkWidget *sub_menu;
-	gchar *menu_label;
-	GList *children;
-	GList *iter;
-	gint i;
-
-	menu = gq_gtk_ui_manager_get_widget(lw->ui_manager, "/MainMenu/WindowsMenu/");
-
-	sub_menu = gtk_menu_item_get_submenu(GTK_MENU_ITEM(menu));
-
-	/* disable Delete for temporary windows */
-	if (g_str_has_prefix(lw->options.id, "lw"))
-		{
-		i = 0;
-		children = gtk_container_get_children(GTK_CONTAINER(sub_menu));
-		for (iter = children; iter != nullptr; iter = g_list_next(iter), i++)
-			{
-			menu_label = g_strdup(gtk_menu_item_get_label(GTK_MENU_ITEM(iter->data)));
-			if (g_strcmp0(menu_label, _("Delete window")) == 0)
-				{
-				gtk_widget_set_sensitive(GTK_WIDGET(iter->data), FALSE);
-				}
-			g_free(menu_label);
-			}
-		g_list_free(children);
-		}
-}
-
-static void layout_menu_view_menu_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	GtkWidget *menu;
-	GtkWidget *sub_menu;
-	gchar *menu_label;
-	GList *children;
-	GList *iter;
-	gint i;
-	FileData *fd;
-
-	menu = gq_gtk_ui_manager_get_widget(lw->ui_manager, "/MainMenu/ViewMenu/");
-	sub_menu = gtk_menu_item_get_submenu(GTK_MENU_ITEM(menu));
-
-	fd = layout_image_get_fd(lw);
-
-	i = 0;
-	children = gtk_container_get_children(GTK_CONTAINER(sub_menu));
-	for (iter = children; iter != nullptr; iter = g_list_next(iter), i++)
-		{
-		menu_label = g_strdup(gtk_menu_item_get_label(GTK_MENU_ITEM(iter->data)));
-		if (g_strcmp0(menu_label, _("Open archive")) == 0)
-			{
-			if (fd && fd->format_class == FORMAT_CLASS_ARCHIVE)
-				{
-				gtk_widget_set_sensitive(GTK_WIDGET(iter->data), TRUE);
-				}
-			else
-				{
-				gtk_widget_set_sensitive(GTK_WIDGET(iter->data), FALSE);
-				}
-			}
-		g_free(menu_label);
-		}
-	g_list_free(children);
-}
-
-static void change_window_id(const gchar *infile, const gchar *outfile)
-{
-	GFile *in_file;
-	GFile *out_file;
-	GFileInputStream *in_file_stream;
-	GFileOutputStream *out_file_stream;
-	GDataInputStream *in_data_stream;
-	GDataOutputStream *out_data_stream;
-	gchar *line;
-	gchar *id_name;
-
-	id_name = layout_get_unique_id();
-
-	in_file = g_file_new_for_path(infile);
-	in_file_stream = g_file_read(in_file, nullptr, nullptr);
-	in_data_stream = g_data_input_stream_new(G_INPUT_STREAM(in_file_stream));
-
-	out_file = g_file_new_for_path(outfile);
-	out_file_stream = g_file_append_to(out_file, G_FILE_CREATE_PRIVATE, nullptr, nullptr);
-	out_data_stream = g_data_output_stream_new(G_OUTPUT_STREAM(out_file_stream));
-
-	while ((line = g_data_input_stream_read_line(in_data_stream, nullptr, nullptr, nullptr)))
-		{
-		if (g_str_has_suffix(line, "<layout"))
-			{
-			g_data_output_stream_put_string(out_data_stream, line, nullptr, nullptr);
-			g_data_output_stream_put_string(out_data_stream, "\n", nullptr, nullptr);
-			g_free(line);
-
-			line = g_data_input_stream_read_line(in_data_stream, nullptr, nullptr, nullptr);
-			g_data_output_stream_put_string(out_data_stream, "id = \"", nullptr, nullptr);
-			g_data_output_stream_put_string(out_data_stream, id_name, nullptr, nullptr);
-			g_data_output_stream_put_string(out_data_stream, "\"\n", nullptr, nullptr);
-			}
-		else
-			{
-			g_data_output_stream_put_string(out_data_stream, line, nullptr, nullptr);
-			g_data_output_stream_put_string(out_data_stream, "\n", nullptr, nullptr);
-			}
-		g_free(line);
-		}
-
-	g_free(id_name);
-	g_object_unref(out_data_stream);
-	g_object_unref(in_data_stream);
-	g_object_unref(out_file_stream);
-	g_object_unref(in_file_stream);
-	g_object_unref(out_file);
-	g_object_unref(in_file);
-}
-
-static void layout_menu_window_from_current_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint fd_in = -1;
-	gint fd_out = -1;
-	char * tmp_file_in;
-	char * tmp_file_out;
-	GError *error = nullptr;
-
-	fd_in = g_file_open_tmp("geeqie_layout_name_XXXXXX.xml", &tmp_file_in, &error);
-	if (error)
-		{
-		log_printf("Error: Window layout - cannot create file:%s\n",error->message);
-		g_error_free(error);
-		return;
-		}
-	close(fd_in);
-	fd_out = g_file_open_tmp("geeqie_layout_name_XXXXXX.xml", &tmp_file_out, &error);
-	if (error)
-		{
-		log_printf("Error: Window layout - cannot create file:%s\n",error->message);
-		g_error_free(error);
-		return;
-		}
-	close(fd_out);
-
-	save_config_to_file(tmp_file_in, options, lw);
-	change_window_id(tmp_file_in, tmp_file_out);
-	load_config_from_file(tmp_file_out, FALSE);
-
-	unlink_file(tmp_file_in);
-	unlink_file(tmp_file_out);
-	g_free(tmp_file_in);
-	g_free(tmp_file_out);
-}
-
-static void layout_menu_window_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_menu_new_window_update(lw);
-}
-
-static void layout_menu_window_rename_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	RenameWindow *rw;
-	GtkWidget *hbox;
-
-	rw = g_new0(RenameWindow, 1);
-	rw->lw = lw;
-
-	rw->gd = generic_dialog_new(_("Rename window"), "rename_window", nullptr, FALSE, window_rename_cancel_cb, rw);
-	rw->button_ok = generic_dialog_add_button(rw->gd, GQ_ICON_OK, _("OK"), window_rename_ok_cb, TRUE);
-
-	generic_dialog_add_message(rw->gd, nullptr, _("rename window"), nullptr, FALSE);
-
-	hbox = pref_box_new(rw->gd->vbox, FALSE, GTK_ORIENTATION_HORIZONTAL, 0);
-	pref_spacer(hbox, PREF_PAD_INDENT);
-
-	hbox = pref_box_new(rw->gd->vbox, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-
-	rw->window_name_entry = gtk_entry_new();
-	gtk_widget_set_can_focus(rw->window_name_entry, TRUE);
-	gtk_editable_set_editable(GTK_EDITABLE(rw->window_name_entry), TRUE);
-	gq_gtk_entry_set_text(GTK_ENTRY(rw->window_name_entry), lw->options.id);
-	gq_gtk_box_pack_start(GTK_BOX(hbox), rw->window_name_entry, TRUE, TRUE, 0);
-	gtk_widget_grab_focus(GTK_WIDGET(rw->window_name_entry));
-	gtk_widget_show(rw->window_name_entry);
-	g_signal_connect(rw->window_name_entry, "activate", G_CALLBACK(window_rename_entry_activate_cb), rw);
-
-	gtk_widget_show(rw->gd->dialog);
-}
-
-static void layout_menu_window_delete_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	DeleteWindow *dw;
-	GtkWidget *hbox;
-
-	dw = g_new0(DeleteWindow, 1);
-	dw->lw = lw;
-
-	dw->gd = generic_dialog_new(_("Delete window"), "delete_window", nullptr, TRUE, window_delete_cancel_cb, dw);
-	dw->button_ok = generic_dialog_add_button(dw->gd, GQ_ICON_OK, _("OK"), window_delete_ok_cb, TRUE);
-
-	generic_dialog_add_message(dw->gd, nullptr, _("Delete window layout"), nullptr, FALSE);
-
-	hbox = pref_box_new(dw->gd->vbox, FALSE, GTK_ORIENTATION_HORIZONTAL, 0);
-	pref_spacer(hbox, PREF_PAD_INDENT);
-	dw->group = pref_box_new(hbox, TRUE, GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
-
-	hbox = pref_box_new(dw->group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	pref_label_new(hbox, (lw->options.id));
-
-	gtk_widget_show(dw->gd->dialog);
-}
-
-/*
- *-----------------------------------------------------------------------------
  * menu
  *-----------------------------------------------------------------------------
  */
@@ -1913,7 +1178,6 @@ static void layout_menu_window_delete_cb(GtkWidget *, gpointer data)
 static GtkActionEntry menu_entries[] = {
   { "About",                 GQ_ICON_ABOUT,                     N_("_About"),                                           nullptr,               N_("About"),                                           CB(layout_menu_about_cb) },
   { "Back",                  GQ_ICON_GO_PREV,                   N_("_Back"),                                            nullptr,               N_("Back in folder history"),                          CB(layout_menu_back_cb) },
-  { "CloseWindow",           GQ_ICON_CLOSE,                     N_("C_lose window"),                                    "<control>W",          N_("Close window"),                                    CB(layout_menu_close_cb) },
   { "ColorMenu",             nullptr,                           N_("_Color Management"),                                nullptr,               nullptr,                                               nullptr },
   { "ConnectZoom100Alt1",    GQ_ICON_ZOOM_100,                  N_("Zoom _1:1"),                                        "<shift>KP_Divide",    N_("Connected Zoom 1:1"),                              CB(layout_menu_connect_zoom_1_1_cb) },                 
   { "ConnectZoom100",        GQ_ICON_ZOOM_100,                  N_("Zoom _1:1"),                                        "<shift>Z",            N_("Connected Zoom 1:1"),                              CB(layout_menu_connect_zoom_1_1_cb) },
@@ -1940,7 +1204,6 @@ static GtkActionEntry menu_entries[] = {
   { "DeleteAlt1",            GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "Delete",              N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_key_cb) },
   { "DeleteAlt2",            GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "KP_Delete",           N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_key_cb) },
   { "Delete",                GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "<control>D",          N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_cb) },
-  { "DeleteWindow",          GQ_ICON_DELETE,                    N_("Delete window"),                                    nullptr,               N_("Delete window"),                                   CB(layout_menu_window_delete_cb) },
   { "DisableGrouping",       nullptr,                           N_("Disable file groupi_ng"),                           nullptr,               N_("Disable file grouping"),                           CB(layout_menu_disable_grouping_cb) },
   { "EditMenu",              nullptr,                           N_("_Edit"),                                            nullptr,               nullptr,                                               nullptr },
   { "EnableGrouping",        nullptr,                           N_("Enable file _grouping"),                            nullptr,               N_("Enable file grouping"),                            CB(layout_menu_enable_grouping_cb) },
@@ -1956,15 +1219,7 @@ static GtkActionEntry menu_entries[] = {
   { "FullScreenAlt1",        GQ_ICON_FULLSCREEN,                N_("F_ull screen"),                                     "V",                   N_("Full screen"),                                     CB(layout_menu_fullscreen_cb) },
   { "FullScreenAlt2",        GQ_ICON_FULLSCREEN,                N_("F_ull screen"),                                     "F11",                 N_("Full screen"),                                     CB(layout_menu_fullscreen_cb) },
   { "FullScreen",            GQ_ICON_FULLSCREEN,                N_("F_ull screen"),                                     "F",                   N_("Full screen"),                                     CB(layout_menu_fullscreen_cb) },
-  { "GoMenu",                nullptr,                           N_("_Go"),                                              nullptr,               nullptr,                                               nullptr },
-  { "HelpChangeLog",         nullptr,                           N_("_ChangeLog"),                                       nullptr,               N_("ChangeLog notes"),                                 CB(layout_menu_changelog_cb) },
-  { "HelpContents",          GQ_ICON_HELP,                      N_("_Help manual"),                                     "F1",                  N_("Help manual"),                                     CB(layout_menu_help_cb) },
-  { "HelpKbd",               nullptr,                           N_("_Keyboard map"),                                    nullptr,               N_("Keyboard map"),                                    CB(layout_menu_kbd_map_cb) },
   { "HelpMenu",              nullptr,                           N_("_Help"),                                            nullptr,               nullptr,                                               nullptr },
-  { "HelpNotes",             nullptr,                           N_("_Readme"),                                          nullptr,               N_("Readme"),                                          CB(layout_menu_notes_cb) },
-  { "HelpPdf",               nullptr,                           N_("Help in pdf format"),                               nullptr,               N_("Help in pdf formast"),                             CB(layout_menu_help_pdf_cb) },
-  { "HelpSearch",            nullptr,                           N_("On-line help search"),                              nullptr,               N_("On-line help search"),                             CB(layout_menu_help_search_cb) },
-  { "HelpShortcuts",         nullptr,                           N_("_Keyboard shortcuts"),                              nullptr,               N_("Keyboard shortcuts"),                              CB(layout_menu_help_keys_cb) },
   { "HideTools",             PIXBUF_INLINE_ICON_HIDETOOLS,      N_("_Hide file list"),                                  "<control>H",          N_("Hide file list"),                                  CB(layout_menu_hide_cb) },
   { "Home",                  GQ_ICON_HOME,                      N_("_Home"),                                            nullptr,               N_("Home"),                                            CB(layout_menu_home_cb) },
   { "ImageBack",             GQ_ICON_GO_FIRST,                  N_("Image Back"),                                       nullptr,               N_("Back in image history"),                           CB(layout_menu_image_back_cb) },
@@ -1976,20 +1231,12 @@ static GtkActionEntry menu_entries[] = {
   { "LogWindow",             nullptr,                           N_("_Log Window"),                                      nullptr,               N_("Log Window"),                                      CB(layout_menu_log_window_cb) },
   { "Maintenance",           PIXBUF_INLINE_ICON_MAINTENANCE,    N_("_Cache maintenance..."),                            nullptr,               N_("Cache maintenance..."),                            CB(layout_menu_remove_thumb_cb) },
   { "Move",                  PIXBUF_INLINE_ICON_MOVE,           N_("_Move..."),                                         "<control>M",          N_("Move..."),                                         CB(layout_menu_move_cb) },
-  { "NewCollection",         PIXBUF_INLINE_COLLECTION,          N_("_New collection"),                                  "C",                   N_("New collection"),                                  CB(layout_menu_new_cb) },
   { "NewFolder",             GQ_ICON_DIRECTORY,                 N_("N_ew folder..."),                                   "<control>F",          N_("New folder..."),                                   CB(layout_menu_dir_cb) },
-  { "NewWindowDefault",      nullptr,                           N_("default"),                                          "<control>N",          N_("New window (default)"),                            CB(layout_menu_window_default_cb)  },
-  { "NewWindowFromCurrent",  nullptr,                           N_("from current"),                                     nullptr,               N_("from current"),                                    CB(layout_menu_window_from_current_cb)  },
-  { "NewWindow",             nullptr,                           N_("New window"),                                       nullptr,               N_("New window"),                                      CB(layout_menu_window_cb) },
   { "NextImageAlt1",         GQ_ICON_GO_DOWN,                   N_("_Next Image"),                                      "Page_Down",           N_("Next Image"),                                      CB(layout_menu_image_next_cb) },
   { "NextImageAlt2",         GQ_ICON_GO_DOWN,                   N_("_Next Image"),                                      "KP_Page_Down",        N_("Next Image"),                                      CB(layout_menu_image_next_cb) },
   { "NextImage",             GQ_ICON_GO_DOWN,                   N_("_Next Image"),                                      "space",               N_("Next Image"),                                      CB(layout_menu_image_next_cb) },
   { "NextPage",              GQ_ICON_FORWARD_PAGE,              N_("_Next Page"),                                       "<control>Page_Down",  N_("Next Page of multi-page image"),                   CB(layout_menu_page_next_cb) },
-  { "OpenArchive",           GQ_ICON_OPEN,                      N_("Open archive"),                                     nullptr,               N_("Open archive"),                                    CB(layout_menu_open_archive_cb) },
-  { "OpenCollection",        GQ_ICON_OPEN,                      N_("_Open collection..."),                              "O",                   N_("Open collection..."),                              nullptr },
-  { "OpenMenu",              nullptr,                           N_("☰"),                                                nullptr,               nullptr,                                               nullptr },
   { "OpenWith",              GQ_ICON_OPEN_WITH,                 N_("Open With..."),                                     nullptr,               N_("Open With..."),                                    CB(layout_menu_open_with_cb) },
-  { "OrientationMenu",       nullptr,                           N_("_Orientation"),                                     nullptr,               nullptr,                                               nullptr },
   { "OverlayMenu",           nullptr,                           N_("Image _Overlay"),                                   nullptr,               nullptr,                                               nullptr },
   { "PermanentDelete",       GQ_ICON_DELETE,                    N_("Delete selection..."),                              "<shift>Delete",       N_("Delete selection..."),                             CB(layout_menu_delete_cb) },
   { "Plugins",               GQ_ICON_PREFERENCES,               N_("Configure _Plugins..."),                            nullptr,               N_("Configure Plugins..."),                            CB(layout_menu_editors_cb) },
@@ -2004,19 +1251,15 @@ static GtkActionEntry menu_entries[] = {
   { "Quit",                  GQ_ICON_QUIT,                      N_("_Quit"),                                            "<control>Q",          N_("Quit"),                                            CB(layout_menu_exit_cb) },
   { "Refresh",               GQ_ICON_REFRESH,                   N_("_Refresh"),                                         "R",                   N_("Refresh"),                                         CB(layout_menu_refresh_cb) },
   { "Rename",                PIXBUF_INLINE_ICON_RENAME,         N_("_Rename..."),                                       "<control>R",          N_("Rename..."),                                       CB(layout_menu_rename_cb) },
-  { "RenameWindow",          GQ_ICON_EDIT,                      N_("Rename window"),                                    nullptr,               N_("Rename window"),                                   CB(layout_menu_window_rename_cb) },
   { "SaveMetadata",          GQ_ICON_SAVE,                      N_("_Save metadata"),                                   "<control>S",          N_("Save metadata"),                                   CB(layout_menu_metadata_write_cb) },
-  { "SearchAndRunCommand",   GQ_ICON_FIND,                      N_("Search and Run command"),                           "slash",               N_("Search commands by keyword and run them"),         CB(layout_menu_search_and_run_cb) },
   { "Search",                GQ_ICON_FIND,                      N_("_Search..."),                                       "F3",                  N_("Search..."),                                       CB(layout_menu_search_cb) },
   { "SelectAll",             PIXBUF_INLINE_ICON_SELECT_ALL,     N_("Select _all"),                                      "<control>A",          N_("Select all"),                                      CB(layout_menu_select_all_cb) },
   { "SelectInvert",          PIXBUF_INLINE_ICON_SELECT_INVERT,  N_("_Invert Selection"),                                "<control><shift>I",   N_("Invert Selection"),                                CB(layout_menu_invert_selection_cb) },
   { "SelectMenu",            nullptr,                           N_("_Select"),                                          nullptr,               nullptr,                                               nullptr },
   { "SelectNone",            PIXBUF_INLINE_ICON_SELECT_NONE,    N_("Select _none"),                                     "<control><shift>A",   N_("Select none"),                                     CB(layout_menu_unselect_all_cb) },
   { "Up",                    GQ_ICON_GO_UP,                     N_("_Up"),                                              nullptr,               N_("Up one folder"),                                   CB(layout_menu_up_cb) },
-  { "ViewInNewWindow",       nullptr,                           N_("_View in new window"),                              "<control>V",          N_("View in new window"),                              CB(layout_menu_view_in_new_window_cb) },
-  { "ViewMenu",              nullptr,                           N_("_View"),                                            nullptr,               nullptr,                                               CB(layout_menu_view_menu_cb)  },
+  { "ViewMenu",              nullptr,                           N_("_View"),                                            nullptr,               nullptr,                                               nullptr },
   { "Wallpaper",             nullptr,                           N_("Set as _wallpaper"),                                nullptr,               N_("Set as wallpaper"),                                CB(layout_menu_wallpaper_cb) },
-  { "WindowsMenu",           nullptr,                           N_("_Windows"),                                         nullptr,               nullptr,                                               CB(layout_menu_windows_menu_cb)  },
   { "Zoom100Alt1",           GQ_ICON_ZOOM_100,                  N_("Zoom _1:1"),                                        "KP_Divide",           N_("Zoom 1:1"),                                        CB(layout_menu_zoom_1_1_cb) },
   { "Zoom100",               GQ_ICON_ZOOM_100,                  N_("Zoom _1:1"),                                        "Z",                   N_("Zoom 1:1"),                                        CB(layout_menu_zoom_1_1_cb) },
   { "Zoom200",               GQ_ICON_GENERIC,                   N_("Zoom _2:1"),                                        nullptr,               N_("Zoom 2:1"),                                        CB(layout_menu_zoom_2_1_cb) },
@@ -2050,7 +1293,6 @@ static GtkToggleActionEntry menu_toggle_entries[] = {
   { "SBar",                    PIXBUF_INLINE_ICON_PROPERTIES,        N_("_Info sidebar"),            "<control>K",      N_("Info sidebar"),                  CB(layout_menu_bar_cb),                      FALSE  },
   { "ShowFileFilter",          GQ_ICON_FILE_FILTER,                  N_("Show File Filter"),         nullptr,           N_("Show File Filter"),              CB(layout_menu_file_filter_cb),              FALSE  },
   { "ShowInfoPixel",           GQ_ICON_SELECT_COLOR,                 N_("Pi_xel Info"),              nullptr,           N_("Show Pixel Info"),               CB(layout_menu_info_pixel_cb),               FALSE  },
-  { "Thumbnails",              PIXBUF_INLINE_ICON_THUMB,             N_("Show _Thumbnails"),         "T",               N_("Show Thumbnails"),               CB(layout_menu_thumb_cb),                    FALSE  },
   { "UseColorProfiles",        GQ_ICON_COLOR_MANAGEMENT,             N_("Use _color profiles"),      nullptr,           N_("Use color profiles"),            CB(layout_color_menu_enable_cb),             FALSE  },
   { "UseImageProfile",         nullptr,                              N_("Use profile from _image"),  nullptr,           N_("Use profile from image"),        CB(layout_color_menu_use_image_cb),          FALSE  }
 };
@@ -2319,72 +1561,6 @@ void layout_actions_setup(LayoutWindow *lw)
 	DEBUG_1("%s layout_actions_setup: end", get_exec_time());
 }
 
-static gint layout_editors_reload_idle_id = -1;
-static GList *layout_editors_desktop_files = nullptr;
-
-static gboolean layout_editors_reload_idle_cb(gpointer)
-{
-	if (!layout_editors_desktop_files)
-		{
-		DEBUG_1("%s layout_editors_reload_idle_cb: get_desktop_files", get_exec_time());
-		layout_editors_desktop_files = editor_get_desktop_files();
-		return G_SOURCE_CONTINUE;
-		}
-
-	editor_read_desktop_file(static_cast<const gchar *>(layout_editors_desktop_files->data));
-	g_free(layout_editors_desktop_files->data);
-	layout_editors_desktop_files = g_list_delete_link(layout_editors_desktop_files, layout_editors_desktop_files);
-
-
-	if (!layout_editors_desktop_files)
-		{
-		GList *work;
-		DEBUG_1("%s layout_editors_reload_idle_cb: setup_editors", get_exec_time());
-		editor_table_finish();
-
-		work = layout_window_list;
-		while (work)
-			{
-			auto lw = static_cast<LayoutWindow *>(work->data);
-			work = work->next;
-			layout_actions_setup_editors(lw);
-			}
-
-		DEBUG_1("%s layout_editors_reload_idle_cb: setup_editors done", get_exec_time());
-
-		layout_editors_reload_idle_id = -1;
-		return G_SOURCE_REMOVE;
-		}
-	return G_SOURCE_CONTINUE;
-}
-
-void layout_editors_reload_start()
-{
-	DEBUG_1("%s layout_editors_reload_start", get_exec_time());
-
-	if (layout_editors_reload_idle_id != -1)
-		{
-		g_source_remove(layout_editors_reload_idle_id);
-		g_list_free_full(layout_editors_desktop_files, g_free);
-		}
-
-	editor_table_clear();
-	layout_editors_reload_idle_id = g_idle_add(layout_editors_reload_idle_cb, nullptr);
-}
-
-void layout_editors_reload_finish()
-{
-	if (layout_editors_reload_idle_id != -1)
-		{
-		DEBUG_1("%s layout_editors_reload_finish", get_exec_time());
-		g_source_remove(layout_editors_reload_idle_id);
-		while (layout_editors_reload_idle_id != -1)
-			{
-			layout_editors_reload_idle_cb(nullptr);
-			}
-		}
-}
-
 void layout_actions_add_window(LayoutWindow *lw, GtkWidget *window)
 {
 	GtkAccelGroup *group;
@@ -2644,7 +1820,6 @@ void layout_toolbar_add_default(LayoutWindow *lw, ToolbarType type)
 					}
 				else
 					{
-					layout_toolbar_add(lw, type, "Thumbnails");
 					layout_toolbar_add(lw, type, "Back");
 					layout_toolbar_add(lw, type, "Forward");
 					layout_toolbar_add(lw, type, "Up");
@@ -2660,7 +1835,6 @@ void layout_toolbar_add_default(LayoutWindow *lw, ToolbarType type)
 				}
 			else
 				{
-				layout_toolbar_add(lw, type, "Thumbnails");
 				layout_toolbar_add(lw, type, "Back");
 				layout_toolbar_add(lw, type, "Forward");
 				layout_toolbar_add(lw, type, "Up");
@@ -2943,49 +2117,9 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	layout_image_set_ignore_alpha(lw, lw->options.ignore_alpha);
 }
 
-void layout_util_sync_thumb(LayoutWindow *lw)
-{
-	GtkAction *action;
-
-	if (!lw->action_group) return;
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "Thumbnails");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.show_thumbnails);
-}
-
 void layout_util_sync(LayoutWindow *lw)
 {
 	layout_util_sync_views(lw);
-	layout_util_sync_thumb(lw);
-}
-
-/**
- * @brief Checks if event key is mapped to Help
- * @param event
- * @returns
- *
- * Used to check if the user has re-mapped the Help key
- * in Preferences/Keyboard
- *
- * Note: help_key.accel_mods and event->state
- * differ in the higher bits
- */
-gboolean is_help_key(GdkEventKey *event)
-{
-	GtkAccelKey help_key;
-	gboolean ret = FALSE;
-	guint mask = GDK_SHIFT_MASK | GDK_CONTROL_MASK | GDK_MOD1_MASK;
-
-	if (gtk_accel_map_lookup_entry("<Actions>/MenuActions/HelpContents", &help_key))
-		{
-		if (help_key.accel_key == event->keyval &&
-					(help_key.accel_mods & mask) == (event->state & mask))
-			{
-			ret = TRUE;
-			}
-		}
-
-	return ret;
 }
 
 /*
@@ -3171,15 +2305,4 @@ void layout_exif_window_new(LayoutWindow *lw)
 	g_signal_connect(G_OBJECT(lw->exif_window), "destroy",
 			 G_CALLBACK(layout_exif_window_destroy), lw);
 	advanced_exif_set_fd(lw->exif_window, layout_image_get_fd(lw));
-}
-
-static void layout_search_and_run_window_new(LayoutWindow *lw)
-{
-	if (lw->sar_window)
-		{
-		gtk_window_present(GTK_WINDOW(lw->sar_window));
-		return;
-		}
-
-	lw->sar_window = search_and_run_new(lw);
 }

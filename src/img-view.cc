@@ -27,7 +27,6 @@
 #include <glib-object.h>
 #include <gtk/gtk.h>
 
-#include "archives.h"
 #include "compat.h"
 #include "debug.h"
 #include "dnd.h"
@@ -501,11 +500,6 @@ static gboolean view_window_key_press_cb(GtkWidget * (widget), GdkEventKey *even
 				break;
 			}
 		}
-	if (!stop_signal && is_help_key(event))
-		{
-		help_window_show("GuideOtherWindowsImageWindow.html");
-		stop_signal = TRUE;
-		}
 
 	return stop_signal;
 }
@@ -519,27 +513,11 @@ static void button_cb(ImageWindow *imd, GdkEventButton *event, gpointer data)
 {
 	auto vw = static_cast<ViewWindow *>(data);
 	GtkWidget *menu;
-	gchar *dest_dir;
-	LayoutWindow *lw_new;
 
 	switch (event->button)
 		{
 		case MOUSE_BUTTON_LEFT:
-			if (options->image_l_click_archive && imd->image_fd->format_class == FORMAT_CLASS_ARCHIVE)
-				{
-				dest_dir = open_archive(imd->image_fd);
-				if (dest_dir)
-					{
-					lw_new = layout_new_from_default();
-					layout_set_path(lw_new, dest_dir);
-					g_free(dest_dir);
-					}
-				else
-					{
-					warning_dialog(_("Cannot open archive file"), _("See the Log Window"), GQ_ICON_DIALOG_WARNING, nullptr);
-					}
-				}
-			else if (options->image_l_click_video && options->image_l_click_video_editor && imd->image_fd->format_class == FORMAT_CLASS_VIDEO)
+			if (options->image_l_click_video && options->image_l_click_video_editor && imd->image_fd->format_class == FORMAT_CLASS_VIDEO)
 				{
 				start_editor_from_file(options->image_l_click_video_editor, imd->image_fd);
 				}
@@ -874,12 +852,6 @@ gboolean view_window_find_image(ImageWindow *imd, gint *index, gint *total)
  *-----------------------------------------------------------------------------
  */
 
-static void view_new_window_cb(GtkWidget *, gpointer data)
-{
-	auto vw = static_cast<ViewWindow *>(data);
-	view_window_new(image_get_fd(vw->imd));
-}
-
 static void view_edit_cb(GtkWidget *widget, gpointer data)
 {
 	ViewWindow *vw;
@@ -1005,40 +977,6 @@ static void view_close_cb(GtkWidget *, gpointer data)
 	view_window_close(vw);
 }
 
-static LayoutWindow *view_new_layout_with_fd(FileData *fd)
-{
-	LayoutWindow *nw;
-
-	nw = layout_new_from_default();
-	layout_set_fd(nw, fd);
-	return nw;
-}
-
-
-static void view_set_layout_path_cb(GtkWidget *, gpointer data)
-{
-	auto vw = static_cast<ViewWindow *>(data);
-	LayoutWindow *lw;
-	ImageWindow *imd;
-
-	imd = view_window_active_image(vw);
-
-	if (!imd || !imd->image_fd) return;
-
-	lw = layout_find_by_image_fd(imd);
-	if (lw)
-		{
-		layout_set_fd(lw, imd->image_fd);
-		gtk_window_present(GTK_WINDOW(lw->window));
-		}
-	else
-		{
-		view_new_layout_with_fd(imd->image_fd);
-		}
-
-	view_window_close(vw);
-}
-
 static void view_popup_menu_destroy_cb(GtkWidget *, gpointer data)
 {
 	auto editmenu_fd_list = static_cast<GList *>(data);
@@ -1087,10 +1025,6 @@ static GtkWidget *view_popup_menu(ViewWindow *vw)
 	item = submenu_add_edit(menu, nullptr, G_CALLBACK(view_edit_cb), vw, editmenu_fd_list);
 	menu_item_add_divider(item);
 
-	menu_item_add_icon(menu, _("View in _new window"), GQ_ICON_NEW, G_CALLBACK(view_new_window_cb), vw);
-	item = menu_item_add(menu, _("_Go to directory view"), G_CALLBACK(view_set_layout_path_cb), vw);
-
-	menu_item_add_divider(menu);
 	menu_item_add_icon(menu, _("_Copy..."), GQ_ICON_COPY, G_CALLBACK(view_copy_cb), vw);
 	menu_item_add(menu, _("_Move..."), G_CALLBACK(view_move_cb), vw);
 	menu_item_add(menu, _("_Rename..."), G_CALLBACK(view_rename_cb), vw);

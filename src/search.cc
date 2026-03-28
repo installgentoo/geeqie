@@ -1383,11 +1383,6 @@ static gboolean search_window_keypress_cb(GtkWidget *, GdkEventKey *event, gpoin
 				break;
 			}
 		}
-	if (!stop_signal && is_help_key(event))
-		{
-		help_window_show("GuideImageSearchSearch.html");
-		stop_signal = TRUE;
-		}
 
 	return stop_signal;
 }
@@ -1965,11 +1960,6 @@ static gboolean search_file_next(SearchData *sd)
 						GTK_COMBO_BOX_TEXT(sd->class_type)), _("Metadata")) == 0)
 			{
 			search_class = FORMAT_CLASS_META;
-			}
-		else if (g_strcmp0(gtk_combo_box_text_get_active_text(
-						GTK_COMBO_BOX_TEXT(sd->class_type)), _("Archive")) == 0)
-			{
-			search_class = FORMAT_CLASS_ARCHIVE;
 			}
 		else if (g_strcmp0(gtk_combo_box_text_get_active_text(
 						GTK_COMBO_BOX_TEXT(sd->class_type)), _("Unknown")) == 0)
@@ -2676,11 +2666,6 @@ static void search_window_close_cb(GtkWidget *, gpointer data)
 	search_window_close(sd);
 }
 
-static void search_window_help_cb(GtkWidget *, gpointer)
-{
-	help_window_show("GuideImageSearchSearch.html");
-}
-
 static gboolean search_window_delete_cb(GtkWidget *, GdkEventAny *, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
@@ -3087,9 +3072,6 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	gq_gtk_box_pack_start(GTK_BOX(hbox), sd->spinner, FALSE, FALSE, 0);
 	gtk_widget_show(sd->spinner);
 
-	sd->button_help = pref_button_new(hbox, GQ_ICON_HELP, _("Help"), G_CALLBACK(search_window_help_cb), sd);
-	gtk_widget_set_tooltip_text(GTK_WIDGET(sd->button_help), "F1");
-	gtk_widget_set_sensitive(sd->button_help, TRUE);
 	pref_spacer(hbox, PREF_PAD_BUTTON_GAP);
 	sd->button_start = pref_button_new(hbox, GQ_ICON_FIND, _("Find"),
 					   G_CALLBACK(search_start_cb), sd);

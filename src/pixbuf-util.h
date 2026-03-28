@@ -39,9 +39,7 @@ GdkPixbuf *pixbuf_fallback(FileData *fd, gint requested_width, gint requested_he
 
 gboolean pixbuf_scale_aspect(gint req_w, gint req_h, gint old_w, gint old_h, gint &new_w, gint &new_h);
 
-#define PIXBUF_INLINE_ARCHIVE               "gq-icon-archive-file"
 #define PIXBUF_INLINE_BROKEN                "gq-icon-broken"
-#define PIXBUF_INLINE_COLLECTION            "gq-icon-collection"
 #define PIXBUF_INLINE_ICON_180              "gq-icon-rotate-180"
 #define PIXBUF_INLINE_ICON_BOOK             "gq-icon-book"
 #define PIXBUF_INLINE_ICON_CONFIG           "gq-icon-config"

@@ -1206,11 +1206,6 @@ static void cache_manager_close_cb(GenericDialog *gd, gpointer)
 	cache_manager = nullptr;
 }
 
-static void cache_manager_help_cb(GenericDialog *, gpointer)
-{
-	help_window_show("GuideReferenceManagement.html");
-}
-
 static GtkWidget *cache_manager_location_label(GtkWidget *group, const gchar *subdir)
 {
 	GtkWidget *label;
@@ -1645,8 +1640,6 @@ void cache_manager_show()
 	gd->cancel_cb = cache_manager_close_cb;
 	generic_dialog_add_button(gd, GQ_ICON_CLOSE, _("Close"),
 				  cache_manager_close_cb, FALSE);
-	generic_dialog_add_button(gd, GQ_ICON_HELP, _("Help"),
-				  cache_manager_help_cb, FALSE);
 
 	generic_dialog_add_message(gd, nullptr, _("Cache and Data Maintenance"), nullptr, FALSE);
 

@@ -1238,17 +1238,6 @@ void layout_refresh(LayoutWindow *lw)
 	if (lw->image) layout_image_refresh(lw);
 }
 
-void layout_thumb_set(LayoutWindow *lw, gboolean enable)
-{
-	if (!layout_valid(&lw)) return;
-
-	if (lw->options.show_thumbnails == enable) return;
-
-	lw->options.show_thumbnails = enable;
-
-	layout_util_sync_thumb(lw);
-}
-
 void layout_file_filter_set(LayoutWindow *lw, gboolean enable)
 {
 	if (!layout_valid(&lw)) return;
@@ -2147,11 +2136,6 @@ static void layout_config_apply_cb(GtkWidget *, gpointer data)
 	layout_apply_options(lc->lw, &lc->options);
 }
 
-static void layout_config_help_cb(GtkWidget *, gpointer)
-{
-	help_window_show("GuideOptionsLayout.html");
-}
-
 static void layout_config_ok_cb(GtkWidget *widget, gpointer data)
 {
 	auto lc = static_cast<LayoutConfig *>(data);
@@ -2242,12 +2226,6 @@ void layout_show_config_window(LayoutWindow *lw)
 	gtk_widget_show(button);
 
 	ct_button = button;
-
-	button = pref_button_new(nullptr, GQ_ICON_HELP, _("Help"),
-				 G_CALLBACK(layout_config_help_cb), lc);
-	gq_gtk_container_add(GTK_WIDGET(hbox), button);
-	gtk_widget_set_can_default(button, TRUE);
-	gtk_widget_show(button);
 
 	button = pref_button_new(nullptr, GQ_ICON_APPLY, _("Apply"),
 				 G_CALLBACK(layout_config_apply_cb), lc);
@@ -2378,27 +2356,10 @@ void layout_apply_options(LayoutWindow *lw, LayoutOptions *lop)
 	if (refresh_lists) layout_refresh(lw);
 }
 
-void save_layout(LayoutWindow *lw)
-{
-	gchar *path;
-	gchar *xml_name;
-
-	if (!g_str_has_prefix(lw->options.id, "lw"))
-		{
-		xml_name = g_strdup_printf("%s.xml", lw->options.id);
-		path = g_build_filename(get_window_layouts_dir(), xml_name, NULL);
-		save_config_to_file(path, options, lw);
-
-		g_free(xml_name);
-		g_free(path);
-		}
-}
-
 void layout_close(LayoutWindow *lw)
 {
 	if (layout_window_list && layout_window_list->next)
 		{
-		save_layout(lw);
 		layout_free(lw);
 		}
 	else
@@ -2627,7 +2588,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_BOOL(*layout, dir_view_list_sort.ascend);
 	WRITE_NL(); WRITE_BOOL(*layout, dir_view_list_sort.case_sensitive);
 	WRITE_NL(); WRITE_BOOL(*layout, show_file_filter);
-	WRITE_NL(); WRITE_BOOL(*layout, show_thumbnails);
 	WRITE_NL(); WRITE_BOOL(*layout, show_directory_date);
 	WRITE_NL(); WRITE_CHAR(*layout, home_path);
 	WRITE_NL(); WRITE_UINT(*layout, startup_path);
@@ -2743,7 +2703,6 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_BOOL(*layout, dir_view_list_sort.ascend)) continue;
 		if (READ_BOOL(*layout, dir_view_list_sort.case_sensitive)) continue;
 		if (READ_BOOL(*layout, show_file_filter)) continue;
-		if (READ_BOOL(*layout, show_thumbnails)) continue;
 		if (READ_BOOL(*layout, show_directory_date)) continue;
 		if (READ_CHAR(*layout, home_path)) continue;
 		if (READ_UINT_ENUM_CLAMP(*layout, startup_path, 0, STARTUP_PATH_HOME)) continue;

@@ -118,9 +118,6 @@ gboolean editor_window_save(EditorWindow *ew)
 	g_free(path);
 	g_free(dir);
 	g_free(text);
-	layout_editors_reload_start();
-	/* idle function is not needed, everything should be cached */
-	layout_editors_reload_finish();
 	return ret;
 }
 
@@ -312,13 +309,6 @@ void editor_list_window_delete_dlg_ok_cb(GenericDialog *gd, gpointer data)
 		warning_dialog(_("File deletion failed"), text, GQ_ICON_DIALOG_WARNING, nullptr);
 		g_free(text);
 		}
-	else
-		{
-		/* refresh list */
-		layout_editors_reload_start();
-		/* idle function is not needed, everything should be cached */
-		layout_editors_reload_finish();
-		}
 
 	editor_list_window_delete_dlg_cancel(gd, data);
 }
@@ -390,11 +380,6 @@ void editor_list_window_edit_cb(GtkWidget *, gpointer data)
 void editor_list_window_new_cb(GtkWidget *, gpointer)
 {
 	editor_window_new(desktop_file_template, _("new.desktop"));
-}
-
-void editor_list_window_help_cb(GtkWidget *, gpointer)
-{
-	help_window_show("GuidePluginsConfig.html");
 }
 
 void editor_list_window_selection_changed_cb(GtkWidget *, gpointer data)
@@ -491,9 +476,6 @@ void plugin_disable_cb(GtkCellRendererToggle *, gchar *path_str, gpointer data)
 			list = list->next;
 			}
 		}
-
-	layout_editors_reload_start();
-	layout_editors_reload_finish();
 }
 
 void plugin_disable_set_func(GtkTreeViewColumn *, GtkCellRenderer *cell,
@@ -546,12 +528,6 @@ void editor_list_window_create()
 	gtk_box_set_spacing(GTK_BOX(hbox), PREF_PAD_BUTTON_GAP);
 	gq_gtk_box_pack_end(GTK_BOX(win_vbox), hbox, FALSE, FALSE, 0);
 	gtk_widget_show(hbox);
-
-	button = pref_button_new(nullptr, GQ_ICON_HELP, _("Help"),
-				 G_CALLBACK(editor_list_window_help_cb), ewl);
-	gq_gtk_container_add(GTK_WIDGET(hbox), button);
-	gtk_widget_set_can_default(button, TRUE);
-	gtk_widget_show(button);
 
 	button = pref_button_new(nullptr, GQ_ICON_NEW, _("New"),
 				 G_CALLBACK(editor_list_window_new_cb), ewl);

@@ -30,10 +30,7 @@
 #define GQ_EMAIL_ADDRESS "geeqie@freelists.org"
 
 #define GQ_RC_DIR		"." GQ_APPNAME_LC
-#define GQ_COLLECTIONS_DIR	"collections"
 #define GQ_TRASH_DIR		"trash"
-#define GQ_WINDOW_LAYOUTS_DIR	"layouts"
-#define GQ_ARCHIVE_DIR	"geeqie-archive"
 #define GQ_RESOURCE_PATH_ICONS "/org/geeqie/icons"
 #define GQ_RESOURCE_PATH_CREDITS "/org/geeqie/credits"
 #define GQ_RESOURCE_PATH_UI "/org/geeqie/ui"
@@ -61,9 +58,6 @@
 
 #define GQ_LINK_STR "↩"
 
-#define TIMEZONE_DATABASE_WEB "https://cdn.bertold.org/zonedetect/db/db.zip"
-#define TIMEZONE_DATABASE_FILE "timezone21.bin"
-#define TIMEZONE_DATABASE_VERSION "out_v1"
 #define HELP_SEARCH_ENGINE "https://duckduckgo.com/?q=site:geeqie.org/help "
 
 #define GQ_ICON_ADD "list-add"

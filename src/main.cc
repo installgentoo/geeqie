@@ -88,15 +88,11 @@
 
 gboolean thumb_format_changed = FALSE;
 
-gchar *gq_prefix;
 gchar *gq_localedir;
-gchar *gq_helpdir;
-gchar *gq_htmldir;
 gchar *gq_appdir;
 gchar *gq_bindir;
 gchar *gq_executable_path;
 gchar *desktop_file_template;
-gchar *instance_identifier;
 
 #if defined(SA_SIGINFO)
 static void sig_handler_cb(int signo, siginfo_t *info, void *)
@@ -843,59 +839,9 @@ static void gtkrc_load()
 
 static void exit_program_final()
 {
-	LayoutWindow *lw = nullptr;
-	GList *list;
-	LayoutWindow *tmp_lw;
-	gchar *archive_dir;
-	GFile *archive_file;
-
-	 /* make sure that external editors are loaded, we would save incomplete configuration otherwise */
-	layout_editors_reload_finish();
-
-	/* Save the named windows */
-	if (layout_window_list && layout_window_list->next)
-		{
-		list = layout_window_list;
-		while (list)
-			{
-			tmp_lw = static_cast<LayoutWindow *>(list->data);
-			if (!g_str_has_prefix(tmp_lw->options.id, "lw"))
-				{
-				save_layout(static_cast<LayoutWindow *>(list->data));
-				}
-			list = list->next;
-			}
-		}
-
 	save_options(options);
 	keys_save();
 	accel_map_save();
-
-	if (layout_valid(&lw))
-		{
-		layout_free(lw);
-		}
-
-	/* Delete any files/folders in /tmp that have been created by the open archive function */
-	archive_dir = g_build_filename(g_get_tmp_dir(), GQ_ARCHIVE_DIR, instance_identifier, NULL);
-	if (isdir(archive_dir))
-		{
-		archive_file = g_file_new_for_path(archive_dir);
-		rmdir_recursive(archive_file, nullptr, nullptr);
-		g_free(archive_dir);
-		g_object_unref(archive_file);
-		}
-
-	/* If there are still sub-dirs created by another instance, this will fail
-	 * but that does not matter */
-	archive_dir = g_build_filename(g_get_tmp_dir(), GQ_ARCHIVE_DIR, NULL);
-	if (isdir(archive_dir))
-		{
-		archive_file = g_file_new_for_path(archive_dir);
-		g_file_delete(archive_file, nullptr, nullptr);
-		g_free(archive_dir);
-		g_object_unref(archive_file);
-		}
 
 	secure_close(command_line->ssi);
 
@@ -1037,15 +983,6 @@ static gboolean theme_change_cb(GObject *, GParamSpec *, gpointer)
 	return FALSE;
 }
 
-/**
- * @brief Set up the application paths
- *
- * This function is required for use of AppImages. AppImages are
- * relocatable, and therefore cannot use fixed paths to various components.
- * These paths were originally #defines created during compilation.
- * They are now variables, all defined relative to one level above the
- * directory that the executable is run from.
- */
 static void create_application_paths()
 {
 	gchar *dirname;
@@ -1059,15 +996,14 @@ static void create_application_paths()
 
 	gq_executable_path = g_strdup(path);
 	dirname = g_path_get_dirname(gq_executable_path);
-	gq_prefix = g_path_get_dirname(dirname);
+	gchar *gq_prefix = g_path_get_dirname(dirname);
 
 	gq_localedir = g_build_filename(gq_prefix, GQ_LOCALEDIR, NULL);
-	gq_helpdir = g_build_filename(gq_prefix, GQ_HELPDIR, NULL);
-	gq_htmldir = g_build_filename(gq_prefix, GQ_HTMLDIR, NULL);
 	gq_appdir = g_build_filename(gq_prefix, GQ_APPDIR, NULL);
 	gq_bindir = g_build_filename(gq_prefix, GQ_BINDIR, NULL);
 	desktop_file_template = g_build_filename(gq_appdir, "org.geeqie.template.desktop", NULL);
 
+	g_free(gq_prefix);
 	g_free(dirname);
 	g_free(path);
 }
@@ -1180,16 +1116,11 @@ gint main(gint argc, gchar *argv[])
 		options->disable_gpu = TRUE;
 		}
 
-	/* Generate a unique identifier used by the open archive function */
-	instance_identifier = g_strdup_printf("%x", g_random_int());
-
 	DEBUG_1("%s main: mkdir_if_not_exists", get_exec_time());
 	/* these functions don't depend on config file */
 	mkdir_if_not_exists(get_rc_dir());
-	mkdir_if_not_exists(get_collections_dir());
 	mkdir_if_not_exists(get_thumbnails_cache_dir());
 	mkdir_if_not_exists(get_metadata_cache_dir());
-	mkdir_if_not_exists(get_window_layouts_dir());
 
 	setup_env_path();
 
@@ -1244,13 +1175,6 @@ gint main(gint argc, gchar *argv[])
 			/* broken or no config file or no <layout> section */
 			layout_new_from_default();
 			}
-
-		layout_editors_reload_start();
-
-		/* If no --list option, open a separate collection window for each
-		 * .gqv file on the command line
-		 */
-		{}
 
 		if (command_line->log_file)
 			{
@@ -1327,24 +1251,9 @@ gint main(gint argc, gchar *argv[])
 		set_theme_bg_color();
 		}
 
-	/* Show a fade-out notification window if the server has a newer AppImage version */
-	if (options->appimage_notifications)
-		{
-		if (g_getenv("APPDIR") && strstr(g_getenv("APPDIR"), "/tmp/.mount_Geeqie"))
-			{
-			appimage_notification();
-			}
-		else if (g_strstr_len(gq_executable_path, -1, "squashfs-root"))
-			{
-			/* Probably running an extracted AppImage */
-			appimage_notification();
-			}
-		}
-
 	DEBUG_1("%s main: gtk_main", get_exec_time());
 	gtk_main();
 
 	gdk_threads_leave();
 	return 0;
 }
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

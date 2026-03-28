@@ -3,10 +3,8 @@
       <menu action="FileMenu">
         <menuitem action="Search"/>
         <menuitem action="FindDupes"/>
-        <placeholder name="SearchSection"/>
         <separator/>
         <menuitem action="Print"/>
-        <placeholder name="PrintSection"/>
         <separator/>
         <menuitem action="NewFolder"/>
         <menuitem action="Copy"/>
@@ -17,14 +15,30 @@
         <menuitem action="Delete"/>
         <menuitem action="PermanentDelete"/>
         <separator/>
-        <placeholder name="FileOpsSection"/>
-        <separator/>
-        <placeholder name="QuitSection"/>
         <menuitem action="Quit"/>
-        <separator/>
       </menu>
-      <menu action="GoMenu">
-        <menuitem action="FirstImage"/>
+      <menu action="SelectMenu">
+        <menuitem action="SelectAll"/>
+        <menuitem action="SelectNone"/>
+        <menuitem action="SelectInvert"/>
+        <menuitem action="RectangularSelection"/>
+        <menuitem action="ShowFileFilter"/>
+        <separator/>
+        <menuitem action="CopyPath"/>
+        <menuitem action="CopyPathUnquoted"/>
+        <menuitem action="CopyImage"/>
+        <menuitem action="CutPath"/>
+      </menu>
+      <menu action="EditMenu">
+        <menuitem action="ExifRotate"/>
+        <menuitem action="SaveMetadata"/>
+        <separator/>
+        <menuitem action="Preferences"/>
+        <menuitem action="Plugins"/>
+        <menuitem action="LayoutConfig"/>
+        <menuitem action="Maintenance"/>
+        <separator/>
+		<menuitem action="FirstImage"/>
         <menuitem action="PrevImage"/>
         <menuitem action="NextImage"/>
         <menuitem action="LastImage"/>
@@ -41,55 +55,16 @@
         <menuitem action="NextPage"/>
         <menuitem action="PrevPage"/>
       </menu>
-      <menu action="SelectMenu">
-        <menuitem action="SelectAll"/>
-        <menuitem action="SelectNone"/>
-        <menuitem action="SelectInvert"/>
-        <menuitem action="RectangularSelection"/>
-        <menuitem action="ShowFileFilter"/>
-        <placeholder name="SelectSection"/>
-        <separator/>
-        <menuitem action="CopyPath"/>
-        <menuitem action="CopyPathUnquoted"/>
-        <menuitem action="CopyImage"/>
-        <menuitem action="CutPath"/>
-        <placeholder name="ClipboardSection"/>
-      </menu>
-      <menu action="EditMenu">
-        <placeholder name="EditSection"/>
-        <separator/>
-        <menu action="OrientationMenu">
-          <menuitem action="ExifRotate"/>
-        </menu>
-        <menuitem action="SaveMetadata"/>
-        <placeholder name="PropertiesSection"/>
-        <separator/>
-        <menuitem action="Preferences"/>
-        <menuitem action="Plugins"/>
-        <menuitem action="LayoutConfig"/>
-        <menuitem action="Maintenance"/>
-        <placeholder name="PreferencesSection"/>
-        <separator/>
-        <separator/>
-      </menu>
       <menu action="PluginsMenu"/>
       <menu action="ViewMenu">
-        <menuitem action="ViewInNewWindow"/>
         <menuitem action="ExifWin"/>
-        <menuitem action="OpenArchive"/>
-        <placeholder name="WindowSection"/>
         <separator/>
         <menu action="FileDirMenu">
           <menuitem action="FolderTree"/>
-          <placeholder name="FolderSection"/>
-          <separator/>
-          <menuitem action="Thumbnails"/>
-          <placeholder name="ListSection"/>
           <separator/>
           <menuitem action="FloatTools"/>
           <menuitem action="HideTools"/>
         </menu>
-        <placeholder name="DirSection"/>
         <separator/>
         <menu action="ZoomMenu">
           <menu action="ConnectZoomMenu">
@@ -137,7 +112,6 @@
         </menu>
         <menuitem action="OverUnderExposed"/>
         <menuitem action="FullScreen"/>
-        <placeholder name="ViewSection"/>
         <separator/>
         <menuitem action="SBar"/>
         <menuitem action="HideBars"/>
@@ -149,35 +123,11 @@
         <menuitem action="Animate"/>
         <separator/>
         <menuitem action="Refresh"/>
-        <placeholder name="SlideShowSection"/>
-        <separator/>
-      </menu>
-      <menu action="WindowsMenu">
-        <menu action="NewWindow">
-          <menuitem action="NewWindowDefault"/>
-          <menuitem action="NewWindowFromCurrent"/>
-          <separator/>
-        </menu>
-        <menuitem action="RenameWindow"/>
-        <menuitem action="DeleteWindow"/>
-        <menuitem action="CloseWindow"/>
       </menu>
       <menu action="HelpMenu">
-        <separator/>
-        <menuitem action="HelpContents"/>
-        <menuitem action="HelpPdf"/>
-        <menuitem action="SearchAndRunCommand"/>
-        <menuitem action="HelpSearch"/>
-        <menuitem action="HelpShortcuts"/>
-        <menuitem action="HelpKbd"/>
-        <menuitem action="HelpNotes"/>
-        <menuitem action="HelpChangeLog"/>
-        <placeholder name="HelpSection"/>
-        <separator/>
-        <menuitem action="About"/>
-        <separator/>
         <menuitem action="LogWindow"/>
         <separator/>
+        <menuitem action="About"/>
       </menu>
   </menubar>
 
