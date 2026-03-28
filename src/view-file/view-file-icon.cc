@@ -1527,8 +1527,6 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 /* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
 FileData *vficon_thumb_next_fd(ViewFile *vf)
 {
-	GtkTreePath *tpath;
-
 	/* First see if there are visible files that don't have a loaded thumb... */
 	g_autoptr(GtkTreePath) start_path = nullptr;
 	g_autoptr(GtkTreePath) end_path = nullptr;

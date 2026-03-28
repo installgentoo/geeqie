@@ -382,11 +382,9 @@ static GtkWidget *layout_tool_setup(LayoutWindow *lw)
 {
 	GtkWidget *box;
 	GtkWidget *box_folders;
-	GtkWidget *box_menu_tabcomp;
 	GtkWidget *menu_bar;
 	GtkWidget *menu_tool_bar;
 	GtkWidget *menu_toolbar_box;
-	GtkWidget *open_menu;
 	GtkWidget *scd;
 	GtkWidget *scroll_window;
 	GtkWidget *tabcomp;
@@ -680,10 +678,6 @@ void layout_status_update_progress(LayoutWindow *lw, gdouble val, const gchar *t
 void layout_status_update_info(LayoutWindow *lw, const gchar *text)
 {
 	gchar *buf = nullptr;
-	gint hrs;
-	gint min;
-	gdouble sec;
-	GString *delay;
 
 	if (!layout_valid(&lw)) return;
 

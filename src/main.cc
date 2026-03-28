@@ -230,7 +230,7 @@ void sig_handler_cb(int)
  */
 
 static void parse_command_line_add_file(const gchar *file_path, gchar **path, gchar **file,
-					GList **list, GList **collection_list)
+					GList **list)
 {
 	gchar *path_parsed;
 
@@ -307,7 +307,7 @@ static void parse_command_line_process_dir(const gchar *dir, gchar **path, gchar
 }
 
 static void parse_command_line_process_file(const gchar *file_path, gchar **path, gchar **file,
-					    GList **list, GList **collection_list, gchar **first_dir)
+					    GList **list, gchar **first_dir)
 {
 
 	if (*first_dir)
@@ -316,7 +316,7 @@ static void parse_command_line_process_file(const gchar *file_path, gchar **path
 		g_free(*first_dir);
 		*first_dir = nullptr;
 		}
-	parse_command_line_add_file(file_path, path, file, list, collection_list);
+	parse_command_line_add_file(file_path, path, file, list);
 }
 
 static void show_invalid_parameters_warning_dialog(const gchar *command_line_errors)
@@ -333,9 +333,6 @@ static void parse_command_line(gint argc, gchar *argv[])
 {
 	GList *list = nullptr;
 	gchar *first_dir = nullptr;
-	gchar *app_lock;
-	gchar *pwd;
-	gchar *current_dir;
 	gchar *geometry = nullptr;
 
 	command_line = g_new0(CommandLine, 1);
@@ -363,12 +360,12 @@ static void parse_command_line(gint argc, gchar *argv[])
 			else if (cmd_line[0] == G_DIR_SEPARATOR && isfile(cmd_line))
 				{
 				parse_command_line_process_file(cmd_line, &command_line->path, &command_line->file,
-								&list, &command_line->collection_list, &first_dir);
+								&list, &first_dir);
 				}
 			else if (isfile(cmd_all))
 				{
 				parse_command_line_process_file(cmd_all, &command_line->path, &command_line->file,
-								&list, &command_line->collection_list, &first_dir);
+								&list, &first_dir);
 				}
 			else if (download_web_file(cmd_line, FALSE, nullptr))
 				{
@@ -1092,7 +1089,6 @@ gint main(gint argc, gchar *argv[])
 
 	gboolean disable_clutter = FALSE;
 	gboolean single_dir = TRUE;
-	gchar *buf;
 	GdkScreen *screen;
 	GtkCssProvider *provider;
 	GtkSettings *default_settings;

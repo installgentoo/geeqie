@@ -445,7 +445,7 @@ gboolean copy_file_attributes(const gchar *s, const gchar *t, gint perms, gint m
 			{
 			/* Ignores chown errors, while still doing chown
 			   (so root still can copy files preserving ownership) */
-			chown(tl, st.st_uid, st.st_gid);
+			if(chown(tl, st.st_uid, st.st_gid) != 0)  log_printf("chown('%s', %d, %d) failed", tl, st.st_uid, st.st_gid);
 
 			if (chmod(tl, st.st_mode) < 0)
 				{

@@ -144,15 +144,6 @@ struct SearchData
 	GtkWidget *spin_similarity;
 	GtkWidget *entry_similarity;
 
-	GtkWidget *check_comment;
-	GtkWidget *menu_comment;
-	GtkWidget *entry_comment;
-
-	GtkWidget *check_exif;
-	GtkWidget *menu_exif;
-	GtkWidget *entry_exif_tag;
-	GtkWidget *entry_exif_value;
-
 	GtkWidget *check_class;
 	GtkWidget *menu_class;
 	GtkWidget *class_type;
@@ -178,14 +169,6 @@ struct SearchData
 	gint   search_similarity;
 	gchar *search_similarity_path;
 	CacheData *search_similarity_cd;
-	gchar *search_comment;
-	GRegex *search_comment_regex;
-	gchar *search_exif;
-	GRegex *search_exif_regex;
-	gchar *search_exif_tag;
-	gchar *search_exif_value;
-	gboolean search_exif_match_case;
-	gboolean   search_comment_match_case;
 
 	MatchType search_type;
 
@@ -193,9 +176,6 @@ struct SearchData
 	MatchType match_size;
 	MatchType match_date;
 	MatchType match_dimensions;
-	MatchType match_comment;
-	MatchType match_exif;
-	MatchType match_gps;
 	MatchType match_class;
 
 	gboolean match_name_enable;
@@ -203,8 +183,6 @@ struct SearchData
 	gboolean match_date_enable;
 	gboolean match_dimensions_enable;
 	gboolean match_similarity_enable;
-	gboolean match_comment_enable;
-	gboolean match_exif_enable;
 	gboolean match_class_enable;
 	gboolean match_broken_enable;
 
@@ -228,18 +206,6 @@ struct SearchData
 	ThumbLoader *thumb_loader;
 	gboolean thumb_enable;
 	FileData *thumb_fd;
-
-	/* Used for lat/long coordinate search
-	*/
-	gint search_gps;
-	gdouble search_lat, search_lon;
-	GtkWidget *entry_gps_coord;
-	GtkWidget *check_gps;
-	GtkWidget *spin_gps;
-	GtkWidget *units_gps;
-	GtkWidget *menu_gps;
-	gboolean match_gps_enable;
-
 };
 
 struct MatchFileData
@@ -258,7 +224,6 @@ struct MatchList
 
 const MatchList text_search_menu_path[] = {
 	{ N_("folder"),		SEARCH_MATCH_NONE },
-	{ N_("comments"),	SEARCH_MATCH_ALL },
 	{ N_("results"),	SEARCH_MATCH_CONTAINS }
 };
 
@@ -280,28 +245,6 @@ const MatchList text_search_menu_date[] = {
 	{ N_("before"),		SEARCH_MATCH_UNDER },
 	{ N_("after"),		SEARCH_MATCH_OVER },
 	{ N_("between"),	SEARCH_MATCH_BETWEEN }
-};
-
-const MatchList text_search_menu_keyword[] = {
-	{ N_("match all"),	SEARCH_MATCH_ALL },
-	{ N_("match any"),	SEARCH_MATCH_ANY },
-	{ N_("exclude"),	SEARCH_MATCH_NONE }
-};
-
-const MatchList text_search_menu_comment[] = {
-	{ N_("contains"),	SEARCH_MATCH_CONTAINS },
-	{ N_("miss"),		SEARCH_MATCH_NONE }
-};
-
-const MatchList text_search_menu_exif[] = {
-	{ N_("contains"),	SEARCH_MATCH_CONTAINS },
-	{ N_("miss"),		SEARCH_MATCH_NONE }
-};
-
-const MatchList text_search_menu_gps[] = {
-	{ N_("not geocoded"),	SEARCH_MATCH_NONE },
-	{ N_("less than"),	SEARCH_MATCH_UNDER },
-	{ N_("greater than"),	SEARCH_MATCH_OVER }
 };
 
 const MatchList text_search_menu_class[] = {
@@ -1501,46 +1444,6 @@ static void search_dnd_begin(GtkWidget *widget, GdkDragContext *context, gpointe
 		}
 }
 
-static void search_gps_dnd_received_cb(GtkWidget *, GdkDragContext *,
-										gint, gint,
-										GtkSelectionData *selection_data, guint info,
-										guint, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-	GList *list;
-	gdouble latitude;
-	gdouble longitude;
-	FileData *fd;
-
-	if (info == TARGET_URI_LIST)
-		{
-		list = uri_filelist_from_gtk_selection_data(selection_data);
-
-		/* If more than one file, use only the first file in a list.
-		*/
-		if (list != nullptr)
-			{
-			fd = static_cast<FileData *>(list->data);
-			latitude = metadata_read_GPS_coord(fd, "Xmp.exif.GPSLatitude", 1000);
-			longitude = metadata_read_GPS_coord(fd, "Xmp.exif.GPSLongitude", 1000);
-			if (latitude != 1000 && longitude != 1000)
-				{
-				g_autofree gchar *text = g_strdup_printf("%f %f", latitude, longitude);
-				gq_gtk_entry_set_text(GTK_ENTRY(sd->entry_gps_coord), text);
-				}
-			else
-				{
-				gq_gtk_entry_set_text(GTK_ENTRY(sd->entry_gps_coord), _("Image is not geocoded"));
-				}
-			}
-		}
-
-	if (info == TARGET_TEXT_PLAIN)
-		{
-		gq_gtk_entry_set_text(GTK_ENTRY(sd->entry_gps_coord),"");
-		}
-}
-
 static void search_path_entry_dnd_received_cb(GtkWidget *, GdkDragContext *,
 										gint, gint,
 										GtkSelectionData *selection_data, guint info,
@@ -1608,14 +1511,6 @@ static void search_dnd_init(SearchData *sd)
 			 G_CALLBACK(search_dnd_data_set), sd);
 	g_signal_connect(G_OBJECT(sd->result_view), "drag_begin",
 			 G_CALLBACK(search_dnd_begin), sd);
-
-	gtk_drag_dest_set(GTK_WIDGET(sd->entry_gps_coord),
-	                  GTK_DEST_DEFAULT_ALL,
-	                  result_drop_types.data(), result_drop_types.size(),
-	                  GDK_ACTION_COPY);
-
-	g_signal_connect(G_OBJECT(sd->entry_gps_coord), "drag_data_received",
-					G_CALLBACK(search_gps_dnd_received_cb), sd);
 
 	gtk_drag_dest_set(GTK_WIDGET(sd->path_entry),
 	                  GTK_DEST_DEFAULT_ALL,
@@ -2039,74 +1934,6 @@ static gboolean search_file_next(SearchData *sd)
 			}
 		}
 
-	if (match && sd->match_comment_enable && sd->search_comment && strlen(sd->search_comment))
-		{
-		gchar *comment;
-
-		tested = TRUE;
-		match = FALSE;
-
-		comment = metadata_read_string(fd, COMMENT_KEY, METADATA_PLAIN);
-
-		if (comment)
-			{
-			if (!sd->search_comment_match_case)
-				{
-				gchar *tmp = g_utf8_strdown(comment, -1);
-				g_free(comment);
-				comment = tmp;
-				}
-
-			if (sd->match_comment == SEARCH_MATCH_CONTAINS)
-				{
-				match = g_regex_match(sd->search_comment_regex, comment, static_cast<GRegexMatchFlags>(0), nullptr);
-				}
-			else if (sd->match_comment == SEARCH_MATCH_NONE)
-				{
-				match = !g_regex_match(sd->search_comment_regex, comment, static_cast<GRegexMatchFlags>(0), nullptr);
-				}
-			g_free(comment);
-			}
-		else
-			{
-			match = (sd->match_comment == SEARCH_MATCH_NONE);
-			}
-		}
-
-	if (match && sd->match_exif_enable && sd->search_exif_tag && strlen(sd->search_exif_tag))
-		{
-		gchar *exif_tag_result;
-
-		tested = TRUE;
-		match = FALSE;
-
-		exif_tag_result = metadata_read_string(fd, sd->search_exif_tag, METADATA_FORMATTED);
-
-		if (exif_tag_result)
-			{
-			if (!sd->search_exif_match_case)
-				{
-				gchar *tmp = g_utf8_strdown(exif_tag_result, -1);
-				g_free(exif_tag_result);
-				exif_tag_result = tmp;
-				}
-
-			if (sd->match_exif == SEARCH_MATCH_CONTAINS)
-				{
-				match = g_regex_match(sd->search_exif_regex, exif_tag_result, static_cast<GRegexMatchFlags>(0), nullptr);
-				}
-			else if (sd->match_exif == SEARCH_MATCH_NONE)
-				{
-				match = !g_regex_match(sd->search_exif_regex, exif_tag_result, static_cast<GRegexMatchFlags>(0), nullptr);
-				}
-			g_free(exif_tag_result);
-			}
-		else
-			{
-			match = (sd->match_exif == SEARCH_MATCH_NONE);
-			}
-		}
-
 	if (match && sd->match_class_enable)
 		{
 		tested = TRUE;
@@ -2177,64 +2004,6 @@ static gboolean search_file_next(SearchData *sd)
 				{
 				sd->match_broken_enable = FALSE;
 				}
-			}
-		}
-
-	if (match && sd->match_gps_enable)
-		{
-		/* Calculate the distance the image is from the specified origin.
-		* This is a standard algorithm. A simplified one may be faster.
-		*/
-		#define RADIANS  0.0174532925
-		#define KM_EARTH_RADIUS 6371
-		#define MILES_EARTH_RADIUS 3959
-		#define NAUTICAL_MILES_EARTH_RADIUS 3440
-
-		gdouble latitude;
-		gdouble longitude;
-		gdouble range;
-		gdouble conversion;
-
-		if (g_strcmp0(gtk_combo_box_text_get_active_text(
-						GTK_COMBO_BOX_TEXT(sd->units_gps)), _("km")) == 0)
-			{
-			conversion = KM_EARTH_RADIUS;
-			}
-		else if (g_strcmp0(gtk_combo_box_text_get_active_text(
-						GTK_COMBO_BOX_TEXT(sd->units_gps)), _("miles")) == 0)
-			{
-			conversion = MILES_EARTH_RADIUS;
-			}
-		else
-			{
-			conversion = NAUTICAL_MILES_EARTH_RADIUS;
-			}
-
-		tested = TRUE;
-		match = FALSE;
-
-		latitude = metadata_read_GPS_coord(fd, "Xmp.exif.GPSLatitude", 1000);
-		longitude = metadata_read_GPS_coord(fd, "Xmp.exif.GPSLongitude", 1000);
-		if (latitude != 1000 && longitude != 1000)
-			{
-			range = conversion * acos(sin(latitude * RADIANS) *
-						sin(sd->search_lat * RADIANS) + cos(latitude * RADIANS) *
-						cos(sd->search_lat * RADIANS) * cos((sd->search_lon -
-						longitude) * RADIANS));
-			if (sd->match_gps == SEARCH_MATCH_UNDER)
-				{
-				if (sd->search_gps >= range)
-					match = TRUE;
-				}
-			else if (sd->match_gps == SEARCH_MATCH_OVER)
-				{
-				if (sd->search_gps < range)
-					match = TRUE;
-				}
-			}
-		else if (sd->match_gps == SEARCH_MATCH_NONE)
-			{
-			match = TRUE;
 			}
 		}
 
@@ -2411,14 +2180,6 @@ static void search_start(SearchData *sd)
 		sd->search_name = tmp;
 		}
 
-	if (!sd->search_exif_match_case)
-		{
-		/* convert to lowercase here, so that this is only done once per search */
-		gchar *tmp = g_utf8_strdown(sd->search_exif_value, -1);
-		g_free(sd->search_exif_value);
-		sd->search_exif_value = tmp;
-		}
-
 	if(sd->search_name_regex)
 		{
 		g_regex_unref(sd->search_name_regex);
@@ -2431,42 +2192,6 @@ static void search_start(SearchData *sd)
 		g_error_free(error);
 		error = nullptr;
 		sd->search_name_regex = g_regex_new("", static_cast<GRegexCompileFlags>(0), static_cast<GRegexMatchFlags>(0), nullptr);
-		}
-
-	if (!sd->search_comment_match_case)
-		{
-		/* convert to lowercase here, so that this is only done once per search */
-		gchar *tmp = g_utf8_strdown(sd->search_comment, -1);
-		g_free(sd->search_comment);
-		sd->search_comment = tmp;
-		}
-
-	if(sd->search_comment_regex)
-		{
-		g_regex_unref(sd->search_comment_regex);
-		}
-
-	sd->search_comment_regex = g_regex_new(sd->search_comment, static_cast<GRegexCompileFlags>(0), static_cast<GRegexMatchFlags>(0), &error);
-	if (error)
-		{
-		log_printf("Error: could not compile regular expression %s\n%s\n", sd->search_comment, error->message);
-		g_error_free(error);
-		error = nullptr;
-		sd->search_comment_regex = g_regex_new("", static_cast<GRegexCompileFlags>(0), static_cast<GRegexMatchFlags>(0), nullptr);
-		}
-
-	if(sd->search_exif_regex)
-		{
-		g_regex_unref(sd->search_exif_regex);
-		}
-
-	sd->search_exif_regex = g_regex_new(sd->search_exif_value, static_cast<GRegexCompileFlags>(0), static_cast<GRegexMatchFlags>(0), &error);
-	if (error)
-		{
-		log_printf("Error: could not compile regular expression %s\n%s\n", sd->search_exif_value, error->message);
-		g_error_free(error);
-		error = nullptr;
-		sd->search_exif_regex = g_regex_new("", static_cast<GRegexCompileFlags>(0), static_cast<GRegexMatchFlags>(0), nullptr);
 		}
 
 	sd->search_count = 0;
@@ -2517,8 +2242,6 @@ static void search_start(SearchData *sd)
 static void search_start_cb(GtkWidget *, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
-	gchar *collection;
-	gchar *entry_text;
 	gchar *path;
 	GDateTime *date;
 	GtkTreeViewColumn *column;
@@ -2534,16 +2257,6 @@ static void search_start_cb(GtkWidget *, gpointer data)
 	g_free(sd->search_name);
 	sd->search_name = g_strdup(gq_gtk_entry_get_text(GTK_ENTRY(sd->entry_name)));
 
-	/* XXX */
-	g_free(sd->search_comment);
-	sd->search_comment = g_strdup(gq_gtk_entry_get_text(GTK_ENTRY(sd->entry_comment)));
-
-	g_free(sd->search_exif_tag);
-	sd->search_exif_tag = g_strdup(gq_gtk_entry_get_text(GTK_ENTRY(sd->entry_exif_tag)));
-
-	g_free(sd->search_exif_value);
-	sd->search_exif_value = g_strdup(gq_gtk_entry_get_text(GTK_ENTRY(sd->entry_exif_value)));
-
 	g_free(sd->search_similarity_path);
 	sd->search_similarity_path = g_strdup(gq_gtk_entry_get_text(GTK_ENTRY(sd->entry_similarity)));
 	if (sd->match_similarity_enable)
@@ -2556,30 +2269,6 @@ static void search_start_cb(GtkWidget *, gpointer data)
 			return;
 			}
 		tab_completion_append_to_history(sd->entry_similarity, sd->search_similarity_path);
-		}
-
-	/* Check the coordinate entry.
-	* If the result is not sensible, it should get blocked.
-	*/
-	if (sd->match_gps_enable)
-		{
-		if (sd->match_gps != SEARCH_MATCH_NONE)
-			{
-			entry_text = decode_geo_parameters(gq_gtk_entry_get_text(
-										GTK_ENTRY(sd->entry_gps_coord)));
-
-			sd->search_lat = 1000;
-			sd->search_lon = 1000;
-			sscanf(entry_text," %lf  %lf ", &sd->search_lat, &sd->search_lon );
-			if (entry_text == nullptr || g_strstr_len(entry_text, -1, "Error") ||
-						sd->search_lat < -90 || sd->search_lat > 90 ||
-						sd->search_lon < -180 || sd->search_lon > 180)
-				{
-				file_util_warning_dialog(_("Entry does not contain a valid lat/long value"), entry_text, GQ_ICON_DIALOG_WARNING, sd->window);
-				return;
-				}
-			g_free(entry_text);
-			}
 		}
 
 	date = date_selection_get(sd->date_sel);
@@ -2847,35 +2536,11 @@ static void menu_choice_dimensions_cb(GtkWidget *combo, gpointer data)
 				(sd->match_dimensions == SEARCH_MATCH_BETWEEN));
 }
 
-static void menu_choice_comment_cb(GtkWidget *combo, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-
-	if (!menu_choice_get_match_type(combo, &sd->match_comment)) return;
-}
-
-static void menu_choice_exif_cb(GtkWidget *combo, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-
-	if (!menu_choice_get_match_type(combo, &sd->match_exif)) return;
-}
-
 static void menu_choice_spin_cb(GtkAdjustment *adjustment, gpointer data)
 {
 	auto value = static_cast<gint *>(data);
 
 	*value = static_cast<gint>(gtk_adjustment_get_value(adjustment));
-}
-
-static void menu_choice_gps_cb(GtkWidget *combo, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-
-	if (!menu_choice_get_match_type(combo, &sd->match_gps)) return;
-
-	menu_choice_set_visible(gtk_widget_get_parent(sd->spin_gps),
-					(sd->match_gps != SEARCH_MATCH_NONE));
 }
 
 static GtkWidget *menu_spin(GtkWidget *box, gdouble min, gdouble max, gint value,
@@ -3047,11 +2712,6 @@ static void search_window_destroy_cb(GtkWidget *, gpointer data)
 		{
 		g_regex_unref(sd->search_name_regex);
 		}
-	g_free(sd->search_comment);
-	if(sd->search_comment_regex)
-		{
-		g_regex_unref(sd->search_comment_regex);
-		}
 	g_free(sd->search_similarity_path);
 
 	file_data_unregister_notify_func(search_notify_cb, sd);
@@ -3119,7 +2779,6 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	GtkTreeViewColumn *column;
 	GtkWidget *combo;
 	GdkGeometry geometry;
-	gint i;
 	LayoutWindow *lw = nullptr;
 
 	layout_valid(&lw);
@@ -3140,16 +2799,11 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	sd->match_size = SEARCH_MATCH_EQUAL;
 	sd->match_date = SEARCH_MATCH_EQUAL;
 	sd->match_dimensions = SEARCH_MATCH_EQUAL;
-	sd->match_comment = SEARCH_MATCH_CONTAINS;
-	sd->match_exif = SEARCH_MATCH_CONTAINS;
 	sd->match_class = SEARCH_MATCH_EQUAL;
 
 	sd->match_name_enable = TRUE;
 
 	sd->search_similarity = 95;
-
-	sd->search_gps = 1;
-	sd->match_gps = SEARCH_MATCH_NONE;
 
 	if (example_file)
 		{
@@ -3319,81 +2973,6 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	gtk_widget_show(combo);
 	pref_checkbox_new_int(hbox, _("Ignore rotation"),
 				options->rot_invariant_sim, &options->rot_invariant_sim);
-
-	/* Search for image comment */
-	hbox = menu_choice(sd->box_search, &sd->check_comment, &sd->menu_comment,
-			_("Comment"), &sd->match_comment_enable,
-			text_search_menu_comment, sizeof(text_search_menu_comment) / sizeof(MatchList),
-			G_CALLBACK(menu_choice_comment_cb), sd);
-	sd->entry_comment = gtk_entry_new();
-	gq_gtk_box_pack_start(GTK_BOX(hbox), sd->entry_comment, TRUE, TRUE, 0);
-	gtk_widget_set_sensitive(sd->entry_comment, sd->match_comment_enable);
-	g_signal_connect(G_OBJECT(sd->check_comment), "toggled",
-			G_CALLBACK(menu_choice_check_cb), sd->entry_comment);
-	gtk_widget_show(sd->entry_comment);
-	pref_checkbox_new_int(hbox, _("Match case"),
-			      sd->search_comment_match_case, &sd->search_comment_match_case);
-	gtk_widget_set_tooltip_text(GTK_WIDGET(sd->entry_comment), _("This field uses Perl Compatible Regular Expressions.\ne.g. use \nabc.*ghk\n and not \nabc*ghk\n\nSee the Help file."));
-
-	/* Search for Exif tag */
-	hbox = menu_choice(sd->box_search, &sd->check_exif, &sd->menu_exif,
-			_("Exif"), &sd->match_exif_enable,
-			text_search_menu_exif, sizeof(text_search_menu_exif) / sizeof(MatchList),
-			G_CALLBACK(menu_choice_exif_cb), sd);
-
-	pref_label_new(hbox, _("Tag"));
-
-	sd->entry_exif_tag = gtk_entry_new();
-	gq_gtk_box_pack_start(GTK_BOX(hbox), sd->entry_exif_tag, TRUE, TRUE, 0);
-	gtk_widget_set_sensitive(sd->entry_exif_tag, sd->match_exif_enable);
-	g_signal_connect(G_OBJECT(sd->check_exif), "toggled", G_CALLBACK(menu_choice_check_cb), sd->entry_exif_tag);
-	gtk_widget_show(sd->entry_exif_tag);
-	gtk_widget_set_tooltip_text(GTK_WIDGET(sd->entry_exif_tag), _("e.g. Exif.Image.Model\nThis always case-sensitive\n\nYou may drag-and-drop from the Exif Window\n\nSee https://exiv2.org/tags.html"));
-
-	pref_label_new(hbox, _("Value"));
-
-	sd->entry_exif_value = gtk_entry_new();
-	gq_gtk_box_pack_start(GTK_BOX(hbox), sd->entry_exif_value, TRUE, TRUE, 0);
-	gtk_widget_set_sensitive(sd->entry_exif_value, sd->match_exif_enable);
-	g_signal_connect(G_OBJECT(sd->check_exif), "toggled",
-			G_CALLBACK(menu_choice_check_cb), sd->entry_exif_value);
-	gtk_widget_show(sd->entry_exif_value);
-
-	gtk_widget_set_tooltip_text(GTK_WIDGET(sd->entry_exif_value), _("e.g. Canon EOS\n\nThis field uses Perl Compatible Regular Expressions.\ne.g. use \nabc.*ghk\n and not \nabc*ghk\n\nSee the Help file."));
-
-	pref_checkbox_new_int(hbox, _("Match case"), sd->search_exif_match_case, &sd->search_exif_match_case);
-
-	/* Search for images within a specified range of a lat/long coordinate
-	*/
-	hbox = menu_choice(sd->box_search, &sd->check_gps, &sd->menu_gps,
-			   _("Image is"), &sd->match_gps_enable,
-			   text_search_menu_gps, sizeof(text_search_menu_gps) / sizeof(MatchList),
-			   G_CALLBACK(menu_choice_gps_cb), sd);
-
-	hbox2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	gq_gtk_box_pack_start(GTK_BOX(hbox), hbox2, FALSE, FALSE, 0);
-	sd->spin_gps = menu_spin(hbox2, 1, 9999, sd->search_gps,
-								   G_CALLBACK(menu_choice_spin_cb), &sd->search_gps);
-
-	sd->units_gps = gtk_combo_box_text_new();
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->units_gps), _("km"));
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->units_gps), _("miles"));
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->units_gps), _("n.m."));
-	gq_gtk_box_pack_start(GTK_BOX(hbox2), sd->units_gps, FALSE, FALSE, 0);
-	gtk_combo_box_set_active(GTK_COMBO_BOX(sd->units_gps), 0);
-	gtk_widget_set_tooltip_text(sd->units_gps, "kilometres, miles or nautical miles");
-	gtk_widget_show(sd->units_gps);
-
-	pref_label_new(hbox2, _("from"));
-
-	sd->entry_gps_coord = gtk_entry_new();
-	gtk_editable_set_editable(GTK_EDITABLE(sd->entry_gps_coord), TRUE);
-	gtk_widget_set_has_tooltip(sd->entry_gps_coord, TRUE);
-	gtk_widget_set_tooltip_text(sd->entry_gps_coord, _("Enter a coordinate in the form:\n89.123 179.456\nor drag-and-drop a geo-coded image\nor left-click on the map and paste\nor cut-and-paste or drag-and-drop\nan internet search URL\nSee the Help file"));
-	gq_gtk_box_pack_start(GTK_BOX(hbox2), sd->entry_gps_coord, TRUE, TRUE, 0);
-	gtk_widget_set_sensitive(sd->entry_gps_coord, TRUE);
-
-	gtk_widget_show(sd->entry_gps_coord);
 
 	/* Search for image class */
 	hbox = menu_choice(sd->box_search, &sd->check_class, &sd->menu_class,

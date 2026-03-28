@@ -294,7 +294,7 @@ static FileData *vf_find_data_by_coord(ViewFile *vf, gint x, gint y, GtkTreeIter
 }
 
 static void vf_drag_data_received(GtkWidget *, GdkDragContext *,
-                                  int x, int y, GtkSelectionData *selection,
+                                  int x, int y, GtkSelectionData *,
                                   guint info, guint, gpointer data)
 {
 	if (info != TARGET_TEXT_PLAIN) return;

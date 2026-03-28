@@ -60,7 +60,6 @@
 #include "metadata.h"
 #include "misc.h"
 #include "options.h"
-#include "pan-view.h"
 #include "pixbuf-renderer.h"
 #include "pixbuf-util.h"
 #include "preferences.h"
@@ -292,14 +291,6 @@ static void layout_menu_dupes_cb(GtkAction *, gpointer data)
 	dupe_window_new();
 }
 
-static void layout_menu_pan_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	pan_window_new(lw->dir_fd);
-}
-
 static void layout_menu_print_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -496,83 +487,83 @@ static void layout_menu_zoom_in_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_adjust(lw, get_zoom_increment(), FALSE);
+	layout_image_zoom_adjust(lw, get_zoom_increment());
 }
 
 static void layout_menu_zoom_out_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_adjust(lw, -get_zoom_increment(), FALSE);
+	layout_image_zoom_adjust(lw, -get_zoom_increment());
 }
 
 static void layout_menu_zoom_1_1_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 1.0, FALSE);
+	layout_image_zoom_set(lw, 1.0);
 }
 
 static void layout_menu_zoom_fit_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 0.0, FALSE);
+	layout_image_zoom_set(lw, 0.0);
 }
 
 static void layout_menu_zoom_fit_hor_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set_fill_geometry(lw, FALSE, FALSE);
+	layout_image_zoom_set_fill_geometry(lw, FALSE);
 }
 
 static void layout_menu_zoom_fit_vert_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set_fill_geometry(lw, TRUE, FALSE);
+	layout_image_zoom_set_fill_geometry(lw, TRUE);
 }
 
 static void layout_menu_zoom_2_1_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 2.0, FALSE);
+	layout_image_zoom_set(lw, 2.0);
 }
 
 static void layout_menu_zoom_3_1_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 3.0, FALSE);
+	layout_image_zoom_set(lw, 3.0);
 }
 static void layout_menu_zoom_4_1_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 4.0, FALSE);
+	layout_image_zoom_set(lw, 4.0);
 }
 
 static void layout_menu_zoom_1_2_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, -2.0, FALSE);
+	layout_image_zoom_set(lw, -2.0);
 }
 
 static void layout_menu_zoom_1_3_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, -3.0, FALSE);
+	layout_image_zoom_set(lw, -3.0);
 }
 
 static void layout_menu_zoom_1_4_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, -4.0, FALSE);
+	layout_image_zoom_set(lw, -4.0);
 }
 
 /* connected zoom */
@@ -580,83 +571,83 @@ static void layout_menu_connect_zoom_in_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_adjust(lw, get_zoom_increment(), TRUE);
+	layout_image_zoom_adjust(lw, get_zoom_increment());
 }
 
 static void layout_menu_connect_zoom_out_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_adjust(lw, -get_zoom_increment(), TRUE);
+	layout_image_zoom_adjust(lw, -get_zoom_increment());
 }
 
 static void layout_menu_connect_zoom_1_1_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 1.0, TRUE);
+	layout_image_zoom_set(lw, 1.0);
 }
 
 static void layout_menu_connect_zoom_fit_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 0.0, TRUE);
+	layout_image_zoom_set(lw, 0.0);
 }
 
 static void layout_menu_connect_zoom_fit_hor_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set_fill_geometry(lw, FALSE, TRUE);
+	layout_image_zoom_set_fill_geometry(lw, FALSE);
 }
 
 static void layout_menu_connect_zoom_fit_vert_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set_fill_geometry(lw, TRUE, TRUE);
+	layout_image_zoom_set_fill_geometry(lw, TRUE);
 }
 
 static void layout_menu_connect_zoom_2_1_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 2.0, TRUE);
+	layout_image_zoom_set(lw, 2.0);
 }
 
 static void layout_menu_connect_zoom_3_1_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 3.0, TRUE);
+	layout_image_zoom_set(lw, 3.0);
 }
 static void layout_menu_connect_zoom_4_1_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 4.0, TRUE);
+	layout_image_zoom_set(lw, 4.0);
 }
 
 static void layout_menu_connect_zoom_1_2_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, -2.0, TRUE);
+	layout_image_zoom_set(lw, -2.0);
 }
 
 static void layout_menu_connect_zoom_1_3_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, -3.0, TRUE);
+	layout_image_zoom_set(lw, -3.0);
 }
 
 static void layout_menu_connect_zoom_1_4_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, -4.0, TRUE);
+	layout_image_zoom_set(lw, -4.0);
 }
 
 
@@ -1436,32 +1427,11 @@ static void layout_color_menu_input_cb()
 }
 #endif
 
-
-/*
- *-----------------------------------------------------------------------------
- * recent menu
- *-----------------------------------------------------------------------------
- */
-
-void layout_recent_update_all()
-{
-	GList *work;
-
-	work = layout_window_list;
-	while (work)
-		{
-		auto lw = static_cast<LayoutWindow *>(work->data);
-		work = work->next;
-		}
-}
-
 void layout_recent_add_path(const gchar *path)
 {
 	if (!path) return;
 
 	history_list_add_to_key("recent", path, options->open_recent_list_maxsize);
-
-	layout_recent_update_all();
 }
 
 /*
@@ -2018,11 +1988,9 @@ static GtkActionEntry menu_entries[] = {
   { "OpenArchive",           GQ_ICON_OPEN,                      N_("Open archive"),                                     nullptr,               N_("Open archive"),                                    CB(layout_menu_open_archive_cb) },
   { "OpenCollection",        GQ_ICON_OPEN,                      N_("_Open collection..."),                              "O",                   N_("Open collection..."),                              nullptr },
   { "OpenMenu",              nullptr,                           N_("☰"),                                                nullptr,               nullptr,                                               nullptr },
-  { "OpenRecent",            nullptr,                           N_("Open recen_t"),                                     nullptr,               N_("Open recent collection"),                          nullptr },
   { "OpenWith",              GQ_ICON_OPEN_WITH,                 N_("Open With..."),                                     nullptr,               N_("Open With..."),                                    CB(layout_menu_open_with_cb) },
   { "OrientationMenu",       nullptr,                           N_("_Orientation"),                                     nullptr,               nullptr,                                               nullptr },
   { "OverlayMenu",           nullptr,                           N_("Image _Overlay"),                                   nullptr,               nullptr,                                               nullptr },
-  { "PanView",               PIXBUF_INLINE_ICON_PANORAMA,       N_("Pa_n view"),                                        "<control>J",          N_("Pan view"),                                        CB(layout_menu_pan_cb) },
   { "PermanentDelete",       GQ_ICON_DELETE,                    N_("Delete selection..."),                              "<shift>Delete",       N_("Delete selection..."),                             CB(layout_menu_delete_cb) },
   { "Plugins",               GQ_ICON_PREFERENCES,               N_("Configure _Plugins..."),                            nullptr,               N_("Configure Plugins..."),                            CB(layout_menu_editors_cb) },
   { "PluginsMenu",           nullptr,                           N_("_Plugins"),                                         nullptr,               nullptr,                                               nullptr },

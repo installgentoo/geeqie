@@ -375,27 +375,27 @@ static void li_pop_menu_zoom_in_cb(GtkWidget *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_adjust(lw, get_zoom_increment(), FALSE);
+	layout_image_zoom_adjust(lw, get_zoom_increment());
 }
 
 static void li_pop_menu_zoom_out_cb(GtkWidget *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
-	layout_image_zoom_adjust(lw, -get_zoom_increment(), FALSE);
+	layout_image_zoom_adjust(lw, -get_zoom_increment());
 }
 
 static void li_pop_menu_zoom_1_1_cb(GtkWidget *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 1.0, FALSE);
+	layout_image_zoom_set(lw, 1.0);
 }
 
 static void li_pop_menu_zoom_fit_cb(GtkWidget *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	layout_image_zoom_set(lw, 0.0, FALSE);
+	layout_image_zoom_set(lw, 0.0);
 }
 
 static void li_pop_menu_edit_cb(GtkWidget *widget, gpointer data)
@@ -717,13 +717,12 @@ void layout_image_menu_popup(LayoutWindow *lw)
  *----------------------------------------------------------------------------
  */
 
-static void layout_image_dnd_receive(GtkWidget *widget, GdkDragContext *,
+static void layout_image_dnd_receive(GtkWidget *, GdkDragContext *,
 				     gint, gint,
 				     GtkSelectionData *selection_data, guint info,
 				     guint, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
-	gint i;
 	gchar *url;
 
 
@@ -782,14 +781,12 @@ static void layout_image_dnd_receive(GtkWidget *widget, GdkDragContext *,
 		}
 }
 
-static void layout_image_dnd_get(GtkWidget *widget, GdkDragContext *,
+static void layout_image_dnd_get(GtkWidget *, GdkDragContext *,
 				 GtkSelectionData *selection_data, guint,
 				 guint, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 	FileData *fd;
-	gint i;
-
 
 		fd = layout_image_get_fd(lw);
 
@@ -875,7 +872,6 @@ void layout_image_to_root(LayoutWindow *lw)
 
 void layout_image_scroll(LayoutWindow *lw, gint x, gint y, gboolean connect_scroll)
 {
-	gint i;
 	if (!layout_valid(&lw)) return;
 
 	image_scroll(lw->image, x, y);
@@ -889,9 +885,8 @@ void layout_image_scroll(LayoutWindow *lw, gint x, gint y, gboolean connect_scro
 
 }
 
-void layout_image_zoom_adjust(LayoutWindow *lw, gdouble increment, gboolean connect_zoom)
+void layout_image_zoom_adjust(LayoutWindow *lw, gdouble increment)
 {
-	gint i;
 	if (!layout_valid(&lw)) return;
 
 	image_zoom_adjust(lw->image, increment);
@@ -900,13 +895,10 @@ void layout_image_zoom_adjust(LayoutWindow *lw, gdouble increment, gboolean conn
 		{
 		image_zoom_adjust(lw->full_screen->imd, increment);
 		}
-
-	if (!connect_zoom) return;
 }
 
-void layout_image_zoom_adjust_at_point(LayoutWindow *lw, gdouble increment, gint x, gint y, gboolean connect_zoom)
+void layout_image_zoom_adjust_at_point(LayoutWindow *lw, gdouble increment, gint x, gint y)
 {
-	gint i;
 	if (!layout_valid(&lw)) return;
 
 	image_zoom_adjust_at_point(lw->image, increment, x, y);
@@ -917,9 +909,8 @@ void layout_image_zoom_adjust_at_point(LayoutWindow *lw, gdouble increment, gint
 		}
 }
 
-void layout_image_zoom_set(LayoutWindow *lw, gdouble zoom, gboolean connect_zoom)
+void layout_image_zoom_set(LayoutWindow *lw, gdouble zoom)
 {
-	gint i;
 	if (!layout_valid(&lw)) return;
 
 	image_zoom_set(lw->image, zoom);
@@ -930,9 +921,8 @@ void layout_image_zoom_set(LayoutWindow *lw, gdouble zoom, gboolean connect_zoom
 		}
 }
 
-void layout_image_zoom_set_fill_geometry(LayoutWindow *lw, gboolean vertical, gboolean connect_zoom)
+void layout_image_zoom_set_fill_geometry(LayoutWindow *lw, gboolean vertical)
 {
-	gint i;
 	if (!layout_valid(&lw)) return;
 
 	image_zoom_set_fill_geometry(lw->image, vertical);
@@ -1382,10 +1372,10 @@ static void layout_image_scroll_cb(ImageWindow *imd, GdkEventScroll *event, gpoi
 		switch (event->direction)
 			{
 			case GDK_SCROLL_UP:
-				layout_image_zoom_adjust_at_point(lw, get_zoom_increment(), event->x, event->y, event->state & GDK_SHIFT_MASK);
+				layout_image_zoom_adjust_at_point(lw, get_zoom_increment(), event->x, event->y);
 				break;
 			case GDK_SCROLL_DOWN:
-				layout_image_zoom_adjust_at_point(lw, -get_zoom_increment(), event->x, event->y, event->state & GDK_SHIFT_MASK);
+				layout_image_zoom_adjust_at_point(lw, -get_zoom_increment(), event->x, event->y);
 				break;
 			default:
 				break;
@@ -1429,7 +1419,6 @@ static void layout_image_scroll_cb(ImageWindow *imd, GdkEventScroll *event, gpoi
 
 static void layout_image_drag_cb(ImageWindow *imd, GdkEventMotion *event, gdouble dx, gdouble dy, gpointer data)
 {
-	gint i;
 	auto lw = static_cast<LayoutWindow *>(data);
 	gdouble sx;
 	gdouble sy;

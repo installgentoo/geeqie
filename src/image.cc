@@ -73,12 +73,10 @@ static void image_click_cb(PixbufRenderer *, GdkEventButton *event, gpointer dat
 		}
 }
 
-static void image_press_cb(PixbufRenderer *pr, GdkEventButton *event, gpointer data)
+static void image_press_cb(PixbufRenderer *, GdkEventButton *event, gpointer data)
 {
 	auto imd = static_cast<ImageWindow *>(data);
 	LayoutWindow *lw;
-	gint x_pixel;
-	gint y_pixel;
 
 	lw = layout_find_by_image(imd);
 	if (!lw)
@@ -894,8 +892,6 @@ static gboolean image_focus_in_cb(GtkWidget *, GdkEventFocus *, gpointer data)
 static gboolean image_scroll_cb(GtkWidget *, GdkEventScroll *event, gpointer data)
 {
 	auto imd = static_cast<ImageWindow *>(data);
-	gboolean in_lw = FALSE;
-	gint i = 0;
 	LayoutWindow *lw = nullptr;
 
 	if (imd->func_scroll && event && event->type == GDK_SCROLL)

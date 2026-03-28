@@ -1292,11 +1292,7 @@ void rt_tile_get_region(gboolean has_alpha, gboolean ignore_alpha,
 gint rt_get_orientation(RendererTiles *rt)
 {
 	PixbufRenderer *pr = rt->pr;
-
 	gint orientation = pr->orientation;
-	static const gint mirror[]       = {1,   2, 1, 4, 3, 6, 5, 8, 7};
-	static const gint flip[]         = {1,   4, 3, 2, 1, 8, 7, 6, 5};
-
 	return orientation;
 }
 

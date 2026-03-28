@@ -252,36 +252,9 @@ gboolean ImageLoaderJpeg::write(const guchar *buf, gsize &chunk_size, gsize coun
 	struct jpeg_decompress_struct cinfo;
 	struct jpeg_decompress_struct cinfo2;
 	guchar *dptr;
-	guchar *dptr2;
 	guint rowstride;
 
 	struct error_handler_data jerr;
-
-	MPOData *mpo = jpeg_get_mpo_data(buf, count);
-	if (mpo && mpo->num_images > 1)
-		{
-		guint i;
-		gint idx1 = -1;
-		gint idx2 = -1;
-		guint num2 = 1;
-
-		for (i = 0; i < mpo->num_images; i++)
-			{
-			if (mpo->images[i].type_code == 0x20002)
-				{
-				if (mpo->images[i].MPIndividualNum == 1)
-					{
-					idx1 = i;
-					}
-				else if (mpo->images[i].MPIndividualNum > num2)
-					{
-					idx2 = i;
-					num2 = mpo->images[i].MPIndividualNum;
-					}
-				}
-			}
-		}
-	jpeg_mpo_data_free(mpo);
 
 	/* setup error handler */
 	cinfo.err = jpeg_std_error (&jerr.pub);
@@ -338,8 +311,6 @@ gboolean ImageLoaderJpeg::write(const guchar *buf, gsize &chunk_size, gsize coun
 
 	rowstride = gdk_pixbuf_get_rowstride(pixbuf);
 	dptr = gdk_pixbuf_get_pixels(pixbuf);
-	dptr2 = gdk_pixbuf_get_pixels(pixbuf) + ((cinfo.out_color_components == 4) ? 4 * cinfo.output_width : 3 * cinfo.output_width);
-
 
 	while (cinfo.output_scanline < cinfo.output_height && !aborted)
 		{

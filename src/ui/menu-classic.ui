@@ -1,9 +1,6 @@
 <ui>
   <menubar name="MainMenu">
       <menu action="FileMenu">
-        <menuitem action="OpenRecent"/>
-        <placeholder name="OpenSection"/>
-        <separator/>
         <menuitem action="Search"/>
         <menuitem action="FindDupes"/>
         <placeholder name="SearchSection"/>
@@ -78,7 +75,6 @@
       <menu action="PluginsMenu"/>
       <menu action="ViewMenu">
         <menuitem action="ViewInNewWindow"/>
-        <menuitem action="PanView"/>
         <menuitem action="ExifWin"/>
         <menuitem action="OpenArchive"/>
         <placeholder name="WindowSection"/>

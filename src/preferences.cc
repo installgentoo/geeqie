@@ -1688,7 +1688,6 @@ static void config_tab_general(GtkWidget *notebook)
 	GtkWidget *button;
 	GtkWidget *ct_button;
 	GtkWidget *table;
-	GString *str;
 	gchar *path;
 	gchar *basename;
 	gchar *download_locn;
@@ -2759,7 +2758,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 	GtkWidget *ct_button;
 	GtkWidget *spin;
 	GtkWidget *table;
-	GtkWidget *marks;
 	GtkWidget *with_rename;
 	GtkWidget *collections_on_top;
 	GtkWidget *hide_window_in_fullscreen;

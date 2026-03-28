@@ -107,7 +107,6 @@ main_sources = files('advanced-exif.cc',
 'options.h',
 'osd.cc',
 'osd.h',
-'pan-view.h',
 'pixbuf-renderer.cc',
 'pixbuf-renderer.h',
 'pixbuf-util.cc',
@@ -274,7 +273,6 @@ code_sources += main_sources
 subdir('authors')
 subdir('filedata')
 subdir('icons')
-subdir('pan-view')
 subdir('third-party')
 subdir('ui')
 subdir('view-file')

@@ -42,7 +42,6 @@ void layout_util_sync(LayoutWindow *lw);
 void layout_util_status_update_write(LayoutWindow *lw);
 void layout_util_status_update_write_all();
 
-void layout_recent_update_all();
 void layout_recent_add_path(const gchar *path);
 
 void layout_copy_path_update_all();
