@@ -595,9 +595,6 @@ static void metadata_legacy_delete(FileData *fd, const gchar *except)
 		g_free(metadata_path);
 		}
 
-#if HAVE_EXIV2
-	/* without exiv2: do not delete xmp metadata because we are not able to convert it,
-	   just ignore it */
 	metadata_path = cache_find_location(CACHE_TYPE_XMP_METADATA, fd->path);
 	if (metadata_path && (!except || strcmp(metadata_path, except) != 0))
 		{
@@ -606,7 +603,6 @@ static void metadata_legacy_delete(FileData *fd, const gchar *except)
 		g_free(metadata_pathl);
 		g_free(metadata_path);
 		}
-#endif
 }
 
 static gboolean metadata_legacy_read(FileData *fd, GList **keywords, gchar **comment)

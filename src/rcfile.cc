@@ -1311,17 +1311,6 @@ static void options_parse_global(GQParserData *parser_data, const gchar *element
 		}
 }
 
-static void options_parse_global_end(gpointer)
-{
-#if !HAVE_EXIV2
-	/* some options do not work without exiv2 */
-	options->metadata.save_in_image_file = FALSE;
-	options->metadata.save_legacy_format = TRUE;
-	options->metadata.write_orientation = FALSE;
-	DEBUG_1("compiled without Exiv2 - disabling XMP write support");
-#endif
-}
-
 static void options_parse_toolbar(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -1374,7 +1363,7 @@ static void options_parse_dialogs(GQParserData *parser_data, const gchar *elemen
 	parser_data->func_push(options_parse_leaf, nullptr, nullptr);
 }
 
-static void options_parse_layout(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
+static void options_parse_layout(GQParserData *parser_data, const gchar *element_name, const gchar **, const gchar **, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 	if (g_ascii_strcasecmp(element_name, "toolbar") == 0)
@@ -1413,7 +1402,7 @@ static void options_parse_toplevel(GQParserData *parser_data, const gchar *eleme
 	if (g_ascii_strcasecmp(element_name, "global") == 0)
 		{
 		load_global_params(attribute_names, attribute_values);
-		parser_data->func_push(options_parse_global, options_parse_global_end, nullptr);
+		parser_data->func_push(options_parse_global, nullptr, nullptr);
 		return;
 		}
 

@@ -35,6 +35,7 @@ main_sources = files('advanced-exif.cc',
 'dupe.h',
 'editors.cc',
 'editors.h',
+'exiv2.cc',
 'exif-common.cc',
 'exif.h',
 'filecache.cc',
@@ -162,27 +163,6 @@ if conf_data.get('HAVE_DJVU', 0) == 1
     main_sources += files(
         'image-load-djvu.cc',
         'image-load-djvu.h',
-    )
-endif
-
-if conf_data.get('HAVE_EXIV2', 0) == 1
-    main_sources += files(
-        'exiv2.cc',
-    )
-else
-    main_sources += files(
-        'exif.cc',
-        'exif-int.h',
-        'format-canon.cc',
-        'format-canon.h',
-        'format-fuji.cc',
-        'format-fuji.h',
-        'format-nikon.cc',
-        'format-nikon.h',
-        'format-olympus.cc',
-        'format-olympus.h',
-        'format-raw.cc',
-        'format-raw.h',
     )
 endif
 

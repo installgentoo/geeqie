@@ -2352,9 +2352,6 @@ static void config_tab_metadata(GtkWidget *notebook)
 
 
 	group = pref_group_new(vbox, FALSE, _("Metadata writing sequence"), GTK_ORIENTATION_VERTICAL);
-#if !HAVE_EXIV2
-	label = pref_label_new(group, _("Warning: Geeqie is built without Exiv2. Some options are disabled."));
-#endif
 	label = pref_label_new(group, _("When writing metadata, Geeqie will follow these steps, if selected. This process will stop when the first successful write occurs."));
 	gtk_label_set_xalign(GTK_LABEL(label), 0.0);
 	gtk_label_set_yalign(GTK_LABEL(label), 0.5);
@@ -2369,10 +2366,6 @@ static void config_tab_metadata(GtkWidget *notebook)
 	markup = g_markup_printf_escaped ("%s<span style=\"italic\">%s</span>%s<span style=\"italic\">%s</span>%s", _("The destination is dependent on the settings in the "), _("Writable"), _(" and "), _("Sidecar Is Allowed"), _(" columns of the File Filters tab)"));
 	gtk_widget_set_tooltip_markup(ct_button, markup);
 	g_free(markup);
-
-#if !HAVE_EXIV2
-	gtk_widget_set_sensitive(ct_button, FALSE);
-#endif
 
 	tmp_widget = pref_checkbox_new_int(group, "", options->metadata.enable_metadata_dirs, &c_options->metadata.enable_metadata_dirs);
 	text_label = gtk_bin_get_child(GTK_BIN(tmp_widget));
@@ -2391,9 +2384,6 @@ static void config_tab_metadata(GtkWidget *notebook)
 	pref_spacer(group, PREF_PAD_GROUP);
 
 	group = pref_group_new(vbox, FALSE, _("Step 1 Options:"), GTK_ORIENTATION_VERTICAL);
-#if !HAVE_EXIV2
-	gtk_widget_set_sensitive(group, FALSE);
-#endif
 
 	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_VERTICAL, PREF_PAD_SPACE);
 	pref_checkbox_link_sensitivity(ct_button, hbox);
@@ -2415,9 +2405,6 @@ static void config_tab_metadata(GtkWidget *notebook)
 	pref_spacer(group, PREF_PAD_GROUP);
 
 	group = pref_group_new(vbox, FALSE, _("Steps 2 and 3 Option:"), GTK_ORIENTATION_VERTICAL);
-#if !HAVE_EXIV2
-	gtk_widget_set_sensitive(group, FALSE);
-#endif
 
 	pref_checkbox_new_int(group, _("Use GQview legacy metadata format instead of XMP (supports only Keywords and Comments)"), options->metadata.save_legacy_format, &c_options->metadata.save_legacy_format);
 
@@ -2429,10 +2416,6 @@ static void config_tab_metadata(GtkWidget *notebook)
 
 	ct_button = pref_checkbox_new_int(group, _("Write altered image orientation to the metadata"), options->metadata.write_orientation, &c_options->metadata.write_orientation);
 	gtk_widget_set_tooltip_text(ct_button, _("If checked, the results of orientation commands (Rotate, Mirror and Flip) issued on an image will be written to metadata\nNote: If this option is not checked, the results of orientation commands will be lost when Geeqie closes"));
-
-#if !HAVE_EXIV2
-	gtk_widget_set_sensitive(ct_button, FALSE);
-#endif
 
 	pref_spacer(group, PREF_PAD_GROUP);
 
