@@ -323,7 +323,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->tools_hidden = FALSE;
 	options->image_overlay.state = OSD_SHOW_NOTHING;
 	options->animate = TRUE;
-	options->bars_state.hidden = FALSE;
 	options->log_window = {0, 0, 520, 400};
 	options->preferences_window.rect = {0, 0, 700, 600};
 	options->workspace = -1;

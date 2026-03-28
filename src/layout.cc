@@ -34,7 +34,6 @@
 #include <glib-object.h>
 #include <pango/pango.h>
 
-#include "bar.h"
 #include "compat.h"
 #include "debug.h"
 #include "filedata.h"
@@ -220,21 +219,6 @@ static gboolean layout_set_current_cb(GtkWidget *, GdkEventFocus *, gpointer dat
 	return FALSE;
 }
 
-static void layout_box_folders_changed_cb(GtkWidget *widget, gpointer)
-{
-	LayoutWindow *lw;
-	GList *work;
-
-/** @FIXME this is probably not the correct way to implement this */
-	work = layout_window_list;
-	while (work)
-		{
-		lw = static_cast<LayoutWindow *>(work->data);
-		lw->options.folder_window.vdivider_pos = gtk_paned_get_position(GTK_PANED(widget));
-		work = work->next;
-		}
-}
-
 static gint window_list_sort_cb(gconstpointer a, gconstpointer b)
 {
 	return CASE_SORT((gchar *)a, (gchar *)b);
@@ -381,11 +365,9 @@ static gboolean path_entry_tooltip_cb(GtkWidget *widget, gpointer)
 static GtkWidget *layout_tool_setup(LayoutWindow *lw)
 {
 	GtkWidget *box;
-	GtkWidget *box_folders;
 	GtkWidget *menu_bar;
 	GtkWidget *menu_tool_bar;
 	GtkWidget *menu_toolbar_box;
-	GtkWidget *scd;
 	GtkWidget *scroll_window;
 	GtkWidget *tabcomp;
 	GtkWidget *toolbar;
@@ -434,27 +416,14 @@ static GtkWidget *layout_tool_setup(LayoutWindow *lw)
 
 	g_signal_connect(G_OBJECT(gtk_widget_get_parent(gtk_widget_get_parent(lw->path_entry))), "changed", G_CALLBACK(layout_path_entry_changed_cb), lw);
 
-	box_folders = GTK_WIDGET(gtk_paned_new(GTK_ORIENTATION_HORIZONTAL));
-	DEBUG_NAME(box_folders);
-	gq_gtk_box_pack_start(GTK_BOX(box), box_folders, TRUE, TRUE, 0);
-
 	lw->vd = vd_new(lw);
 
 	vd_set_select_func(lw->vd, layout_vd_select_cb, lw);
 
 	lw->dir_view = lw->vd->widget;
 	DEBUG_NAME(lw->dir_view);
-	gtk_paned_add2(GTK_PANED(box_folders), lw->dir_view);
+	gq_gtk_box_pack_start(GTK_BOX(box), lw->dir_view, TRUE, TRUE, 0);
 	gtk_widget_show(lw->dir_view);
-
-	scd = shortcuts_new_default(lw);
-	DEBUG_NAME(scd);
-	gtk_paned_add1(GTK_PANED(box_folders), scd);
-	gtk_paned_set_position(GTK_PANED(box_folders), lw->options.folder_window.vdivider_pos);
-
-	gtk_widget_show(box_folders);
-
-	g_signal_connect(G_OBJECT(box_folders), "notify::position", G_CALLBACK(layout_box_folders_changed_cb), lw);
 
 	gtk_widget_show(box);
 
@@ -699,8 +668,6 @@ void layout_status_update_info(LayoutWindow *lw, const gchar *text)
 				}
 
 			s = layout_selection_count(lw, &s_bytes);
-
-			layout_bars_new_selection(lw, s);
 
 			g_autofree gchar *b = text_from_size_abrev(n_bytes);
 
@@ -1351,60 +1318,6 @@ void layout_views_set_sort_dir(LayoutWindow *lw, SortType method, gboolean ascen
 
 /*
  *-----------------------------------------------------------------------------
- * location utils
- *-----------------------------------------------------------------------------
- */
-
-static gboolean layout_location_single(LayoutLocation l)
-{
-	return (l == LAYOUT_LEFT ||
-		l == LAYOUT_RIGHT ||
-		l == LAYOUT_TOP ||
-		l == LAYOUT_BOTTOM);
-}
-
-static gboolean layout_location_vertical(LayoutLocation l)
-{
-	return (l & LAYOUT_TOP ||
-		l & LAYOUT_BOTTOM);
-}
-
-static gboolean layout_location_first(LayoutLocation l)
-{
-	return (l & LAYOUT_TOP ||
-		l & LAYOUT_LEFT);
-}
-
-static LayoutLocation layout_grid_compass(LayoutWindow *lw)
-{
-	if (layout_location_single(lw->dir_location)) return lw->dir_location;
-	if (layout_location_single(lw->file_location)) return lw->file_location;
-	return lw->image_location;
-}
-
-static void layout_location_compute(LayoutLocation l1, LayoutLocation l2,
-				    GtkWidget *s1, GtkWidget *s2,
-				    GtkWidget **d1, GtkWidget **d2)
-{
-	LayoutLocation l;
-
-	l = static_cast<LayoutLocation>(l1 & l2);	/* get common compass direction */
-	l = static_cast<LayoutLocation>(l1 - l);	/* remove it */
-
-	if (layout_location_first(l))
-		{
-		*d1 = s1;
-		*d2 = s2;
-		}
-	else
-		{
-		*d1 = s2;
-		*d2 = s1;
-		}
-}
-
-/*
- *-----------------------------------------------------------------------------
  * tools window (for floating/hidden)
  *-----------------------------------------------------------------------------
  */
@@ -1486,215 +1399,9 @@ static void layout_tools_hide(LayoutWindow *lw, gboolean hide)
 	lw->options.tools_hidden = hide;
 }
 
-static gboolean layout_tools_delete_cb(GtkWidget *, GdkEventAny *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_tools_float_toggle(lw);
-
-	return TRUE;
-}
-
-static void layout_tools_setup(LayoutWindow *lw, GtkWidget *tools, GtkWidget *files)
-{
-	GtkWidget *vbox;
-	GtkWidget *w1;
-	GtkWidget *w2;
-	gboolean vertical;
-	gboolean new_window = FALSE;
-
-	vertical = (layout_location_single(lw->image_location) && !layout_location_vertical(lw->image_location)) ||
-		   (!layout_location_single(lw->image_location) && layout_location_vertical(layout_grid_compass(lw)));
-	/* for now, tools/dir are always first in order */
-	w1 = tools;
-	w2 = files;
-
-	if (!lw->tools)
-		{
-		GdkGeometry geometry;
-		GdkWindowHints hints;
-
-		lw->tools = window_new("tools", PIXBUF_INLINE_ICON_TOOLS, nullptr, _("Tools"));
-		DEBUG_NAME(lw->tools);
-		g_signal_connect(G_OBJECT(lw->tools), "delete_event",
-				 G_CALLBACK(layout_tools_delete_cb), lw);
-		layout_keyboard_init(lw, lw->tools);
-
-		if (options->save_window_positions)
-			{
-			hints = GDK_HINT_USER_POS;
-			}
-		else
-			{
-			hints = static_cast<GdkWindowHints>(0);
-			}
-
-		geometry.min_width = DEFAULT_MINIMAL_WINDOW_SIZE;
-		geometry.min_height = DEFAULT_MINIMAL_WINDOW_SIZE;
-		geometry.base_width = TOOLWINDOW_DEF_WIDTH;
-		geometry.base_height = TOOLWINDOW_DEF_HEIGHT;
-		gtk_window_set_geometry_hints(GTK_WINDOW(lw->tools), nullptr, &geometry,
-					      static_cast<GdkWindowHints>(GDK_HINT_MIN_SIZE | GDK_HINT_BASE_SIZE | hints));
-
-
-		gtk_window_set_resizable(GTK_WINDOW(lw->tools), TRUE);
-		gtk_container_set_border_width(GTK_CONTAINER(lw->tools), 0);
-		if (options->expand_menu_toolbar) gtk_container_remove(GTK_CONTAINER(lw->main_box), lw->menu_tool_bar);
-
-		new_window = TRUE;
-		}
-	else
-		{
-		layout_tools_geometry_sync(lw);
-		/* dump the contents */
-		gq_gtk_widget_destroy(gtk_bin_get_child(GTK_BIN(lw->tools)));
-		}
-
-	layout_actions_add_window(lw, lw->tools);
-
-	vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-	DEBUG_NAME(vbox);
-	gq_gtk_container_add(GTK_WIDGET(lw->tools), vbox);
-	if (options->expand_menu_toolbar) gq_gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(lw->menu_tool_bar), FALSE, FALSE, 0);
-	gtk_widget_show(vbox);
-
-	layout_status_setup(lw, vbox, TRUE);
-
-	lw->tools_pane = gtk_paned_new(vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
-	DEBUG_NAME(lw->tools_pane);
-	gq_gtk_box_pack_start(GTK_BOX(vbox), lw->tools_pane, TRUE, TRUE, 0);
-	gtk_widget_show(lw->tools_pane);
-
-	gtk_paned_pack1(GTK_PANED(lw->tools_pane), w1, FALSE, TRUE);
-	gtk_paned_pack2(GTK_PANED(lw->tools_pane), w2, TRUE, TRUE);
-
-	gtk_widget_show(tools);
-	gtk_widget_show(files);
-
-	if (new_window)
-		{
-		if (options->save_window_positions)
-			{
-			gtk_window_set_default_size(GTK_WINDOW(lw->tools), lw->options.float_window.rect.width, lw->options.float_window.rect.height);
-			gq_gtk_window_move(GTK_WINDOW(lw->tools), lw->options.float_window.rect.x, lw->options.float_window.rect.y);
-			}
-		else
-			{
-			if (vertical)
-				{
-				gtk_window_set_default_size(GTK_WINDOW(lw->tools),
-							    TOOLWINDOW_DEF_WIDTH, TOOLWINDOW_DEF_HEIGHT);
-				}
-			else
-				{
-				gtk_window_set_default_size(GTK_WINDOW(lw->tools),
-							    TOOLWINDOW_DEF_HEIGHT, TOOLWINDOW_DEF_WIDTH);
-				}
-			}
-		}
-
-	if (!options->save_window_positions)
-		{
-		if (vertical)
-			{
-			lw->options.float_window.vdivider_pos = MAIN_WINDOW_DIV_VPOS;
-			}
-		else
-			{
-			lw->options.float_window.vdivider_pos = MAIN_WINDOW_DIV_HPOS;
-			}
-		}
-
-	gtk_paned_set_position(GTK_PANED(lw->tools_pane), lw->options.float_window.vdivider_pos);
-}
-
-/*
- *-----------------------------------------------------------------------------
- * glue (layout arrangement)
- *-----------------------------------------------------------------------------
- */
-
-static void layout_grid_compute(LayoutWindow *lw,
-				GtkWidget *image, GtkWidget *tools, GtkWidget *files,
-				GtkWidget **w1, GtkWidget **w2, GtkWidget **w3)
-{
-	/* heh, this was fun */
-
-	if (layout_location_single(lw->dir_location))
-		{
-		if (layout_location_first(lw->dir_location))
-			{
-			*w1 = tools;
-			layout_location_compute(lw->file_location, lw->image_location, files, image, w2, w3);
-			}
-		else
-			{
-			*w3 = tools;
-			layout_location_compute(lw->file_location, lw->image_location, files, image, w1, w2);
-			}
-		}
-	else if (layout_location_single(lw->file_location))
-		{
-		if (layout_location_first(lw->file_location))
-			{
-			*w1 = files;
-			layout_location_compute(lw->dir_location, lw->image_location, tools, image, w2, w3);
-			}
-		else
-			{
-			*w3 = files;
-			layout_location_compute(lw->dir_location, lw->image_location, tools, image, w1, w2);
-			}
-		}
-	else
-		{
-		/* image */
-		if (layout_location_first(lw->image_location))
-			{
-			*w1 = image;
-			layout_location_compute(lw->file_location, lw->dir_location, files, tools, w2, w3);
-			}
-		else
-			{
-			*w3 = image;
-			layout_location_compute(lw->file_location, lw->dir_location, files, tools, w1, w2);
-			}
-		}
-}
-
-void layout_split_change(LayoutWindow *lw)
-{
-	GtkWidget *image;
-	gint i;
-
-	for (i = 0; i < 1; i++)
-		{
-		if (lw->split_images[i])
-			{
-			gtk_widget_hide(lw->split_images[i]->widget);
-			if (gtk_widget_get_parent(lw->split_images[i]->widget) != lw->utility_paned)
-				gtk_container_remove(GTK_CONTAINER(gtk_widget_get_parent(lw->split_images[i]->widget)), lw->split_images[i]->widget);
-			}
-		}
-	gtk_container_remove(GTK_CONTAINER(lw->utility_paned), lw->split_image_widget);
-
-	image = layout_image_setup_split_none(lw);
-
-	gtk_paned_pack1(GTK_PANED(lw->utility_paned), image, TRUE, FALSE);
-	gtk_widget_show(image);
-	layout_util_sync(lw);
-}
 
 static void layout_grid_setup(LayoutWindow *lw)
 {
-	gint priority_location;
-	GtkWidget *h;
-	GtkWidget *v;
-	GtkWidget *w1;
-	GtkWidget *w2;
-	GtkWidget *w3;
-
-	GtkWidget *image_sb; /* image together with sidebars in utility box */
 	GtkWidget *tools;
 	GtkWidget *files;
 
@@ -1713,39 +1420,16 @@ static void layout_grid_setup(LayoutWindow *lw)
 		}
 	gtk_widget_show(lw->group_box);
 
-	priority_location = layout_grid_compass(lw);
-
-	if (lw->utility_box)
+	/* Create image widget for fullscreen; not shown in the main layout. */
+	if (!lw->image)
 		{
-		layout_split_change(lw); /* this re-creates image frame for the new configuration */
-		image_sb = lw->utility_box;
-		DEBUG_NAME(image_sb);
-		}
-	else
-		{
-		GtkWidget *image; /* image or split images together */
-		image = layout_image_setup_split_none(lw);
-		image_sb = layout_bars_prepare(lw, image);
-		DEBUG_NAME(image_sb);
+		layout_image_init(lw);
 		}
 
 	tools = layout_tools_new(lw);
 	DEBUG_NAME(tools);
 	files = layout_list_new(lw);
 	DEBUG_NAME(files);
-
-
-	if (lw->options.tools_float || lw->options.tools_hidden)
-		{
-		gq_gtk_box_pack_start(GTK_BOX(lw->group_box), image_sb, TRUE, TRUE, 0);
-		//gtk_widget_show(image_sb);
-
-		layout_tools_setup(lw, tools, files);
-
-		image_grab_focus(lw->image);
-
-		return;
-		}
 
 	if (lw->tools)
 		{
@@ -1757,56 +1441,21 @@ static void layout_grid_setup(LayoutWindow *lw)
 
 	layout_status_setup(lw, lw->group_box, FALSE);
 
-	layout_grid_compute(lw, image_sb, tools, files, &w1, &w2, &w3);
+	/* Hardcoded layout: tools left, files right */
+	lw->h_pane = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+	DEBUG_NAME(lw->h_pane);
+	lw->v_pane = nullptr;
 
-	v = lw->v_pane = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
-	DEBUG_NAME(v);
+	gq_gtk_box_pack_start(GTK_BOX(lw->group_box), lw->h_pane, TRUE, TRUE, 0);
 
-	h = lw->h_pane = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-	DEBUG_NAME(h);
+	gtk_paned_pack1(GTK_PANED(lw->h_pane), tools, FALSE, TRUE);
+	gtk_paned_pack2(GTK_PANED(lw->h_pane), files, TRUE, TRUE);
 
-	if (!layout_location_vertical(static_cast<LayoutLocation>(priority_location)))
-		{
-		std::swap(v, h);
-		}
-
-	gq_gtk_box_pack_start(GTK_BOX(lw->group_box), v, TRUE, TRUE, 0);
-
-	if (!layout_location_first(static_cast<LayoutLocation>(priority_location)))
-		{
-		gtk_paned_pack1(GTK_PANED(v), h, FALSE, TRUE);
-		gtk_paned_pack2(GTK_PANED(v), w3, TRUE, TRUE);
-
-		gtk_paned_pack1(GTK_PANED(h), w1, FALSE, TRUE);
-		gtk_paned_pack2(GTK_PANED(h), w2, TRUE, TRUE);
-		}
-	else
-		{
-		gtk_paned_pack1(GTK_PANED(v), w1, FALSE, TRUE);
-		gtk_paned_pack2(GTK_PANED(v), h, TRUE, TRUE);
-
-		gtk_paned_pack1(GTK_PANED(h), w2, FALSE, TRUE);
-		gtk_paned_pack2(GTK_PANED(h), w3, TRUE, TRUE);
-		}
-
-	//gtk_widget_show(image_sb);
 	gtk_widget_show(tools);
 	gtk_widget_show(files);
-
-	gtk_widget_show(v);
-	gtk_widget_show(h);
-
-	/* fix to have image pane visible when it is left and priority widget */
-	/*if (lw->options.main_window.hdivider_pos == -1 &&
-	    w1 == image_sb &&
-	    !layout_location_vertical(static_cast<LayoutLocation>(priority_location)) &&
-	    layout_location_first(static_cast<LayoutLocation>(priority_location)))
-		{
-		gtk_widget_set_size_request(image_sb, 200, -1);
-		}*/
+	gtk_widget_show(lw->h_pane);
 
 	gtk_paned_set_position(GTK_PANED(lw->h_pane), lw->options.main_window.hdivider_pos);
-	gtk_paned_set_position(GTK_PANED(lw->v_pane), lw->options.main_window.vdivider_pos);
 
 	image_grab_focus(lw->image);
 }
@@ -1844,10 +1493,6 @@ void layout_style_set(LayoutWindow *lw, gint style, const gchar *order)
 	lw->dir_fd = nullptr;
 
 	layout_geometry_get_dividers(lw, &lw->options.main_window.hdivider_pos, &lw->options.main_window.vdivider_pos);
-
-	/* preserve utility_box (image + sidebars), menu_bar and toolbars to be reused later in layout_grid_setup */
-	/* lw->image is preserved together with lw->utility_box */
-	if (lw->utility_box) gtk_container_remove(GTK_CONTAINER(gtk_widget_get_parent(lw->utility_box)), lw->utility_box);
 
 	if (options->expand_menu_toolbar)
 		{
@@ -1917,17 +1562,10 @@ void layout_colors_update()
 	work = layout_window_list;
 	while (work)
 		{
-		gint i;
 		auto lw = static_cast<LayoutWindow *>(work->data);
 		work = work->next;
 
 		if (!lw->image) continue;
-
-		for (i = 0; i < 1; i++)
-			{
-			if (!lw->split_images[i]) continue;
-			image_background_set_color_from_options(lw->split_images[i], !!lw->full_screen);
-			}
 
 		image_background_set_color_from_options(lw->image, !!lw->full_screen);
 		}
@@ -2378,10 +2016,7 @@ void layout_free(LayoutWindow *lw)
 
 	if (lw->exif_window) g_signal_handlers_disconnect_matched(G_OBJECT(lw->exif_window), G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, lw);
 
-	layout_bars_close(lw);
-
 	g_object_unref(lw->menu_bar);
-	g_object_unref(lw->utility_box);
 
 	for (i = 0; i < TOOLBAR_COUNT; i++)
 		{
@@ -2389,8 +2024,6 @@ void layout_free(LayoutWindow *lw)
 		}
 
 	gq_gtk_widget_destroy(lw->window);
-
-	if (lw->split_image_sizegroup) g_object_unref(lw->split_image_sizegroup);
 
 	file_data_unregister_notify_func(layout_image_notify_cb, lw);
 
@@ -2621,13 +2254,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_BOOL(*layout, ignore_alpha);
 	WRITE_SEPARATOR();
 
-	WRITE_NL(); WRITE_BOOL(*layout, bars_state.info);
-	WRITE_NL(); WRITE_BOOL(*layout, bars_state.sort);
-	WRITE_NL(); WRITE_BOOL(*layout, bars_state.tools_float);
-	WRITE_NL(); WRITE_BOOL(*layout, bars_state.tools_hidden);
-	WRITE_NL(); WRITE_BOOL(*layout, bars_state.hidden);
-	WRITE_SEPARATOR();
-
 	WRITE_NL(); WRITE_UINT(*layout, image_overlay.state);
 
 	WRITE_NL(); WRITE_INT(*layout, log_window.x);
@@ -2667,8 +2293,6 @@ void layout_write_config(LayoutWindow *lw, GString *outstr, gint indent)
 	WRITE_NL(); WRITE_STRING("<layout");
 	layout_write_attributes(&lw->options, outstr, indent + 1);
 	WRITE_STRING(">");
-
-	bar_write_config(lw->bar, outstr, indent + 1);
 
 	WRITE_SEPARATOR();
 	generic_dialog_windows_write_config(outstr, indent + 1);
@@ -2729,12 +2353,6 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_BOOL(*layout, tools_hidden)) continue;
 		if (READ_BOOL(*layout, show_info_pixel)) continue;
 		if (READ_BOOL(*layout, ignore_alpha)) continue;
-
-		if (READ_BOOL(*layout, bars_state.info)) continue;
-		if (READ_BOOL(*layout, bars_state.sort)) continue;
-		if (READ_BOOL(*layout, bars_state.tools_float)) continue;
-		if (READ_BOOL(*layout, bars_state.tools_hidden)) continue;
-		if (READ_BOOL(*layout, bars_state.hidden)) continue;
 
 		if (READ_UINT(*layout, image_overlay.state)) continue;
 

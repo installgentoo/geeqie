@@ -519,14 +519,6 @@ struct LayoutOptions
 	gboolean tools_hidden;
 	gboolean selectable_toolbars_hidden;
 
-	struct {
-		gboolean info;
-		gboolean sort;
-		gboolean tools_float;
-		gboolean tools_hidden;
-		gboolean hidden;
-	} bars_state;
-
 	gchar *home_path;
 	gchar *last_path;
 

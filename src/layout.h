@@ -81,12 +81,6 @@ struct LayoutWindow
 
 	ImageWindow *image;
 
-	ImageWindow *split_images[1];
-	gint active_split_image;
-
-	GtkWidget *split_image_widget;
-	GtkSizeGroup *split_image_sizegroup;
-
 	/* tools window (float) */
 
 	GtkWidget *tools;
@@ -129,12 +123,7 @@ struct LayoutWindow
 
 	/* misc */
 
-	GtkWidget *utility_box; /**< referenced by lw, exist during whole lw lifetime */
-	GtkWidget *utility_paned; /**< between image and bar */
-	GtkWidget *bar;
-
 	GtkWidget *exif_window;
-	GtkWidget *sar_window; /**< Search and Run window */
 
 	AnimationData *animation;
 
@@ -224,8 +213,6 @@ void layout_tools_hide_toggle(LayoutWindow *lw);
 
 void layout_selectable_toolbars_toggle(LayoutWindow *lw);
 void layout_info_pixel_set(LayoutWindow *lw, gboolean show);
-
-void layout_split_change(LayoutWindow *lw);
 
 gchar *layout_get_unique_id();
 guint layout_window_count();

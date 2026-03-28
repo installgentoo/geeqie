@@ -13,12 +13,6 @@
 
 main_sources = files('advanced-exif.cc',
 'advanced-exif.h',
-'bar.cc',
-'bar.h',
-'bar-comment.cc',
-'bar-comment.h',
-'bar-exif.cc',
-'bar-exif.h',
 'cache.cc',
 'cache.h',
 'cache-loader.cc',

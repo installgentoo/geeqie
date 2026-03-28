@@ -55,7 +55,6 @@
         <menuitem action="NextPage"/>
         <menuitem action="PrevPage"/>
       </menu>
-      <menu action="PluginsMenu"/>
       <menu action="ViewMenu">
         <menuitem action="ExifWin"/>
         <separator/>
@@ -113,8 +112,6 @@
         <menuitem action="OverUnderExposed"/>
         <menuitem action="FullScreen"/>
         <separator/>
-        <menuitem action="SBar"/>
-        <menuitem action="HideBars"/>
         <menuitem action="HideSelectableToolbars"/>
         <menuitem action="ShowInfoPixel"/>
         <menuitem action="IgnoreAlpha"/>

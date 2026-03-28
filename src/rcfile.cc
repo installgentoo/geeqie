@@ -30,9 +30,6 @@
 
 #include <config.h>
 
-#include "bar-comment.h"
-#include "bar-exif.h"
-#include "bar.h"
 #include "debug.h"
 #include "dupe.h"
 #include "editors.h"
@@ -1325,84 +1322,6 @@ static void options_parse_global_end(gpointer)
 #endif
 }
 
-static void options_parse_pane_exif(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
-{
-	if (g_ascii_strcasecmp(element_name, "entry") == 0)
-		{
-		auto pane = static_cast<GtkWidget *>(data);
-		bar_pane_exif_entry_add_from_config(pane, attribute_names, attribute_values);
-		}
-	else
-		{
-		log_printf("unexpected in <pane_exif>: <%s>\n", element_name);
-		}
-
-	parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-}
-
-static void options_parse_bar(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
-{
-	auto bar = static_cast<GtkWidget *>(data);
-	if (g_ascii_strcasecmp(element_name, "pane_comment") == 0)
-		{
-		GtkWidget *pane = bar_find_pane_by_id(bar, PANE_COMMENT, options_get_id(attribute_names, attribute_values));
-		if (pane)
-			{
-			bar_pane_comment_update_from_config(pane, attribute_names, attribute_values);
-			}
-		else
-			{
-			pane = bar_pane_comment_new_from_config(attribute_names, attribute_values);
-			bar_add(bar, pane);
-			}
-		parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-		}
-#if HAVE_LIBCHAMPLAIN && HAVE_LIBCHAMPLAIN_GTK
-	else if (g_ascii_strcasecmp(element_name, "pane_gps") == 0)
-		{
-		/* Use this flag to determine if --disable-clutter has been issued */
-		if (!options->disable_gpu)
-			{
-			GtkWidget *pane = bar_find_pane_by_id(bar, PANE_GPS, options_get_id(attribute_names, attribute_values));
-			if (pane)
-				{
-				bar_pane_gps_update_from_config(pane, attribute_names, attribute_values);
-				}
-			else
-				{
-				pane = bar_pane_gps_new_from_config(attribute_names, attribute_values);
-				bar_add(bar, pane);
-				}
-			parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-			}
-		}
-#endif
-	else if (g_ascii_strcasecmp(element_name, "pane_exif") == 0)
-		{
-		GtkWidget *pane = bar_find_pane_by_id(bar, PANE_EXIF, options_get_id(attribute_names, attribute_values));
-		if (pane)
-			{
-			bar_pane_exif_update_from_config(pane, attribute_names, attribute_values);
-			}
-		else
-			{
-			pane = bar_pane_exif_new_from_config(attribute_names, attribute_values);
-			bar_add(bar, pane);
-			}
-		parser_data->func_push(options_parse_pane_exif, nullptr, pane);
-		}
-	else if (g_ascii_strcasecmp(element_name, "clear") == 0)
-		{
-		bar_clear(bar);
-		parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-		}
-	else
-		{
-		log_printf("unexpected in <bar>: <%s>\n", element_name);
-		parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-		}
-}
-
 static void options_parse_toolbar(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -1458,21 +1377,7 @@ static void options_parse_dialogs(GQParserData *parser_data, const gchar *elemen
 static void options_parse_layout(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
-	if (g_ascii_strcasecmp(element_name, "bar") == 0)
-		{
-		if (!lw->bar)
-			{
-			GtkWidget *bar = bar_new_from_config(lw, attribute_names, attribute_values);
-			layout_bar_set(lw, bar);
-			}
-		else
-			{
-			bar_update_from_config(lw->bar, attribute_names, attribute_values, lw, FALSE);
-			}
-
-		parser_data->func_push(options_parse_bar, nullptr, lw->bar);
-		}
-	else if (g_ascii_strcasecmp(element_name, "toolbar") == 0)
+	if (g_ascii_strcasecmp(element_name, "toolbar") == 0)
 		{
 		parser_data->func_push(options_parse_toolbar, nullptr, lw);
 		}

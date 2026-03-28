@@ -59,6 +59,7 @@
 #include "cache.h"
 #include "compat.h"
 #include "debug.h"
+#include "editors.h"
 #include "exif.h"
 #include "filedata.h"
 #include "filefilter.h"
@@ -1168,6 +1169,17 @@ gint main(gint argc, gchar *argv[])
 				}
 			}
 	#endif
+
+		/* Load plugin desktop files so the Plugins menu is populated */
+		editor_table_clear();
+		GList *desktop_files = editor_get_desktop_files();
+		while (desktop_files)
+			{
+			editor_read_desktop_file(static_cast<const gchar *>(desktop_files->data));
+			g_free(desktop_files->data);
+			desktop_files = g_list_delete_link(desktop_files, desktop_files);
+			}
+		editor_table_finish();
 
 		/* handle missing config file and commandline additions*/
 		if (!layout_window_list)

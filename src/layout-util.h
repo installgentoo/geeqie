@@ -58,15 +58,6 @@ void layout_toolbar_add(LayoutWindow *lw, ToolbarType type, const gchar *action)
 void layout_toolbar_add_default(LayoutWindow *lw, ToolbarType type);
 void layout_keyboard_init(LayoutWindow *lw, GtkWidget *window);
 
-void layout_bar_toggle(LayoutWindow *lw);
-void layout_bar_set(LayoutWindow *lw, GtkWidget *bar);
-
-void layout_bars_new_image(LayoutWindow *lw);
-void layout_bars_new_selection(LayoutWindow *lw, gint count);
-
-GtkWidget *layout_bars_prepare(LayoutWindow *lw, GtkWidget *image);
-void layout_bars_close(LayoutWindow *lw);
-
 void layout_exif_window_new(LayoutWindow *lw);
 
 GtkWidget *layout_actions_menu_tool_bar(LayoutWindow *lw);

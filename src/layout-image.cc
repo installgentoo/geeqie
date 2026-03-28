@@ -765,26 +765,6 @@ static void layout_image_dnd_end(GtkWidget *, GdkDragContext *context, gpointer 
 		}
 }
 
-static void layout_image_dnd_init(LayoutWindow *lw, gint i)
-{
-	ImageWindow *imd = lw->split_images[i];
-
-	gtk_drag_source_set(imd->pr, GDK_BUTTON2_MASK,
-	                    dnd_file_drag_types.data(), dnd_file_drag_types.size(),
-	                    static_cast<GdkDragAction>(GDK_ACTION_COPY | GDK_ACTION_MOVE | GDK_ACTION_LINK));
-	g_signal_connect(G_OBJECT(imd->pr), "drag_data_get",
-			 G_CALLBACK(layout_image_dnd_get), lw);
-	g_signal_connect(G_OBJECT(imd->pr), "drag_end",
-			 G_CALLBACK(layout_image_dnd_end), lw);
-
-	gtk_drag_dest_set(imd->pr,
-	                  static_cast<GtkDestDefaults>(GTK_DEST_DEFAULT_MOTION | GTK_DEST_DEFAULT_DROP),
-	                  dnd_file_drop_types.data(), dnd_file_drop_types.size(),
-	                  static_cast<GdkDragAction>(GDK_ACTION_COPY | GDK_ACTION_MOVE | GDK_ACTION_LINK));
-	g_signal_connect(G_OBJECT(imd->pr), "drag_data_received",
-			 G_CALLBACK(layout_image_dnd_receive), lw);
-}
-
 
 /*
  *----------------------------------------------------------------------------
@@ -968,7 +948,6 @@ void layout_image_set_fd(LayoutWindow *lw, FileData *fd)
 
 
 	layout_list_sync_fd(lw, fd);
-	layout_bars_new_image(lw);
 	layout_image_animate_new_file(lw);
 
 	if (fd)
@@ -1356,32 +1335,6 @@ static void layout_image_drag_cb(ImageWindow *imd, GdkEventMotion *event, gdoubl
 		}
 }
 
-static void layout_image_button_inactive_cb(ImageWindow *imd, GdkEventButton *event, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	GtkWidget *menu;
-
-	switch (event->button)
-		{
-		case MOUSE_BUTTON_RIGHT:
-			menu = layout_image_pop_menu(lw);
-			if (imd == lw->image)
-				{
-				g_object_set_data(G_OBJECT(menu), "click_parent", imd->widget);
-				}
-			gtk_menu_popup_at_pointer(GTK_MENU(menu), nullptr);
-			break;
-		default:
-			break;
-		}
-
-}
-
-static void layout_image_drag_inactive_cb(ImageWindow *imd, GdkEventMotion *event, gdouble dx, gdouble dy, gpointer data)
-{
-	layout_image_drag_cb(imd, event, dx, dy, data);
-}
-
 
 static void layout_image_set_buttons(LayoutWindow *lw)
 {
@@ -1389,11 +1342,6 @@ static void layout_image_set_buttons(LayoutWindow *lw)
 	image_set_scroll_func(lw->image, layout_image_scroll_cb, lw);
 }
 
-static void layout_image_set_buttons_inactive(LayoutWindow *lw, gint i)
-{
-	image_set_button_func(lw->split_images[i], layout_image_button_inactive_cb, lw);
-	image_set_scroll_func(lw->split_images[i], layout_image_scroll_cb, lw);
-}
 
 /* Returns the length of an integer */
 static gint num_length(gint num)
@@ -1479,173 +1427,48 @@ static void layout_image_update_cb(ImageWindow *, gpointer data)
 	layout_status_update_image(lw);
 }
 
-GtkWidget *layout_image_new(LayoutWindow *lw, gint i)
+
+void layout_image_init(LayoutWindow *lw)
 {
-	if (!lw->split_image_sizegroup) lw->split_image_sizegroup = gtk_size_group_new(GTK_SIZE_GROUP_BOTH);
+	ImageWindow *imd = image_new(TRUE);
 
-	if (!lw->split_images[i])
-		{
-		lw->split_images[i] = image_new(TRUE);
+	lw->image = imd;
 
-		g_object_ref(lw->split_images[i]->widget);
+	g_object_ref(imd->widget);
 
-		g_signal_connect(G_OBJECT(lw->split_images[i]->pr), "update-pixel",
-				 G_CALLBACK(layout_status_update_pixel_cb), lw);
+	g_signal_connect(G_OBJECT(imd->pr), "update-pixel",
+			 G_CALLBACK(layout_status_update_pixel_cb), lw);
 
-		image_background_set_color_from_options(lw->split_images[i], FALSE);
+	image_background_set_color_from_options(imd, FALSE);
+	image_auto_refresh_enable(imd, TRUE);
 
-		image_auto_refresh_enable(lw->split_images[i], TRUE);
+	/* DnD — inlined from layout_image_dnd_init */
+	gtk_drag_source_set(imd->pr, GDK_BUTTON2_MASK,
+	                    dnd_file_drag_types.data(), dnd_file_drag_types.size(),
+	                    static_cast<GdkDragAction>(GDK_ACTION_COPY | GDK_ACTION_MOVE | GDK_ACTION_LINK));
+	g_signal_connect(G_OBJECT(imd->pr), "drag_data_get",
+			 G_CALLBACK(layout_image_dnd_get), lw);
+	g_signal_connect(G_OBJECT(imd->pr), "drag_end",
+			 G_CALLBACK(layout_image_dnd_end), lw);
+	gtk_drag_dest_set(imd->pr,
+	                  static_cast<GtkDestDefaults>(GTK_DEST_DEFAULT_MOTION | GTK_DEST_DEFAULT_DROP),
+	                  dnd_file_drop_types.data(), dnd_file_drop_types.size(),
+	                  static_cast<GdkDragAction>(GDK_ACTION_COPY | GDK_ACTION_MOVE | GDK_ACTION_LINK));
+	g_signal_connect(G_OBJECT(imd->pr), "drag_data_received",
+			 G_CALLBACK(layout_image_dnd_receive), lw);
 
-		layout_image_dnd_init(lw, i);
-		image_color_profile_set(lw->split_images[i],
-					options->color_profile.input_type,
-					options->color_profile.use_image);
-		image_color_profile_set_use(lw->split_images[i], options->color_profile.enabled);
+	image_color_profile_set(imd,
+				options->color_profile.input_type,
+				options->color_profile.use_image);
+	image_color_profile_set_use(imd, options->color_profile.enabled);
 
-		gtk_size_group_add_widget(lw->split_image_sizegroup, lw->split_images[i]->widget);
-		gtk_widget_set_size_request(lw->split_images[i]->widget, IMAGE_MIN_WIDTH, -1);
-
-		}
-
-	return lw->split_images[i]->widget;
-}
-
-static void layout_image_deactivate(LayoutWindow *lw, gint i)
-{
-	if (!lw->split_images[i]) return;
-	image_set_update_func(lw->split_images[i], nullptr, nullptr);
-	layout_image_set_buttons_inactive(lw, i);
-	image_set_drag_func(lw->split_images[i], layout_image_drag_inactive_cb, lw);
-
-	image_attach_window(lw->split_images[i], nullptr, nullptr, nullptr, FALSE);
-	image_select(lw->split_images[i], FALSE);
-}
-
-/* force should be set after change of lw->split_mode */
-void layout_image_activate(LayoutWindow *lw, gint i, gboolean force)
-{
-	FileData *fd;
-
-	if (!lw->split_images[i]) return;
-	if (!force && lw->active_split_image == i) return;
-
-	/* deactivate currently active */
-	if (lw->active_split_image != i)
-		layout_image_deactivate(lw, lw->active_split_image);
-
-	lw->image = lw->split_images[i];
-	lw->active_split_image = i;
-
-	image_set_update_func(lw->image, layout_image_update_cb, lw);
+	/* Activate — inlined from layout_image_activate */
+	image_set_update_func(imd, layout_image_update_cb, lw);
 	layout_image_set_buttons(lw);
-	image_set_drag_func(lw->image, layout_image_drag_cb, lw);
-
-	image_attach_window(lw->image, lw->window, nullptr, GQ_APPNAME, FALSE);
-
-		image_select(lw->split_images[i], FALSE);
-
-	fd = image_get_fd(lw->image);
-
-	if (fd)
-		{
-		layout_set_fd(lw, fd);
-		}
-	layout_status_update_image(lw);
+	image_set_drag_func(imd, layout_image_drag_cb, lw);
+	image_attach_window(imd, lw->window, nullptr, GQ_APPNAME, FALSE);
 }
 
-
-static void layout_image_setup_split_common(LayoutWindow *lw, gint n)
-{
-	gboolean frame = (n > 1) || (!lw->options.tools_float && !lw->options.tools_hidden);
-	gint i;
-
-	for (i = 0; i < n; i++)
-		if (!lw->split_images[i])
-			{
-			FileData *img_fd = nullptr;
-			double zoom = 0.0;
-
-			layout_image_new(lw, i);
-			image_set_frame(lw->split_images[i], frame);
-			image_set_selectable(lw->split_images[i], (n > 1));
-
-			if (lw->image)
-				{
-				image_osd_copy_status(lw->image, lw->split_images[i]);
-				}
-
-			if (layout_selection_count(lw, nullptr) > 1)
-				{
-				GList *work = g_list_last(layout_selection_list(lw));
-				gint j = 0;
-
-				while (work && j < i)
-					{
-					auto fd = static_cast<FileData *>(work->data);
-					work = work->prev;
-
-					if (!fd || !*fd->path || fd->parent ||
-										fd == lw->split_images[0]->image_fd)
-						{
-						continue;
-						}
-					img_fd = fd;
-
-					j++;
-					}
-				}
-
-			if (!img_fd && lw->image)
-				{
-				img_fd = image_get_fd(lw->image);
-				zoom = image_zoom_get(lw->image);
-				}
-
-			if (img_fd)
-				{
-				gdouble sx;
-				gdouble sy;
-				image_change_fd(lw->split_images[i], img_fd, zoom);
-				image_get_scroll_center(lw->image, &sx, &sy);
-				image_set_scroll_center(lw->split_images[i], sx, sy);
-				}
-			layout_image_deactivate(lw, i);
-			}
-		else
-			{
-			image_set_frame(lw->split_images[i], frame);
-			image_set_selectable(lw->split_images[i], (n > 1));
-			}
-
-	for (i = n; i < 1; i++)
-		{
-		if (lw->split_images[i])
-			{
-			g_object_unref(lw->split_images[i]->widget);
-			lw->split_images[i] = nullptr;
-			}
-		}
-
-	if (!lw->image || lw->active_split_image < 0 || lw->active_split_image >= n)
-		{
-		layout_image_activate(lw, 0, TRUE);
-		}
-	else
-		{
-		/* this will draw the frame around selected image (image_select)
-		   on switch from single to split images */
-		layout_image_activate(lw, lw->active_split_image, TRUE);
-		}
-}
-
-GtkWidget *layout_image_setup_split_none(LayoutWindow *lw)
-{
-	layout_image_setup_split_common(lw, 1);
-
-	lw->split_image_widget = lw->split_images[0]->widget;
-
-	return lw->split_image_widget;
-}
 
 /*
  *-----------------------------------------------------------------------------

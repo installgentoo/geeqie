@@ -35,7 +35,6 @@
 #include <config.h>
 
 #include "advanced-exif.h"
-#include "bar.h"
 #include "cache-maint.h"
 #include "color-man.h"
 #include "compat.h"
@@ -74,8 +73,6 @@
 #include "view-file.h"
 #include "window.h"
 
-static gboolean layout_bar_enabled(LayoutWindow *lw);
-static void layout_bars_hide_toggle(LayoutWindow *lw);
 static void layout_util_sync_views(LayoutWindow *lw);
 
 /*
@@ -183,11 +180,6 @@ gboolean layout_key_press_cb(GtkWidget *widget, GdkEventKey *event, gpointer dat
 	if (lw->vd && lw->options.dir_view_type == DIRVIEW_TREE && gtk_widget_has_focus(lw->vd->view) &&
 	    !layout_key_match(event->keyval) &&
 	    gtk_widget_event(lw->vd->view, reinterpret_cast<GdkEvent *>(event)))
-		{
-		return TRUE;
-		}
-	if (lw->bar &&
-	    bar_event(lw->bar, reinterpret_cast<GdkEvent *>(event)))
 		{
 		return TRUE;
 		}
@@ -843,28 +835,6 @@ static void layout_menu_info_pixel_cb(GtkToggleAction *action, gpointer data)
 	layout_info_pixel_set(lw, !lw->options.show_info_pixel);
 }
 
-/* NOTE: these callbacks are called also from layout_util_sync_views */
-static void layout_menu_bar_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (layout_bar_enabled(lw) == gq_gtk_toggle_action_get_active(action)) return;
-
-	layout_exit_fullscreen(lw);
-	layout_bar_toggle(lw);
-}
-
-static void layout_menu_hide_bars_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (lw->options.bars_state.hidden == gq_gtk_toggle_action_get_active(action))
-		{
-		return;
-		}
-	layout_bars_hide_toggle(lw);
-}
-
 static void layout_menu_about_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -1240,7 +1210,6 @@ static GtkActionEntry menu_entries[] = {
   { "OverlayMenu",           nullptr,                           N_("Image _Overlay"),                                   nullptr,               nullptr,                                               nullptr },
   { "PermanentDelete",       GQ_ICON_DELETE,                    N_("Delete selection..."),                              "<shift>Delete",       N_("Delete selection..."),                             CB(layout_menu_delete_cb) },
   { "Plugins",               GQ_ICON_PREFERENCES,               N_("Configure _Plugins..."),                            nullptr,               N_("Configure Plugins..."),                            CB(layout_menu_editors_cb) },
-  { "PluginsMenu",           nullptr,                           N_("_Plugins"),                                         nullptr,               nullptr,                                               nullptr },
   { "Preferences",           GQ_ICON_PREFERENCES,               N_("P_references..."),                                  "<control>O",          N_("Preferences..."),                                  CB(layout_menu_config_cb) },
   { "PreferencesMenu",       nullptr,                           N_("P_references"),                                     nullptr,               nullptr,                                               nullptr },
   { "PrevImageAlt1",         GQ_ICON_GO_UP,                     N_("_Previous Image"),                                  "Page_Up",             N_("Previous Image"),                                  CB(layout_menu_image_prev_cb) },
@@ -1284,13 +1253,11 @@ static GtkToggleActionEntry menu_toggle_entries[] = {
   { "ExifRotate",              GQ_ICON_ROTATE_LEFT,                  N_("_Exif rotate"),             "<alt>X",          N_("Toggle Exif rotate"),            CB(layout_menu_exif_rotate_cb),              FALSE  },
   { "FloatTools",              PIXBUF_INLINE_ICON_FLOAT,             N_("_Float file list"),         "L",               N_("Float file list"),               CB(layout_menu_float_cb),                    FALSE  },
   { "Grayscale",               PIXBUF_INLINE_ICON_GRAYSCALE,         N_("Toggle _grayscale"),        "<shift>G",        N_("Toggle grayscale"),              CB(layout_menu_alter_desaturate_cb),         FALSE  },
-  { "HideBars",                nullptr,                              N_("Hide Bars and Files"),      "grave",           N_("Hide Bars and Files"),           CB(layout_menu_hide_bars_cb),                FALSE  },
   { "HideSelectableToolbars",  nullptr,                              N_("Hide Selectable Bars"),     "<control>grave",  N_("Hide Selectable Bars"),          CB(layout_menu_selectable_toolbars_cb),      FALSE  },
   { "IgnoreAlpha",             GQ_ICON_STRIKETHROUGH,                N_("Hide _alpha"),              "<shift>A",        N_("Hide alpha channel"),            CB(layout_menu_alter_ignore_alpha_cb),       FALSE  },
   { "ImageOverlay",            nullptr,                              N_("Image _Overlay"),           nullptr,           N_("Image Overlay"),                 CB(layout_menu_overlay_cb),                  FALSE  },
   { "OverUnderExposed",        PIXBUF_INLINE_ICON_EXPOSURE,          N_("Over/Under Exposed"),       "<shift>E",        N_("Highlight over/under exposed"),  CB(layout_menu_select_overunderexposed_cb),  FALSE  },
   { "RectangularSelection",    PIXBUF_INLINE_ICON_SELECT_RECTANGLE,  N_("Rectangular Selection"),    "<alt>R",          N_("Rectangular Selection"),         CB(layout_menu_rectangular_selection_cb),    FALSE  },
-  { "SBar",                    PIXBUF_INLINE_ICON_PROPERTIES,        N_("_Info sidebar"),            "<control>K",      N_("Info sidebar"),                  CB(layout_menu_bar_cb),                      FALSE  },
   { "ShowFileFilter",          GQ_ICON_FILE_FILTER,                  N_("Show File Filter"),         nullptr,           N_("Show File Filter"),              CB(layout_menu_file_filter_cb),              FALSE  },
   { "ShowInfoPixel",           GQ_ICON_SELECT_COLOR,                 N_("Pi_xel Info"),              nullptr,           N_("Show Pixel Info"),               CB(layout_menu_info_pixel_cb),               FALSE  },
   { "UseColorProfiles",        GQ_ICON_COLOR_MANAGEMENT,             N_("Use _color profiles"),      nullptr,           N_("Use color profiles"),            CB(layout_color_menu_enable_cb),             FALSE  },
@@ -2078,9 +2045,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	action = gq_gtk_action_group_get_action(lw->action_group, "FloatTools");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.tools_float);
 
-	action = gq_gtk_action_group_get_action(lw->action_group, "SBar");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), layout_bar_enabled(lw));
-
 	action = gq_gtk_action_group_get_action(lw->action_group, "HideSelectableToolbars");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.selectable_toolbars_hidden);
 
@@ -2108,9 +2072,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	action = gq_gtk_action_group_get_action(lw->action_group, "ShowFileFilter");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.show_file_filter);
 
-	action = gq_gtk_action_group_get_action(lw->action_group, "HideBars");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), (lw->options.bars_state.hidden));
-
 	action = gq_gtk_action_group_get_action(lw->action_group, "ConnectZoomMenu");
 
 	layout_util_sync_color(lw);
@@ -2120,172 +2081,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 void layout_util_sync(LayoutWindow *lw)
 {
 	layout_util_sync_views(lw);
-}
-
-/*
- *-----------------------------------------------------------------------------
- * sidebars
- *-----------------------------------------------------------------------------
- */
-
-static gboolean layout_bar_enabled(LayoutWindow *lw)
-{
-	return lw->bar && gtk_widget_get_visible(lw->bar);
-}
-
-static void layout_bar_destroyed(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	lw->bar = nullptr;
-/*
-    do not call layout_util_sync_views(lw) here
-    this is called either when whole layout is destroyed - no need for update
-    or when the bar is replaced - sync is called by upper function at the end of whole operation
-
-*/
-}
-
-static void layout_bar_set_default(LayoutWindow *lw)
-{
-	GtkWidget *bar;
-
-	if (!lw->utility_box) return;
-
-	bar = bar_new(lw);
-	DEBUG_NAME(bar);
-
-	layout_bar_set(lw, bar);
-
-	bar_populate_default(bar);
-}
-
-static void layout_bar_close(LayoutWindow *lw)
-{
-	if (lw->bar)
-		{
-		bar_close(lw->bar);
-		lw->bar = nullptr;
-		}
-}
-
-
-void layout_bar_set(LayoutWindow *lw, GtkWidget *bar)
-{
-	if (!lw->utility_box) return;
-
-	layout_bar_close(lw); /* if any */
-
-	if (!bar) return;
-	lw->bar = bar;
-
-	g_signal_connect(G_OBJECT(lw->bar), "destroy",
-			 G_CALLBACK(layout_bar_destroyed), lw);
-
-	gtk_paned_pack2(GTK_PANED(lw->utility_paned), lw->bar, FALSE, TRUE);
-
-	bar_set_fd(lw->bar, layout_image_get_fd(lw));
-}
-
-
-void layout_bar_toggle(LayoutWindow *lw)
-{
-	if (layout_bar_enabled(lw))
-		{
-		gtk_widget_hide(lw->bar);
-		}
-	else
-		{
-		if (!lw->bar)
-			{
-			layout_bar_set_default(lw);
-			}
-		gtk_widget_show(lw->bar);
-		bar_set_fd(lw->bar, layout_image_get_fd(lw));
-		}
-	layout_util_sync_views(lw);
-}
-
-static void layout_bar_new_image(LayoutWindow *lw)
-{
-	if (!layout_bar_enabled(lw)) return;
-
-	bar_set_fd(lw->bar, layout_image_get_fd(lw));
-}
-
-static void layout_bar_new_selection(LayoutWindow *lw, gint count)
-{
-	if (!layout_bar_enabled(lw)) return;
-
-	bar_notify_selection(lw->bar, count);
-}
-
-static void layout_bars_hide_toggle(LayoutWindow *lw)
-{
-	if (lw->options.bars_state.hidden)
-		{
-		lw->options.bars_state.hidden = FALSE;
-		if (lw->options.bars_state.info)
-			{
-			gtk_widget_show(lw->bar);
-			}
-		layout_tools_float_set(lw, lw->options.tools_float,
-									lw->options.bars_state.tools_hidden);
-		}
-	else
-		{
-		lw->options.bars_state.hidden = TRUE;
-		lw->options.bars_state.info = layout_bar_enabled(lw);
-		lw->options.bars_state.tools_float = lw->options.tools_float;
-		lw->options.bars_state.tools_hidden = lw->options.tools_hidden;
-
-		if (lw->bar)
-			{
-			gtk_widget_hide(lw->bar);
-			}
-
-		layout_tools_float_set(lw, lw->options.tools_float, TRUE);
-		}
-
-	layout_util_sync_views(lw);
-}
-
-void layout_bars_new_image(LayoutWindow *lw)
-{
-	layout_bar_new_image(lw);
-
-	if (lw->exif_window) advanced_exif_set_fd(lw->exif_window, layout_image_get_fd(lw));
-
-	/* this should be called here to handle the metadata edited in bars */
-	if (options->metadata.confirm_on_image_change)
-		metadata_write_queue_confirm(FALSE, nullptr, nullptr);
-}
-
-void layout_bars_new_selection(LayoutWindow *lw, gint count)
-{
-	layout_bar_new_selection(lw, count);
-}
-
-GtkWidget *layout_bars_prepare(LayoutWindow *lw, GtkWidget *image)
-{
-	if (lw->utility_box) return lw->utility_box;
-	lw->utility_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, PREF_PAD_GAP);
-	lw->utility_paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-	DEBUG_NAME(lw->utility_paned);
-	gq_gtk_box_pack_start(GTK_BOX(lw->utility_box), lw->utility_paned, TRUE, TRUE, 0);
-
-	gtk_paned_pack1(GTK_PANED(lw->utility_paned), image, TRUE, FALSE);
-	gtk_widget_show(lw->utility_paned);
-
-	gtk_widget_show(image);
-
-	g_object_ref(lw->utility_box);
-	return lw->utility_box;
-}
-
-void layout_bars_close(LayoutWindow *lw)
-{
-	layout_bar_close(lw);
 }
 
 static gboolean layout_exif_window_destroy(GtkWidget *, gpointer data)
