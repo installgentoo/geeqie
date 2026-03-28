@@ -46,7 +46,6 @@
 #include "layout.h"
 #include "main-defines.h"
 #include "menu.h"
-#include "metadata.h"
 #include "misc.h"
 #include "options.h"
 #include "print.h"

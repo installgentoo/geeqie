@@ -513,8 +513,6 @@ struct LayoutOptions
 
 	GdkRectangle dupe_window;
 
-	GdkRectangle advanced_exif_window;
-
 	gboolean tools_float;
 	gboolean tools_hidden;
 	gboolean selectable_toolbars_hidden;

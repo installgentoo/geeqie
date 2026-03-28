@@ -214,7 +214,6 @@ static void metadata_write_queue_add(FileData *fd)
 		metadata_write_queue = g_list_prepend(metadata_write_queue, fd);
 		file_data_ref(fd);
 
-		layout_util_status_update_write_all();
 		}
 
 	if (metadata_write_idle_id)
@@ -242,7 +241,6 @@ gboolean metadata_write_queue_remove(FileData *fd)
 
 	file_data_unref(fd);
 
-	layout_util_status_update_write_all();
 	return TRUE;
 }
 

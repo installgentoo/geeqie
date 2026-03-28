@@ -34,7 +34,6 @@
 
 #include <config.h>
 
-#include "advanced-exif.h"
 #include "cache-maint.h"
 #include "color-man.h"
 #include "compat.h"
@@ -367,20 +366,6 @@ static void layout_menu_move_to_trash_key_cb(GtkAction *, gpointer data)
 		}
 }
 
-static void layout_menu_disable_grouping_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	file_data_disable_grouping_list(layout_selection_list(lw), TRUE);
-}
-
-static void layout_menu_enable_grouping_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	file_data_disable_grouping_list(layout_selection_list(lw), FALSE);
-}
-
 static void layout_menu_exit_cb(GtkAction *, gpointer)
 {
 	exit_program();
@@ -534,90 +519,6 @@ static void layout_menu_zoom_1_3_cb(GtkAction *, gpointer data)
 }
 
 static void layout_menu_zoom_1_4_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, -4.0);
-}
-
-/* connected zoom */
-static void layout_menu_connect_zoom_in_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_adjust(lw, get_zoom_increment());
-}
-
-static void layout_menu_connect_zoom_out_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_adjust(lw, -get_zoom_increment());
-}
-
-static void layout_menu_connect_zoom_1_1_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, 1.0);
-}
-
-static void layout_menu_connect_zoom_fit_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, 0.0);
-}
-
-static void layout_menu_connect_zoom_fit_hor_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set_fill_geometry(lw, FALSE);
-}
-
-static void layout_menu_connect_zoom_fit_vert_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set_fill_geometry(lw, TRUE);
-}
-
-static void layout_menu_connect_zoom_2_1_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, 2.0);
-}
-
-static void layout_menu_connect_zoom_3_1_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, 3.0);
-}
-static void layout_menu_connect_zoom_4_1_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, 4.0);
-}
-
-static void layout_menu_connect_zoom_1_2_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, -2.0);
-}
-
-static void layout_menu_connect_zoom_1_3_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, -3.0);
-}
-
-static void layout_menu_connect_zoom_1_4_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
@@ -787,14 +688,6 @@ static void layout_menu_refresh_cb(GtkAction *, gpointer data)
 	auto lw = static_cast<LayoutWindow *>(data);
 
 	layout_refresh(lw);
-}
-
-static void layout_menu_bar_exif_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	layout_exif_window_new(lw);
 }
 
 static void layout_menu_float_cb(GtkToggleAction *action, gpointer data)
@@ -1060,11 +953,6 @@ static void layout_menu_edit_cb(GtkAction *action, gpointer data)
 }
 
 
-static void layout_menu_metadata_write_cb(GtkAction *, gpointer)
-{
-	metadata_write_queue_confirm(TRUE, nullptr, nullptr);
-}
-
 /*
  *-----------------------------------------------------------------------------
  * color profile button (and menu)
@@ -1149,23 +1037,6 @@ static GtkActionEntry menu_entries[] = {
   { "About",                 GQ_ICON_ABOUT,                     N_("_About"),                                           nullptr,               N_("About"),                                           CB(layout_menu_about_cb) },
   { "Back",                  GQ_ICON_GO_PREV,                   N_("_Back"),                                            nullptr,               N_("Back in folder history"),                          CB(layout_menu_back_cb) },
   { "ColorMenu",             nullptr,                           N_("_Color Management"),                                nullptr,               nullptr,                                               nullptr },
-  { "ConnectZoom100Alt1",    GQ_ICON_ZOOM_100,                  N_("Zoom _1:1"),                                        "<shift>KP_Divide",    N_("Connected Zoom 1:1"),                              CB(layout_menu_connect_zoom_1_1_cb) },                 
-  { "ConnectZoom100",        GQ_ICON_ZOOM_100,                  N_("Zoom _1:1"),                                        "<shift>Z",            N_("Connected Zoom 1:1"),                              CB(layout_menu_connect_zoom_1_1_cb) },
-  { "ConnectZoom200",        nullptr,                           N_("Zoom _2:1"),                                        nullptr,               N_("Connected Zoom 2:1"),                              CB(layout_menu_connect_zoom_2_1_cb) },
-  { "ConnectZoom25",         nullptr,                           N_("Zoom 1:4"),                                         nullptr,               N_("Connected Zoom 1:4"),                              CB(layout_menu_connect_zoom_1_4_cb) },
-  { "ConnectZoom300",        nullptr,                           N_("Zoom _3:1"),                                        nullptr,               N_("Connected Zoom 3:1"),                              CB(layout_menu_connect_zoom_3_1_cb) },
-  { "ConnectZoom33",         nullptr,                           N_("Zoom 1:3"),                                         nullptr,               N_("Connected Zoom 1:3"),                              CB(layout_menu_connect_zoom_1_3_cb) },
-  { "ConnectZoom400",        nullptr,                           N_("Zoom _4:1"),                                        nullptr,               N_("Connected Zoom 4:1"),                              CB(layout_menu_connect_zoom_4_1_cb) },
-  { "ConnectZoom50",         nullptr,                           N_("Zoom 1:2"),                                         nullptr,               N_("Connected Zoom 1:2"),                              CB(layout_menu_connect_zoom_1_2_cb) },
-  { "ConnectZoomFillHor",    nullptr,                           N_("Fit _Horizontally"),                                "<shift>H",            N_("Connected Fit Horizontally"),                      CB(layout_menu_connect_zoom_fit_hor_cb) },             
-  { "ConnectZoomFillVert",   nullptr,                           N_("Fit _Vertically"),                                  "<shift>W",            N_("Connected Fit Vertically"),                        CB(layout_menu_connect_zoom_fit_vert_cb) },            
-  { "ConnectZoomFitAlt1",    GQ_ICON_ZOOM_FIT,                  N_("_Zoom to fit"),                                     "<shift>KP_Multiply",  N_("Connected Zoom to fit"),                           CB(layout_menu_connect_zoom_fit_cb) },                 
-  { "ConnectZoomFit",        GQ_ICON_ZOOM_FIT,                  N_("_Zoom to fit"),                                     "<shift>X",            N_("Connected Zoom to fit"),                           CB(layout_menu_connect_zoom_fit_cb) },
-  { "ConnectZoomInAlt1",     GQ_ICON_ZOOM_IN,                   N_("Zoom _in"),                                         "<shift>KP_Add",       N_("Connected Zoom in"),                               CB(layout_menu_connect_zoom_in_cb) },                  
-  { "ConnectZoomIn",         GQ_ICON_ZOOM_IN,                   N_("Zoom _in"),                                         "plus",                N_("Connected Zoom in"),                               CB(layout_menu_connect_zoom_in_cb) },
-  { "ConnectZoomMenu",       nullptr,                           N_("_Connected Zoom"),                                  nullptr,               nullptr,                                               nullptr },
-  { "ConnectZoomOutAlt1",    GQ_ICON_ZOOM_OUT,                  N_("Zoom _out"),                                        "<shift>KP_Subtract",  N_("Connected Zoom out"),                              CB(layout_menu_connect_zoom_out_cb) },                 
-  { "ConnectZoomOut",        GQ_ICON_ZOOM_OUT,                  N_("Zoom _out"),                                        "underscore",          N_("Connected Zoom out"),                              CB(layout_menu_connect_zoom_out_cb) },
   { "Copy",                  GQ_ICON_COPY,                      N_("_Copy..."),                                         "<control>C",          N_("Copy..."),                                         CB(layout_menu_copy_cb) },
   { "CopyImage",             nullptr,                           N_("_Copy image to clipboard"),                         nullptr,               N_("Copy image to clipboard"),                         CB(layout_menu_copy_image_cb) },
   { "CopyPath",              nullptr,                           N_("_Copy to clipboard"),                               nullptr,               N_("Copy to clipboard"),                               CB(layout_menu_copy_path_cb) },
@@ -1174,12 +1045,9 @@ static GtkActionEntry menu_entries[] = {
   { "DeleteAlt1",            GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "Delete",              N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_key_cb) },
   { "DeleteAlt2",            GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "KP_Delete",           N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_key_cb) },
   { "Delete",                GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "<control>D",          N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_cb) },
-  { "DisableGrouping",       nullptr,                           N_("Disable file groupi_ng"),                           nullptr,               N_("Disable file grouping"),                           CB(layout_menu_disable_grouping_cb) },
   { "EditMenu",              nullptr,                           N_("_Edit"),                                            nullptr,               nullptr,                                               nullptr },
-  { "EnableGrouping",        nullptr,                           N_("Enable file _grouping"),                            nullptr,               N_("Enable file grouping"),                            CB(layout_menu_enable_grouping_cb) },
   { "EscapeAlt1",            GQ_ICON_LEAVE_FULLSCREEN,          N_("_Leave full screen"),                               "Q",                   N_("Leave full screen"),                               CB(layout_menu_escape_cb) },                           
   { "Escape",                GQ_ICON_LEAVE_FULLSCREEN,          N_("_Leave full screen"),                              "Escape",               N_("Leave full screen"),                               CB(layout_menu_escape_cb) },                           
-  { "ExifWin",               PIXBUF_INLINE_ICON_EXIF,           N_("_Exif window"),                                     "<control>E",          N_("Exif window"),                                     CB(layout_menu_bar_exif_cb) },
   { "FileDirMenu",           nullptr,                           N_("_Files and Folders"),                               nullptr,               nullptr,                                               nullptr },
   { "FileMenu",              nullptr,                           N_("_File"),                                            nullptr,               nullptr,                                               nullptr },
   { "FindDupes",             GQ_ICON_FIND,                      N_("_Find duplicates..."),                              "D",                   N_("Find duplicates..."),                              CB(layout_menu_dupes_cb) },
@@ -1220,7 +1088,6 @@ static GtkActionEntry menu_entries[] = {
   { "Quit",                  GQ_ICON_QUIT,                      N_("_Quit"),                                            "<control>Q",          N_("Quit"),                                            CB(layout_menu_exit_cb) },
   { "Refresh",               GQ_ICON_REFRESH,                   N_("_Refresh"),                                         "R",                   N_("Refresh"),                                         CB(layout_menu_refresh_cb) },
   { "Rename",                PIXBUF_INLINE_ICON_RENAME,         N_("_Rename..."),                                       "<control>R",          N_("Rename..."),                                       CB(layout_menu_rename_cb) },
-  { "SaveMetadata",          GQ_ICON_SAVE,                      N_("_Save metadata"),                                   "<control>S",          N_("Save metadata"),                                   CB(layout_menu_metadata_write_cb) },
   { "Search",                GQ_ICON_FIND,                      N_("_Search..."),                                       "F3",                  N_("Search..."),                                       CB(layout_menu_search_cb) },
   { "SelectAll",             PIXBUF_INLINE_ICON_SELECT_ALL,     N_("Select _all"),                                      "<control>A",          N_("Select all"),                                      CB(layout_menu_select_all_cb) },
   { "SelectInvert",          PIXBUF_INLINE_ICON_SELECT_INVERT,  N_("_Invert Selection"),                                "<control><shift>I",   N_("Invert Selection"),                                CB(layout_menu_invert_selection_cb) },
@@ -1519,9 +1386,6 @@ void layout_actions_setup(LayoutWindow *lw)
 
 	DEBUG_1("%s layout_actions_setup: editors", get_exec_time());
 	layout_actions_setup_editors(lw);
-
-	DEBUG_1("%s layout_actions_setup: status_update_write", get_exec_time());
-	layout_util_status_update_write(lw);
 
 	DEBUG_1("%s layout_actions_setup: actions_add_window", get_exec_time());
 	layout_actions_add_window(lw, lw->window);
@@ -1834,7 +1698,6 @@ void layout_toolbar_add_default(LayoutWindow *lw, ToolbarType type)
 					layout_toolbar_add(lw, type, "ExifRotate");
 					layout_toolbar_add(lw, type, "ShowInfoPixel");
 					layout_toolbar_add(lw, type, "UseColorProfiles");
-					layout_toolbar_add(lw, type, "SaveMetadata");
 					}
 				}
 			else
@@ -1842,7 +1705,6 @@ void layout_toolbar_add_default(LayoutWindow *lw, ToolbarType type)
 				layout_toolbar_add(lw, type, "ExifRotate");
 				layout_toolbar_add(lw, type, "ShowInfoPixel");
 				layout_toolbar_add(lw, type, "UseColorProfiles");
-				layout_toolbar_add(lw, type, "SaveMetadata");
 				}
 			break;
 		default:
@@ -1907,38 +1769,6 @@ void layout_toolbar_add_from_config(LayoutWindow *lw, ToolbarType type, const ch
  * misc
  *-----------------------------------------------------------------------------
  */
-
-void layout_util_status_update_write(LayoutWindow *lw)
-{
-	GtkAction *action;
-	gint n = metadata_queue_length();
-	action = gq_gtk_action_group_get_action(lw->action_group, "SaveMetadata");
-	gq_gtk_action_set_sensitive(action, n > 0);
-	if (n > 0)
-		{
-		gchar *buf = g_strdup_printf(_("Number of files with unsaved metadata: %d"), n);
-		g_object_set(G_OBJECT(action), "tooltip", buf, NULL);
-		g_free(buf);
-		}
-	else
-		{
-		g_object_set(G_OBJECT(action), "tooltip", _("No unsaved metadata"), NULL);
-		}
-}
-
-void layout_util_status_update_write_all()
-{
-	GList *work;
-
-	work = layout_window_list;
-	while (work)
-		{
-		auto lw = static_cast<LayoutWindow *>(work->data);
-		work = work->next;
-
-		layout_util_status_update_write(lw);
-		}
-}
 
 static gchar *layout_color_name_parse(const gchar *name)
 {
@@ -2072,8 +1902,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	action = gq_gtk_action_group_get_action(lw->action_group, "ShowFileFilter");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.show_file_filter);
 
-	action = gq_gtk_action_group_get_action(lw->action_group, "ConnectZoomMenu");
-
 	layout_util_sync_color(lw);
 	layout_image_set_ignore_alpha(lw, lw->options.ignore_alpha);
 }
@@ -2081,23 +1909,4 @@ static void layout_util_sync_views(LayoutWindow *lw)
 void layout_util_sync(LayoutWindow *lw)
 {
 	layout_util_sync_views(lw);
-}
-
-static gboolean layout_exif_window_destroy(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	lw->exif_window = nullptr;
-
-	return TRUE;
-}
-
-void layout_exif_window_new(LayoutWindow *lw)
-{
-	if (lw->exif_window) return;
-
-	lw->exif_window = advanced_exif_new(lw);
-	if (!lw->exif_window) return;
-	g_signal_connect(G_OBJECT(lw->exif_window), "destroy",
-			 G_CALLBACK(layout_exif_window_destroy), lw);
-	advanced_exif_set_fd(lw->exif_window, layout_image_get_fd(lw));
 }

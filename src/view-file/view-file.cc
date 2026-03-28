@@ -37,7 +37,6 @@
 #include "main-defines.h"
 #include "main.h"
 #include "menu.h"
-#include "metadata.h"
 #include "misc.h"
 #include "options.h"
 #include "pixbuf-util.h"
@@ -420,13 +419,6 @@ static void vf_pop_menu_cut_path_cb(GtkWidget *, gpointer data)
 	file_util_path_list_to_clipboard(vf_pop_menu_file_list(vf), FALSE, ClipboardAction::CUT);
 }
 
-static void vf_pop_menu_enable_grouping_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-
-	file_data_disable_grouping_list(vf_pop_menu_file_list(vf), FALSE);
-}
-
 static void vf_pop_menu_duplicates_cb(GtkWidget *, gpointer data)
 {
 	auto vf = static_cast<ViewFile *>(data);
@@ -434,13 +426,6 @@ static void vf_pop_menu_duplicates_cb(GtkWidget *, gpointer data)
 
 	dw = dupe_window_new();
 	dupe_window_add_files(dw, vf_pop_menu_file_list(vf), FALSE);
-}
-
-static void vf_pop_menu_disable_grouping_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-
-	file_data_disable_grouping_list(vf_pop_menu_file_list(vf), TRUE);
 }
 
 static void vf_pop_menu_sort_cb(GtkWidget *widget, gpointer data)
@@ -570,11 +555,6 @@ GtkWidget *vf_pop_menu(ViewFile *vf)
 					_("_Delete selection"), GQ_ICON_DELETE_SHRED, active,
 				G_CALLBACK(vf_pop_menu_delete_cb), vf);
 	menu_item_add_divider(menu);
-
-	menu_item_add_sensitive(menu, _("Enable file _grouping"), active,
-				G_CALLBACK(vf_pop_menu_enable_grouping_cb), vf);
-	menu_item_add_sensitive(menu, _("Disable file groupi_ng"), active,
-				G_CALLBACK(vf_pop_menu_disable_grouping_cb), vf);
 
 	menu_item_add_divider(menu);
 	menu_item_add_icon_sensitive(menu, _("_Find duplicates..."), GQ_ICON_FIND, active,

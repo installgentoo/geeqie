@@ -38,7 +38,6 @@
 #include "layout-util.h"
 #include "layout.h"
 #include "main-defines.h"
-#include "metadata.h"
 #include "options.h"
 #include "secure-save.h"
 #include "typedefs.h"

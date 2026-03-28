@@ -121,10 +121,6 @@ struct LayoutWindow
 
 	FullScreenData *full_screen;
 
-	/* misc */
-
-	GtkWidget *exif_window;
-
 	AnimationData *animation;
 
 	GtkWidget *log_window;

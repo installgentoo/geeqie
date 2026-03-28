@@ -38,9 +38,6 @@ void layout_util_sync_file_filter(LayoutWindow *lw);
 void layout_util_sync_color(LayoutWindow *lw);
 void layout_util_sync(LayoutWindow *lw);
 
-void layout_util_status_update_write(LayoutWindow *lw);
-void layout_util_status_update_write_all();
-
 void layout_recent_add_path(const gchar *path);
 
 void layout_copy_path_update_all();
@@ -57,8 +54,6 @@ void layout_toolbar_clear(LayoutWindow *lw, ToolbarType type);
 void layout_toolbar_add(LayoutWindow *lw, ToolbarType type, const gchar *action);
 void layout_toolbar_add_default(LayoutWindow *lw, ToolbarType type);
 void layout_keyboard_init(LayoutWindow *lw, GtkWidget *window);
-
-void layout_exif_window_new(LayoutWindow *lw);
 
 GtkWidget *layout_actions_menu_tool_bar(LayoutWindow *lw);
 

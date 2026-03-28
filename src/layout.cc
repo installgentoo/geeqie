@@ -768,7 +768,6 @@ void layout_status_update_all(LayoutWindow *lw)
 	layout_status_update_progress(lw, 0.0, nullptr);
 	layout_status_update_info(lw, nullptr);
 	layout_status_update_image(lw);
-	layout_util_status_update_write(lw);
 }
 
 static GtkWidget *layout_status_label(const gchar *text, GtkWidget *box, gboolean start, gint size, gboolean expand)
@@ -2014,8 +2013,6 @@ void layout_free(LayoutWindow *lw)
 	layout_window_list = g_list_remove(layout_window_list, lw);
 	if (current_lw == lw) current_lw = nullptr;
 
-	if (lw->exif_window) g_signal_handlers_disconnect_matched(G_OBJECT(lw->exif_window), G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, lw);
-
 	g_object_unref(lw->menu_bar);
 
 	for (i = 0; i < TOOLBAR_COUNT; i++)
@@ -2277,10 +2274,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_INT_FULL("dupe_window.w", layout->dupe_window.width);
 	WRITE_NL(); WRITE_INT_FULL("dupe_window.h", layout->dupe_window.height);
 
-	WRITE_NL(); WRITE_INT(*layout, advanced_exif_window.x);
-	WRITE_NL(); WRITE_INT(*layout, advanced_exif_window.y);
-	WRITE_NL(); WRITE_INT_FULL("advanced_exif_window.w", layout->advanced_exif_window.width);
-	WRITE_NL(); WRITE_INT_FULL("advanced_exif_window.h", layout->advanced_exif_window.height);
 	WRITE_SEPARATOR();
 
 	WRITE_NL(); WRITE_BOOL(*layout, animate);
@@ -2376,11 +2369,6 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_INT(*layout, dupe_window.y)) continue;
 		if (READ_INT_FULL("dupe_window.w", layout->dupe_window.width)) continue;
 		if (READ_INT_FULL("dupe_window.h", layout->dupe_window.height)) continue;
-
-		if (READ_INT(*layout, advanced_exif_window.x)) continue;
-		if (READ_INT(*layout, advanced_exif_window.y)) continue;
-		if (READ_INT_FULL("advanced_exif_window.w", layout->advanced_exif_window.width)) continue;
-		if (READ_INT_FULL("advanced_exif_window.h", layout->advanced_exif_window.height)) continue;
 
 		if (READ_BOOL(*layout, animate)) continue;
 		if (READ_INT(*layout, workspace)) continue;

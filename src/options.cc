@@ -311,7 +311,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->main_window.vdivider_pos = 200;
 	options->search_window = {100, 100, 700, 650};
 	options->dupe_window = {100, 100, 800, 400};
-	options->advanced_exif_window = {0, 0, 900, 600};
 	options->folder_window.vdivider_pos = 100;
 	options->order = g_strdup("123");
 	options->show_directory_date = FALSE;

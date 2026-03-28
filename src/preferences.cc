@@ -63,7 +63,6 @@
 #include "layout.h"
 #include "main-defines.h"
 #include "main.h"
-#include "metadata.h"
 #include "misc.h"
 #include "options.h"
 #include "osd.h"

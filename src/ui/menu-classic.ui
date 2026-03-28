@@ -1,6 +1,11 @@
 <ui>
   <menubar name="MainMenu">
       <menu action="FileMenu">
+        <menuitem action="Preferences"/>
+        <menuitem action="Plugins"/>
+        <menuitem action="LayoutConfig"/>
+        <menuitem action="Maintenance"/>
+        <separator/>
         <menuitem action="Search"/>
         <menuitem action="FindDupes"/>
         <separator/>
@@ -24,20 +29,6 @@
         <menuitem action="RectangularSelection"/>
         <menuitem action="ShowFileFilter"/>
         <separator/>
-        <menuitem action="CopyPath"/>
-        <menuitem action="CopyPathUnquoted"/>
-        <menuitem action="CopyImage"/>
-        <menuitem action="CutPath"/>
-      </menu>
-      <menu action="EditMenu">
-        <menuitem action="ExifRotate"/>
-        <menuitem action="SaveMetadata"/>
-        <separator/>
-        <menuitem action="Preferences"/>
-        <menuitem action="Plugins"/>
-        <menuitem action="LayoutConfig"/>
-        <menuitem action="Maintenance"/>
-        <separator/>
 		<menuitem action="FirstImage"/>
         <menuitem action="PrevImage"/>
         <menuitem action="NextImage"/>
@@ -45,18 +36,13 @@
         <menuitem action="ImageBack"/>
         <menuitem action="ImageForward"/>
         <separator/>
-        <menuitem action="Back"/>
-        <menuitem action="Forward"/>
-        <menuitem action="Up"/>
-        <menuitem action="Home"/>
-        <separator/>
-        <menuitem action="FirstPage"/>
-        <menuitem action="LastPage"/>
-        <menuitem action="NextPage"/>
-        <menuitem action="PrevPage"/>
+        <menuitem action="CopyPath"/>
+        <menuitem action="CopyPathUnquoted"/>
+        <menuitem action="CopyImage"/>
+        <menuitem action="CutPath"/>
       </menu>
       <menu action="ViewMenu">
-        <menuitem action="ExifWin"/>
+        <menuitem action="ExifRotate"/>
         <separator/>
         <menu action="FileDirMenu">
           <menuitem action="FolderTree"/>
@@ -66,20 +52,6 @@
         </menu>
         <separator/>
         <menu action="ZoomMenu">
-          <menu action="ConnectZoomMenu">
-            <menuitem action="ConnectZoomIn"/>
-            <menuitem action="ConnectZoomOut"/>
-            <menuitem action="ConnectZoomFit"/>
-            <menuitem action="ConnectZoomFillHor"/>
-            <menuitem action="ConnectZoomFillVert"/>
-            <menuitem action="ConnectZoom100"/>
-            <menuitem action="ConnectZoom200"/>
-            <menuitem action="ConnectZoom300"/>
-            <menuitem action="ConnectZoom400"/>
-            <menuitem action="ConnectZoom50"/>
-            <menuitem action="ConnectZoom33"/>
-            <menuitem action="ConnectZoom25"/>
-          </menu>
           <menuitem action="ZoomIn"/>
           <menuitem action="ZoomOut"/>
           <menuitem action="ZoomFit"/>
@@ -119,6 +91,16 @@
         <separator/>
         <menuitem action="Animate"/>
         <separator/>
+        <menuitem action="Back"/>
+        <menuitem action="Forward"/>
+        <menuitem action="Up"/>
+        <menuitem action="Home"/>
+        <separator/>
+        <menuitem action="FirstPage"/>
+        <menuitem action="LastPage"/>
+        <menuitem action="NextPage"/>
+        <menuitem action="PrevPage"/>
+        <separator/>
         <menuitem action="Refresh"/>
       </menu>
       <menu action="HelpMenu">
@@ -146,9 +128,4 @@
   <accelerator action="ZoomOutAlt1"/>
   <accelerator action="Zoom100Alt1"/>
   <accelerator action="ZoomFitAlt1"/>
-
-  <accelerator action="ConnectZoomInAlt1"/>
-  <accelerator action="ConnectZoomOutAlt1"/>
-  <accelerator action="ConnectZoom100Alt1"/>
-  <accelerator action="ConnectZoomFitAlt1"/>
 </ui>
