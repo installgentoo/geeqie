@@ -269,8 +269,6 @@ public:
 	}
 };
 
-static void _ExifDataProcessed_update_xmp(gpointer key, gpointer value, gpointer data);
-
 // This allows read-write access to the metadata
 struct ExifDataProcessed : public ExifData
 {
@@ -283,16 +281,9 @@ protected:
 	Exiv2::XmpData xmpData_;
 
 public:
-	ExifDataProcessed(gchar *path, gchar *sidecar_path, GHashTable *modified_xmp)
+	ExifDataProcessed(gchar *path, gchar *, GHashTable *)
 	{
 		imageData_ = std::make_unique<ExifDataOriginal>(path);
-		sidecarData_ = nullptr;
-		if (sidecar_path)
-			{
-			sidecarData_ = std::make_unique<ExifDataOriginal>(sidecar_path);
-			xmpData_ = sidecarData_->xmpData();
-			}
-		else
 			{
 			xmpData_ = imageData_->xmpData();
 			}
@@ -307,10 +298,6 @@ public:
 			{
 			DEBUG_1("Exiv2: Catching bug\n");
 			}
-		if (modified_xmp)
-			{
-			g_hash_table_foreach(modified_xmp, _ExifDataProcessed_update_xmp, this);
-			}
 	}
 
 	ExifData *original() override
@@ -318,44 +305,8 @@ public:
 		return imageData_.get();
 	}
 
-	void writeMetadata(gchar *path = nullptr) override
+	void writeMetadata(gchar *) override
 	{
-		if (!path)
-			{
-			if (options->metadata.save_legacy_IPTC)
-				copyXmpToIptc(xmpData_, iptcData_);
-			else
-				iptcData_.clear();
-
-			copyXmpToExif(xmpData_, exifData_);
-			Exiv2::Image *image = imageData_->image();
-
-			if (!image)
-#ifdef HAVE_EXIV2_ERROR_CODE
-#  if EXIV2_TEST_VERSION(0,28,0)
-				throw Exiv2::Error(Exiv2::ErrorCode::kerInputDataReadFailed);
-#  else
-				throw Exiv2::Error(Exiv2::kerInputDataReadFailed);
-#  endif
-#else
-				throw Exiv2::Error(21);
-#endif
-			image->setExifData(exifData_);
-			image->setIptcData(iptcData_);
-			image->setXmpData(xmpData_);
-			image->writeMetadata();
-			}
-		else
-			{
-			gchar *pathl = path_from_utf8(path);;
-
-			auto sidecar = Exiv2::ImageFactory::create(Exiv2::ImageType::xmp, pathl);
-
-			g_free(pathl);
-
-			sidecar->setXmpData(xmpData_);
-			sidecar->writeMetadata();
-			}
 	}
 
 	Exiv2::Image *image() override
@@ -419,45 +370,15 @@ void exif_init()
 
 
 
-static void _ExifDataProcessed_update_xmp(gpointer key, gpointer value, gpointer data)
+ExifData *exif_read(gchar *path, gchar *, GHashTable *)
 {
-	exif_update_metadata(static_cast<ExifData *>(data), static_cast<gchar *>(key), static_cast<GList *>(value));
-}
-
-ExifData *exif_read(gchar *path, gchar *sidecar_path, GHashTable *modified_xmp)
-{
-	DEBUG_1("exif read %s, sidecar: %s", path, sidecar_path ? sidecar_path : "-");
+	DEBUG_1("exif read %s", path);
 	try {
-		return new ExifDataProcessed(path, sidecar_path, modified_xmp);
+		return new ExifDataProcessed(path, nullptr, nullptr);
 	}
 	catch (Exiv2::AnyError& e) {
 		debug_exception(e);
 		return nullptr;
-	}
-
-}
-
-gboolean exif_write(ExifData *exif)
-{
-	try {
-		exif->writeMetadata();
-		return TRUE;
-	}
-	catch (Exiv2::AnyError& e) {
-		debug_exception(e);
-		return FALSE;
-	}
-}
-
-gboolean exif_write_sidecar(ExifData *exif, gchar *path)
-{
-	try {
-		exif->writeMetadata(path);
-		return TRUE;
-	}
-	catch (Exiv2::AnyError& e) {
-		debug_exception(e);
-		return FALSE;
 	}
 
 }

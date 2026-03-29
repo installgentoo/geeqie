@@ -196,8 +196,6 @@ gdouble image_zoom_get_real(ImageWindow *imd);
 gchar *image_zoom_get_as_text(ImageWindow *imd);
 gdouble image_zoom_get_default(ImageWindow *imd);
 
-/* stereo */
-
 void image_prebuffer_set(ImageWindow *imd, FileData *fd);
 
 void image_auto_refresh_enable(ImageWindow *imd, gboolean enable);

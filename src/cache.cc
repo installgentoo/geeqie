@@ -70,13 +70,6 @@ struct CachePathParts
 {
 	CachePathParts(CacheType cache_type)
 	{
-		if (cache_type == CACHE_TYPE_METADATA || cache_type == CACHE_TYPE_XMP_METADATA)
-			{
-			rc = get_metadata_cache_dir();
-			local = GQ_CACHE_LOCAL_METADATA;
-			use_local_dir = options->metadata.enable_metadata_dirs;
-			}
-		else
 			{
 			rc = get_thumbnails_cache_dir();
 			local = GQ_CACHE_LOCAL_THUMB;
@@ -90,12 +83,6 @@ struct CachePathParts
 				break;
 			case CACHE_TYPE_SIM:
 				ext = GQ_CACHE_EXT_SIM;
-				break;
-			case CACHE_TYPE_METADATA:
-				ext = GQ_CACHE_EXT_METADATA;
-				break;
-			case CACHE_TYPE_XMP_METADATA:
-				ext = GQ_CACHE_EXT_XMP_METADATA;
 				break;
 			}
 	}
@@ -746,20 +733,3 @@ const gchar *get_thumbnails_standard_cache_dir()
 
 	return thumbnails_standard_cache_dir;
 }
-
-const gchar *get_metadata_cache_dir()
-{
-#if USE_XDG
-	/* Metadata go to $XDG_DATA_HOME.
-	 * "Keywords and comments, among other things, are irreplaceable and cannot be auto-generated,
-	 * so I don't think they'd be appropriate for the cache directory." -- Omari Stephens on geeqie-devel ml
-	 */
-	static gchar *metadata_cache_dir = g_build_filename(xdg_data_home_get(), GQ_APPNAME_LC, GQ_CACHE_METADATA, NULL);
-#else
-	static gchar *metadata_cache_dir = g_build_filename(get_rc_dir(), GQ_CACHE_METADATA, NULL);
-#endif
-
-	return metadata_cache_dir;
-}
-
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

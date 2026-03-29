@@ -1394,7 +1394,6 @@ static void view_window_notify_cb(FileData *fd, NotifyType type, gpointer data)
 			view_real_removed(vw, fd);
 			break;
 		case FILEDATA_CHANGE_UNSPECIFIED:
-		case FILEDATA_CHANGE_WRITE_METADATA:
 			break;
 		}
 }

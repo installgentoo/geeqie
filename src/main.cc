@@ -33,11 +33,6 @@
 
 #include <config.h>
 
-#if HAVE_CLUTTER
-#  include <clutter-gtk/clutter-gtk.h>
-#  include <clutter/clutter.h>
-#endif
-
 #if HAVE_EXECINFO_H
 #include <execinfo.h>
 #endif
@@ -371,10 +366,6 @@ static void parse_command_line(gint argc, gchar *argv[])
 				{
 				/* do nothing but do not produce warnings */
 				}
-			else if (strncmp(cmd_line, "--disable-clutter", 17) == 0 && (cmd_line[17] == '\0'))
-				{
-				/* do nothing but do not produce warnings */
-				}
 			else if (strcmp(cmd_line, "-T") == 0 ||
 				 strcmp(cmd_line, "--with-tools") == 0)
 				{
@@ -451,7 +442,6 @@ static void parse_command_line(gint argc, gchar *argv[])
 				print_term(FALSE, _("Valid options:\n"));
 				print_term(FALSE, _("      --blank                      start with blank file list\n"));
 				print_term(FALSE, _("      --cache-maintenance=<path>   run cache maintenance in non-GUI mode\n"));
-				print_term(FALSE, _("      --disable-clutter            disable use of Clutter library (i.e. GPU accel.)\n"));
 				print_term(FALSE, _("  -f, --fullscreen                 start in full screen mode\n"));
 				print_term(FALSE, _("      --geometry=WxH+XOFF+YOFF     set main window location\n"));
 				print_term(FALSE, _("  -h, --help                       show this message\n"));
@@ -586,13 +576,6 @@ static gboolean search_command_line_for_unit_test_option(gint argc, gchar *argv[
 {
 	return search_command_line_for_option(argc, argv, "--run-unit-tests");
 }
-
-#if HAVE_CLUTTER
-static gboolean search_command_line_for_clutter_option(gint argc, gchar *argv[])
-{
-	return search_command_line_for_option(argc, argv, "--disable-clutter");
-}
-#endif
 
 static gboolean parse_command_line_for_cache_maintenance_option(gint argc, gchar *argv[])
 {
@@ -913,16 +896,9 @@ static gint exit_confirm_dlg()
 	return TRUE;
 }
 
-static void exit_program_write_metadata_cb(gint success, const gchar *, gpointer)
-{
-	if (success) exit_program();
-}
-
 void exit_program()
 {
 	layout_image_full_screen_stop(nullptr);
-
-	if (metadata_write_queue_confirm(FALSE, exit_program_write_metadata_cb, nullptr)) return;
 
 	if (exit_confirm_dlg()) return;
 
@@ -1024,7 +1000,6 @@ gint main(gint argc, gchar *argv[])
 #endif
 	}
 
-	gboolean disable_clutter = FALSE;
 	gboolean single_dir = TRUE;
 	GdkScreen *screen;
 	GtkCssProvider *provider;
@@ -1069,31 +1044,13 @@ gint main(gint argc, gchar *argv[])
 	/* register global notify functions */
 	file_data_register_notify_func(cache_notify_cb, nullptr, NOTIFY_PRIORITY_HIGH);
 	file_data_register_notify_func(thumb_notify_cb, nullptr, NOTIFY_PRIORITY_HIGH);
-	file_data_register_notify_func(metadata_notify_cb, nullptr, NOTIFY_PRIORITY_LOW);
 
 
 	gtkrc_load();
 
 	parse_command_line_for_debug_option(argc, argv);
 	DEBUG_1("%s main: gtk_init", get_exec_time());
-#if HAVE_CLUTTER
-	if (search_command_line_for_clutter_option(argc, argv))
-		{
-		disable_clutter	= TRUE;
-		gtk_init(&argc, &argv);
-		}
-	else
-		{
-		if (gtk_clutter_init(&argc, &argv) != CLUTTER_INIT_SUCCESS)
-			{
-			log_printf("Can't initialize clutter-gtk.\nStart Geeqie with the option \"geeqie --disable-clutter\"");
-			runcmd("zenity --error --title=\"Geeqie\" --text \"Can't initialize clutter-gtk.\n\nStart Geeqie with the option:\n geeqie --disable-clutter\" --width=300");
-			exit(EXIT_FAILURE);
-			}
-		}
-#else
 	gtk_init(&argc, &argv);
-#endif
 
 	if (gtk_major_version < GTK_MAJOR_VERSION ||
 	    (gtk_major_version == GTK_MAJOR_VERSION && gtk_minor_version < GTK_MINOR_VERSION) )
@@ -1112,16 +1069,11 @@ gint main(gint argc, gchar *argv[])
 	DEBUG_1("%s main: setting default options before commandline handling", get_exec_time());
 	options = init_options(nullptr);
 	setup_default_options(options);
-	if (disable_clutter)
-		{
-		options->disable_gpu = TRUE;
-		}
 
 	DEBUG_1("%s main: mkdir_if_not_exists", get_exec_time());
 	/* these functions don't depend on config file */
 	mkdir_if_not_exists(get_rc_dir());
 	mkdir_if_not_exists(get_thumbnails_cache_dir());
-	mkdir_if_not_exists(get_metadata_cache_dir());
 
 	setup_env_path();
 
@@ -1152,23 +1104,6 @@ gint main(gint argc, gchar *argv[])
 			filter_add_defaults();
 			filter_rebuild();
 			}
-
-	#if HAVE_CLUTTER
-	/** @FIXME For the background of this see:
-	 * https://github.com/BestImageViewer/geeqie/issues/397
-	 * The feature CLUTTER_FEATURE_SWAP_EVENTS indictates if the
-	 * system is liable to exhibit this problem.
-	 * The user is provided with an override in Preferences/Behavior
-	 */
-		if (!options->override_disable_gpu && !options->disable_gpu)
-			{
-			DEBUG_1("CLUTTER_FEATURE_SWAP_EVENTS %d",clutter_feature_available(CLUTTER_FEATURE_SWAP_EVENTS));
-			if (clutter_feature_available(CLUTTER_FEATURE_SWAP_EVENTS) != 0)
-				{
-				options->disable_gpu = TRUE;
-				}
-			}
-	#endif
 
 		/* Load plugin desktop files so the Plugins menu is populated */
 		editor_table_clear();

@@ -47,32 +47,6 @@
 
 /*
  *-----------------------------------------------------------------------------
- * handling sidecars in filelist
- *-----------------------------------------------------------------------------
- */
-
-GList *FileData::FileList::filter_out_sidecars(GList *flist)
-{
-	GList *work = flist;
-	GList *flist_filtered = nullptr;
-
-	while (work)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-
-		work = work->next;
-		if (fd->parent) /* remove fd's that are children */
-			::file_data_unref(fd);
-		else
-			flist_filtered = g_list_prepend(flist_filtered, fd);
-		}
-	g_list_free(flist);
-
-	return flist_filtered;
-}
-
-/*
- *-----------------------------------------------------------------------------
  * the main filelist function
  *-----------------------------------------------------------------------------
  */
@@ -113,7 +87,6 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 	gchar *pathl;
 	GList *dlist = nullptr;
 	GList *flist = nullptr;
-	GList *xmp_files = nullptr;
 	gint (*stat_func)(const gchar *path, struct stat *buf);
 	GHashTable *basename_hash = nullptr;
 
@@ -158,7 +131,6 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 				if (dirs &&
 				    (name[0] != '.' || (name[1] != '\0' && (name[1] != '.' || name[2] != '\0'))) &&
 				    strcmp(name, GQ_CACHE_LOCAL_THUMB) != 0 &&
-				    strcmp(name, GQ_CACHE_LOCAL_METADATA) != 0 &&
 				    strcmp(name, THUMB_FOLDER_LOCAL) != 0)
 					{
 					dlist = g_list_prepend(dlist, file_data_new_local(filepath, &ent_sbuf, TRUE));
@@ -170,13 +142,6 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 					{
 					FileData *fd = file_data_new_local(filepath, &ent_sbuf, FALSE);
 					flist = g_list_prepend(flist, fd);
-					if (fd->sidecar_priority && !fd->disable_grouping)
-						{
-						if (strcmp(fd->extension, ".xmp") != 0)
-							file_data_basename_hash_insert(basename_hash, fd);
-						else
-							xmp_files = g_list_append(xmp_files, fd);
-						}
 					}
 				}
 			}
@@ -193,20 +158,9 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 
 	g_free(pathl);
 
-	if (xmp_files)
-		{
-		g_list_foreach(xmp_files,file_data_basename_hash_insert_cb,basename_hash);
-		g_list_free(xmp_files);
-		}
-
 	if (dirs) *dirs = dlist;
+	if (files) *files = flist;
 
-	if (files)
-		{
-		g_hash_table_foreach(basename_hash, file_data_basename_hash_to_sidecars, nullptr);
-
-		*files = filter_out_sidecars(flist);
-		}
 	if (basename_hash) file_data_basename_hash_free(basename_hash);
 
 	return TRUE;
@@ -411,8 +365,7 @@ GList *FileData::FileList::filter(GList *list, gboolean is_dir_list)
 
 		if ((!options->file_filter.show_hidden_files && is_hidden_file(filepath)) ||
 		    (!is_dir_list && !filter_name_exists(name)) ||
-		    (is_dir_list && name[0] == '.' && (strcmp(name, GQ_CACHE_LOCAL_THUMB) == 0 ||
-						       strcmp(name, GQ_CACHE_LOCAL_METADATA) == 0)) )
+		    (is_dir_list && name[0] == '.' && strcmp(name, GQ_CACHE_LOCAL_THUMB) == 0) )
 			{
 			list = g_list_remove_link(list, link);
 			::file_data_unref(fd);

@@ -1304,7 +1304,7 @@ void vf_notify_cb(FileData *fd, NotifyType type, gpointer data)
 	auto vf = static_cast<ViewFile *>(data);
 	gboolean refresh;
 
-	auto interested = static_cast<NotifyType>(NOTIFY_CHANGE | NOTIFY_REREAD | NOTIFY_GROUPING);
+	auto interested = static_cast<NotifyType>(NOTIFY_CHANGE | NOTIFY_REREAD);
 	/** @FIXME NOTIFY_METADATA should be checked by the keyword-to-mark functions and converted to NOTIFY_MARKS only if there was a change */
 
 	if (!(type & interested) || vf->refresh_idle_id || !vf->dir_fd) return;

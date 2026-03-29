@@ -68,7 +68,6 @@ gboolean pixbuf_scale_aspect(gint req_w, gint req_h, gint old_w, gint old_h, gin
 #define PIXBUF_INLINE_ICON_ZOOMFILLHOR      "gq-icon-zoomfillhor"
 #define PIXBUF_INLINE_ICON_ZOOMFILLVERT     "gq-icon-zoomfillvert"
 #define PIXBUF_INLINE_LOGO                  "geeqie-logo"
-#define PIXBUF_INLINE_METADATA              "gq-icon-metadata"
 #define PIXBUF_INLINE_SCROLLER              "gq-scroller"
 #define PIXBUF_INLINE_UNKNOWN               "gq-icon-unknown"
 #define PIXBUF_INLINE_VIDEO                 "gq-icon-video"

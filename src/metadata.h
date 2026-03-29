@@ -36,26 +36,12 @@ class FileData;
 
 void metadata_cache_free(FileData *fd);
 
-gboolean metadata_write_queue_remove(FileData *fd);
-gboolean metadata_write_perform(FileData *fd);
-gboolean metadata_write_queue_confirm(gboolean force_dialog, FileUtilDoneFunc done_func, gpointer done_data);
-void metadata_notify_cb(FileData *fd, NotifyType type, gpointer data);
-
 gint metadata_queue_length();
-
-gboolean metadata_write_revert(FileData *fd, const gchar *key);
-gboolean metadata_write_list(FileData *fd, const gchar *key, const GList *values);
-gboolean metadata_write_string(FileData *fd, const gchar *key, const char *value);
-gboolean metadata_write_int(FileData *fd, const gchar *key, guint64 value);
 
 GList *metadata_read_list(FileData *fd, const gchar *key, MetadataFormat format);
 gchar *metadata_read_string(FileData *fd, const gchar *key, MetadataFormat format);
 guint64 metadata_read_int(FileData *fd, const gchar *key, guint64 fallback);
 gdouble metadata_read_GPS_coord(FileData *fd, const gchar *key, gdouble fallback);
 gdouble metadata_read_GPS_direction(FileData *fd, const gchar *key, gdouble fallback);
-gboolean metadata_write_GPS_coord(FileData *fd, const gchar *key, gdouble value);
-
-gboolean metadata_append_string(FileData *fd, const gchar *key, const char *value);
-gboolean metadata_append_list(FileData *fd, const gchar *key, const GList *values);
 
 #endif

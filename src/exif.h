@@ -107,16 +107,12 @@ struct ExifFormattedText
 
 void exif_init();
 
-ExifData *exif_read(gchar *path, gchar *sidecar_path, GHashTable *modified_xmp);
+ExifData *exif_read(gchar *path, gchar *, GHashTable *);
 
 ExifData *exif_read_fd(FileData *fd);
 void exif_free_fd(FileData *fd, ExifData *exif);
 
 ExifData *exif_get_original(ExifData *exif);
-
-
-gboolean exif_write(ExifData *exif);
-gboolean exif_write_sidecar(ExifData *exif, gchar *path);
 
 void exif_free(ExifData *exif);
 

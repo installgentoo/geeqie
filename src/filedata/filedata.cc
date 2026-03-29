@@ -50,11 +50,6 @@
 #include "trash.h"
 #include "ui-fileops.h"
 
-static gint sidecar_file_priority(const gchar *extension);
-static void file_data_check_sidecars(const GList *basename_list);
-static void file_data_disconnect_sidecar_file(FileData *target, FileData *sfd);
-
-
 /*
  *-----------------------------------------------------------------------------
  * text conversion utils
@@ -192,34 +187,7 @@ static gboolean file_data_check_changed_single_file(FileData *fd, struct stat *s
 
 static gboolean file_data_check_changed_files_recursive(FileData *fd, struct stat *st)
 {
-	gboolean ret = FALSE;
-	GList *work;
-
-	ret = file_data_check_changed_single_file(fd, st);
-
-	work = fd->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-		struct stat st;
-		work = work->next;
-
-		if (!stat_utf8(sfd->path, &st))
-			{
-			fd->size = 0;
-			fd->date = 0;
-			file_data_ref(sfd);
-			file_data_disconnect_sidecar_file(fd, sfd);
-			ret = TRUE;
-			file_data_increment_version(sfd);
-			file_data_send_notification(sfd, NOTIFY_REREAD);
-			file_data_unref(sfd);
-			continue;
-			}
-
-		ret |= file_data_check_changed_files_recursive(sfd, &st);
-		}
-	return ret;
+	return file_data_check_changed_single_file(fd, st);
 }
 
 
@@ -232,30 +200,12 @@ gboolean FileData::file_data_check_changed_files(FileData *fd)
 
 	if (!stat_utf8(fd->path, &st))
 		{
-		GList *sidecars;
-		GList *work;
-		FileData *sfd = nullptr;
-
 		/* parent is missing, we have to rebuild whole group */
 		ret = TRUE;
 		fd->size = 0;
 		fd->date = 0;
 
-		/* file_data_disconnect_sidecar_file might delete the file,
-		   we have to keep the reference to prevent this */
-		sidecars = filelist_copy(fd->sidecar_files);
 		::file_data_ref(fd);
-		work = sidecars;
-		while (work)
-			{
-			sfd = static_cast<FileData *>(work->data);
-			work = work->next;
-
-			file_data_disconnect_sidecar_file(fd, sfd);
-			}
-		file_data_check_sidecars(sidecars); /* this will group the sidecars back together */
-		/* now we can release the sidecars */
-		filelist_free(sidecars);
 		file_data_increment_version(fd);
 		file_data_send_notification(fd, NOTIFY_REREAD);
 		::file_data_unref(fd);
@@ -352,7 +302,6 @@ void FileData::set_path(const gchar *new_path)
 		extension = name + strlen(name);
 		}
 
-	sidecar_priority = sidecar_file_priority(extension);
 	file_data_set_collate_keys(this);
 }
 
@@ -380,7 +329,7 @@ GlobalFileDataContext &GlobalFileDataContext::get_instance()
  * create or reuse Filedata
  *-----------------------------------------------------------------------------
  */
-FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, gboolean disable_sidecars, FileDataContext *context)
+FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, gboolean, FileDataContext *context)
 {
 	if (context == nullptr)
 		{
@@ -389,9 +338,7 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, gbool
 
 	FileData *fd;
 
-	DEBUG_2("file_data_new: '%s' %d", path_utf8, disable_sidecars);
-
-	if (S_ISDIR(st->st_mode)) disable_sidecars = TRUE;
+	DEBUG_2("file_data_new: '%s'", path_utf8);
 
 	fd = static_cast<FileData *>(g_hash_table_lookup(context->file_data_pool, path_utf8));
 	if (fd)
@@ -418,8 +365,6 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, gbool
 
 	if (fd)
 		{
-		if (disable_sidecars) ::file_data_disable_grouping(fd, TRUE);
-
 #ifdef DEBUG_FILEDATA
 		gboolean changed =
 #endif
@@ -447,17 +392,16 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, gbool
 	fd->format_class = filter_file_get_class(path_utf8);
 	fd->page_num = 0;
 	fd->page_total = 0;
-	if (disable_sidecars) fd->disable_grouping = TRUE;
 
 	fd->set_path(path_utf8); /* set path, name, collate_key_*, original_path */
 
 	return fd;
 }
 
-FileData *FileData::file_data_new_local(const gchar *path, struct stat *st, gboolean disable_sidecars, FileDataContext *context)
+FileData *FileData::file_data_new_local(const gchar *path, struct stat *st, gboolean, FileDataContext *context)
 {
 	gchar *path_utf8 = path_to_utf8(path);
-	FileData *ret = file_data_new(path_utf8, st, disable_sidecars, context);
+	FileData *ret = file_data_new(path_utf8, st, FALSE, context);
 
 	g_free(path_utf8);
 	return ret;
@@ -662,7 +606,6 @@ void FileData::file_data_free(FileData *fd)
 	g_free(fd->extended_extension);
 	if (fd->thumb_pixbuf) g_object_unref(fd->thumb_pixbuf);
 	g_free(fd->format_name);
-	g_assert(fd->sidecar_files == nullptr); /* sidecar files must be freed before calling this */
 
 	::file_data_change_info_free(nullptr, fd);
 	g_free(fd);
@@ -686,27 +629,15 @@ static gboolean file_data_check_has_ref(FileData *fd)
  */
 void FileData::file_data_consider_free(FileData *fd)
 {
-	GList *work;
 	FileData *parent = fd->parent ? fd->parent : fd;
 
 	g_assert(fd->magick == FD_MAGICK);
 	if (file_data_check_has_ref(fd)) return;
 	if (file_data_check_has_ref(parent)) return;
 
-	work = parent->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-		if (file_data_check_has_ref(sfd)) return;
-		work = work->next;
-		}
-
 	/* Neither the parent nor the siblings are referenced, so we can free everything */
 	DEBUG_2("file_data_consider_free: deleting '%s', parent '%s'",
 		fd->path, fd->parent ? parent->path : "-");
-
-	g_list_free_full(parent->sidecar_files, reinterpret_cast<GDestroyNotify>(FileData::file_data_free));
-	parent->sidecar_files = nullptr;
 
 	file_data_free(parent);
 }
@@ -826,223 +757,8 @@ static gint file_data_sort_by_ext(gconstpointer a, gconstpointer b)
 	auto fda = static_cast<const FileData *>(a);
 	auto fdb = static_cast<const FileData *>(b);
 
-	if (fda->sidecar_priority < fdb->sidecar_priority) return -1;
-	if (fda->sidecar_priority > fdb->sidecar_priority) return 1;
-
 	return strcmp(fdb->extension, fda->extension);
 }
-
-
-static gint sidecar_file_priority(const gchar *extension)
-{
-	gint i = 1;
-	GList *work;
-
-	if (extension == nullptr)
-		return 0;
-
-	work = sidecar_ext_get_list();
-
-	while (work) {
-		auto ext = static_cast<gchar *>(work->data);
-
-		work = work->next;
-		if (g_ascii_strcasecmp(extension, ext) == 0) return i;
-		i++;
-	}
-	return 0;
-}
-
-static void file_data_check_sidecars(const GList *basename_list)
-{
-	/* basename_list contains the new group - first is the parent, then sorted sidecars */
-	/* all files in the list have ref count > 0 */
-
-	const GList *work;
-	GList *s_work;
-	GList *new_sidecars;
-	FileData *parent_fd;
-
-	if (!basename_list) return;
-
-
-	DEBUG_2("basename start");
-	work = basename_list;
-	while (work)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-		work = work->next;
-		g_assert(fd->magick == FD_MAGICK);
-		DEBUG_2("basename: %p %s", (void *)fd, fd->name);
-		if (fd->parent)
-			{
-			g_assert(fd->parent->magick == FD_MAGICK);
-			DEBUG_2("                  parent: %p", (void *)fd->parent);
-			}
-		s_work = fd->sidecar_files;
-		while (s_work)
-			{
-			auto sfd = static_cast<FileData *>(s_work->data);
-			s_work = s_work->next;
-			g_assert(sfd->magick == FD_MAGICK);
-			DEBUG_2("                  sidecar: %p %s", (void *)sfd, sfd->name);
-			}
-
-		g_assert(fd->parent == nullptr || fd->sidecar_files == nullptr);
-		}
-
-	parent_fd = static_cast<FileData *>(basename_list->data);
-
-	/* check if the second and next entries of basename_list are already connected
-	   as sidecars of the first entry (parent_fd) */
-	work = basename_list->next;
-	s_work = parent_fd->sidecar_files;
-
-	while (work && s_work)
-		{
-		if (work->data != s_work->data) break;
-		work = work->next;
-		s_work = s_work->next;
-		}
-
-	if (!work && !s_work)
-		{
-		DEBUG_2("basename no change");
-		return; /* no change in grouping */
-		}
-
-	/* we have to regroup it */
-
-	/* first, disconnect everything and send notification*/
-
-	work = basename_list;
-	while (work)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-		work = work->next;
-		g_assert(fd->parent == nullptr || fd->sidecar_files == nullptr);
-
-		if (fd->parent)
-			{
-			FileData *old_parent = fd->parent;
-			g_assert(old_parent->parent == nullptr || old_parent->sidecar_files == nullptr);
-			file_data_ref(old_parent);
-			file_data_disconnect_sidecar_file(old_parent, fd);
-			file_data_send_notification(old_parent, NOTIFY_REREAD);
-			file_data_unref(old_parent);
-			}
-
-		while (fd->sidecar_files)
-			{
-			auto sfd = static_cast<FileData *>(fd->sidecar_files->data);
-			g_assert(sfd->parent == nullptr || sfd->sidecar_files == nullptr);
-			file_data_ref(sfd);
-			file_data_disconnect_sidecar_file(fd, sfd);
-			file_data_send_notification(sfd, NOTIFY_REREAD);
-			file_data_unref(sfd);
-			}
-		file_data_send_notification(fd, NOTIFY_GROUPING);
-
-		g_assert(fd->parent == nullptr && fd->sidecar_files == nullptr);
-		}
-
-	/* now we can form the new group */
-	work = basename_list->next;
-	new_sidecars = nullptr;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-		g_assert(sfd->magick == FD_MAGICK);
-		g_assert(sfd->parent == nullptr && sfd->sidecar_files == nullptr);
-		sfd->parent = parent_fd;
-		new_sidecars = g_list_prepend(new_sidecars, sfd);
-		work = work->next;
-		}
-	g_assert(parent_fd->sidecar_files == nullptr);
-	parent_fd->sidecar_files = g_list_reverse(new_sidecars);
-	DEBUG_1("basename group changed for %s", parent_fd->path);
-}
-
-
-static void file_data_disconnect_sidecar_file(FileData *target, FileData *sfd)
-{
-	g_assert(target->magick == FD_MAGICK);
-	g_assert(sfd->magick == FD_MAGICK);
-	g_assert(g_list_find(target->sidecar_files, sfd));
-
-	file_data_ref(target);
-	file_data_ref(sfd);
-
-	g_assert(sfd->parent == target);
-
-	file_data_increment_version(sfd); /* increments both sfd and target */
-
-	target->sidecar_files = g_list_remove(target->sidecar_files, sfd);
-	sfd->parent = nullptr;
-	g_free(sfd->extended_extension);
-	sfd->extended_extension = nullptr;
-
-	file_data_unref(target);
-	file_data_unref(sfd);
-}
-
-/* disables / enables grouping for particular file, sends UPDATE notification */
-void FileData::file_data_disable_grouping(FileData *fd, gboolean disable)
-{
-	if (!fd->disable_grouping == !disable) return;
-
-	fd->disable_grouping = !!disable;
-
-	if (disable)
-		{
-		if (fd->parent)
-			{
-			FileData *parent = ::file_data_ref(fd->parent);
-			file_data_disconnect_sidecar_file(parent, fd);
-			file_data_send_notification(parent, NOTIFY_GROUPING);
-			::file_data_unref(parent);
-			}
-		else if (fd->sidecar_files)
-			{
-			GList *sidecar_files = filelist_copy(fd->sidecar_files);
-			GList *work = sidecar_files;
-			while (work)
-				{
-				auto sfd = static_cast<FileData *>(work->data);
-				work = work->next;
-				file_data_disconnect_sidecar_file(fd, sfd);
-				file_data_send_notification(sfd, NOTIFY_GROUPING);
-				}
-			file_data_check_sidecars(sidecar_files); /* this will group the sidecars back together */
-			filelist_free(sidecar_files);
-			}
-		else
-			{
-			file_data_increment_version(fd); /* the functions called in the cases above increments the version too */
-			}
-		}
-	else
-		{
-		file_data_increment_version(fd);
-		/* file_data_check_sidecars call is not necessary - the file will be re-grouped on next dir read */
-		}
-	file_data_send_notification(fd, NOTIFY_GROUPING);
-}
-
-void FileData::file_data_disable_grouping_list(GList *fd_list, gboolean disable)
-{
-	GList *work;
-
-	work = fd_list;
-	while (work)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-
-		::file_data_disable_grouping(fd, disable);
-		work = work->next;
-		}
-}
-
 
 /*
  *-----------------------------------------------------------------------------
@@ -1122,12 +838,6 @@ void FileData::file_data_basename_hash_free(GHashTable *basename_hash)
 	g_hash_table_destroy(basename_hash);
 }
 
-void FileData::file_data_basename_hash_to_sidecars(gpointer, gpointer value, gpointer)
-{
-	auto basename_list = static_cast<GList *>(value);
-	file_data_check_sidecars(basename_list);
-}
-
 
 FileData *FileData::file_data_new_group(const gchar *path_utf8, FileDataContext *context)
 {
@@ -1172,7 +882,6 @@ FileData *FileData::file_data_new_group(const gchar *path_utf8, FileDataContext 
  *-----------------------------------------------------------------------------
  */
 
-
 void FileData::file_data_change_info_free(FileDataChangeInfo *fdci, FileData *fd)
 {
 	if (!fdci && fd) fdci = fd->change;
@@ -1185,52 +894,6 @@ void FileData::file_data_change_info_free(FileDataChangeInfo *fdci, FileData *fd
 	g_free(fdci);
 
 	if (fd) fd->change = nullptr;
-}
-
-static gboolean file_data_can_write_directly(FileData *fd)
-{
-	return filter_name_is_writable(fd->extension);
-}
-
-static gboolean file_data_can_write_sidecar(FileData *fd)
-{
-	return filter_name_allow_sidecar(fd->extension) && !filter_name_is_writable(fd->extension);
-}
-
-gchar *FileData::file_data_get_sidecar_path(FileData *fd, gboolean existing_only)
-{
-	gchar *sidecar_path = nullptr;
-	GList *work;
-
-	if (!file_data_can_write_sidecar(fd)) return nullptr;
-
-	work = fd->parent ? fd->parent->sidecar_files : fd->sidecar_files;
-	gchar *extended_extension = g_strconcat(fd->parent ? fd->parent->extension : fd->extension, ".xmp", NULL);
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-		work = work->next;
-		if (g_ascii_strcasecmp(sfd->extension, ".xmp") == 0 || g_ascii_strcasecmp(sfd->extension, extended_extension) == 0)
-			{
-			sidecar_path = g_strdup(sfd->path);
-			break;
-			}
-		}
-	g_free(extended_extension);
-
-	if (!existing_only && !sidecar_path)
-		{
-		if (options->metadata.sidecar_extended_name)
-			sidecar_path = g_strconcat(fd->path, ".xmp", NULL);
-		else
-			{
-			gchar *base = g_strndup(fd->path, fd->extension - fd->path);
-			sidecar_path = g_strconcat(base, ".xmp", NULL);
-			g_free(base);
-			}
-		}
-
-	return sidecar_path;
 }
 
 /*
@@ -1303,34 +966,6 @@ GList *FileData::file_data_filter_class_list(GList *list, guint filter)
 
 	return list;
 }
-
-/*
- * file_data    - operates on the given fd
- * file_data_sc - operates on the given fd + sidecars - all fds linked via fd->sidecar_files or fd->parent
- */
-
-
-/* return list of sidecar file extensions in a string */
-gchar *FileData::file_data_sc_list_to_string(FileData *fd)
-{
-	GList *work;
-	GString *result = g_string_new("");
-
-	work = fd->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-
-		result = g_string_append(result, "+ ");
-		result = g_string_append(result, sfd->extension);
-		work = work->next;
-		if (work) result = g_string_append_c(result, ' ');
-		}
-
-	return g_string_free(result, FALSE);
-}
-
-
 
 /*
  * add FileDataChangeInfo (see typedefs.h) for the given operation
@@ -1407,8 +1042,6 @@ void FileData::file_data_free_ci(FileData *fd)
 
 	fd->planned_change_remove();
 
-	if (fdci->regroup_when_finished) file_data_disable_grouping(fd, FALSE);
-
 	g_free(fdci->source);
 	g_free(fdci->dest);
 
@@ -1417,64 +1050,26 @@ void FileData::file_data_free_ci(FileData *fd)
 	fd->change = nullptr;
 }
 
-void FileData::file_data_set_regroup_when_finished(FileData *fd, gboolean enable)
-{
-	FileDataChangeInfo *fdci = fd->change;
-	if (!fdci) return;
-	fdci->regroup_when_finished = enable;
-}
 
 static gboolean file_data_sc_add_ci(FileData *fd, FileDataChangeType type)
 {
-	GList *work;
-
 	if (fd->parent) fd = fd->parent;
 
 	if (fd->change) return FALSE;
 
-	work = fd->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-
-		if (sfd->change) return FALSE;
-		work = work->next;
-		}
-
 	file_data_add_ci(fd, type, nullptr, nullptr);
-
-	work = fd->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-
-		file_data_add_ci(sfd, type, nullptr, nullptr);
-		work = work->next;
-		}
 
 	return TRUE;
 }
 
 static gboolean file_data_sc_check_ci(FileData *fd, FileDataChangeType type)
 {
-	GList *work;
-
 	if (fd->parent) fd = fd->parent;
 
 	if (!fd->change || fd->change->type != type) return FALSE;
 
-	work = fd->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-
-		if (!sfd->change || sfd->change->type != type) return FALSE;
-		work = work->next;
-		}
-
 	return TRUE;
 }
-
 
 gboolean FileData::file_data_sc_add_ci_copy(FileData *fd, const gchar *dest_path)
 {
@@ -1509,27 +1104,12 @@ gboolean FileData::file_data_sc_add_ci_unspecified(FileData *fd, const gchar *de
 	return TRUE;
 }
 
-gboolean FileData::file_data_add_ci_write_metadata(FileData *fd)
-{
-	return file_data_add_ci(fd, FILEDATA_CHANGE_WRITE_METADATA, nullptr, nullptr);
-}
 
 void FileData::file_data_sc_free_ci(FileData *fd)
 {
-	GList *work;
-
 	if (fd->parent) fd = fd->parent;
 
 	file_data_free_ci(fd);
-
-	work = fd->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-
-		file_data_free_ci(sfd);
-		work = work->next;
-		}
 }
 
 gboolean FileData::file_data_sc_add_ci_delete_list(GList *fd_list)
@@ -1601,23 +1181,6 @@ gboolean FileData::file_data_sc_add_ci_rename_list(GList *fd_list, const gchar *
 gboolean FileData::file_data_sc_add_ci_unspecified_list(GList *fd_list, const gchar *dest)
 {
 	return file_data_sc_add_ci_list_call_func(fd_list, dest, ::file_data_sc_add_ci_unspecified);
-}
-
-gboolean FileData::file_data_add_ci_write_metadata_list(GList *fd_list)
-{
-	GList *work;
-	gboolean ret = TRUE;
-
-	work = fd_list;
-	while (work)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-
-		if (!::file_data_add_ci_write_metadata(fd)) ret = FALSE;
-		work = work->next;
-		}
-
-	return ret;
 }
 
 void FileData::file_data_free_ci_list(GList *fd_list)
@@ -1712,7 +1275,6 @@ void FileData::file_data_update_ci_dest_preserve_ext(FileData *fd, const gchar *
 
 void FileData::file_data_sc_update_ci(FileData *fd, const gchar *dest_path)
 {
-	GList *work;
 	gchar *dest_path_full = nullptr;
 
 	if (fd->parent) fd = fd->parent;
@@ -1736,15 +1298,6 @@ void FileData::file_data_sc_update_ci(FileData *fd, const gchar *dest_path)
 		}
 
 	file_data_update_ci_dest(fd, dest_path);
-
-	work = fd->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-
-		file_data_update_ci_dest_preserve_ext(sfd, dest_path);
-		work = work->next;
-		}
 
 	g_free(dest_path_full);
 }
@@ -1840,17 +1393,6 @@ gint FileData::file_data_verify_ci(FileData *fd, GList *list)
 	dir = remove_level_from_path(fd->path);
 
 	if (fd->change->type != FILEDATA_CHANGE_DELETE &&
-	    fd->change->type != FILEDATA_CHANGE_MOVE && /* the unsaved metadata should survive move and rename operations */
-	    fd->change->type != FILEDATA_CHANGE_RENAME &&
-	    fd->change->type != FILEDATA_CHANGE_WRITE_METADATA &&
-	    fd->modified_xmp)
-		{
-		ret |= CHANGE_WARN_UNSAVED_META;
-		DEBUG_1("Change checked: unsaved metadata: %s", fd->path);
-		}
-
-	if (fd->change->type != FILEDATA_CHANGE_DELETE &&
-	    fd->change->type != FILEDATA_CHANGE_WRITE_METADATA &&
 	    !access_file(fd->path, R_OK))
 		{
 		ret |= CHANGE_NO_READ_PERM;
@@ -1864,105 +1406,13 @@ gint FileData::file_data_verify_ci(FileData *fd, GList *list)
 		}
 	else if (fd->change->type != FILEDATA_CHANGE_COPY &&
 		 fd->change->type != FILEDATA_CHANGE_UNSPECIFIED &&
-		 fd->change->type != FILEDATA_CHANGE_WRITE_METADATA &&
 		 !access_file(fd->path, W_OK))
 		{
 		ret |= CHANGE_WARN_NO_WRITE_PERM;
 		DEBUG_1("Change checked: no write permission: %s", fd->path);
 		}
-	/* WRITE_METADATA is special because it can be configured to silently write to ~/.geeqie/...
-	   - that means that there are no hard errors and warnings can be disabled
-	   - the destination is determined during the check
-	*/
-	else if (fd->change->type == FILEDATA_CHANGE_WRITE_METADATA)
-		{
-		/* determine destination file */
-		gboolean have_dest = FALSE;
-		gchar *dest_dir = nullptr;
 
-		if (options->metadata.save_in_image_file)
-			{
-			if (file_data_can_write_directly(fd))
-				{
-				/* we can write the file directly */
-				if (access_file(fd->path, W_OK))
-					{
-					have_dest = TRUE;
-					}
-				else
-					{
-					if (options->metadata.warn_on_write_problems)
-						{
-						ret |= CHANGE_WARN_NO_WRITE_PERM;
-						DEBUG_1("Change checked: file is not writable: %s", fd->path);
-						}
-					}
-				}
-			else if (file_data_can_write_sidecar(fd))
-				{
-				/* we can write sidecar */
-				gchar *sidecar = file_data_get_sidecar_path(fd, FALSE);
-				if (access_file(sidecar, W_OK) || (!isname(sidecar) && access_file(dir, W_OK)))
-					{
-					file_data_update_ci_dest(fd, sidecar);
-					have_dest = TRUE;
-					}
-				else
-					{
-					if (options->metadata.warn_on_write_problems)
-						{
-						ret |= CHANGE_WARN_NO_WRITE_PERM;
-						DEBUG_1("Change checked: file is not writable: %s", sidecar);
-						}
-					}
-				g_free(sidecar);
-				}
-			}
-
-		if (!have_dest)
-			{
-			/* write private metadata file under ~/.geeqie */
-
-			/* If an existing metadata file exists, we will try writing to
-			 * it's location regardless of the user's preference.
-			 */
-			gchar *metadata_path = nullptr;
-			metadata_path = cache_find_location(CACHE_TYPE_XMP_METADATA, fd->path);
-
-			if (!metadata_path) metadata_path = cache_find_location(CACHE_TYPE_METADATA, fd->path);
-
-			if (metadata_path && !access_file(metadata_path, W_OK))
-				{
-				g_free(metadata_path);
-				metadata_path = nullptr;
-				}
-
-			if (!metadata_path)
-				{
-				dest_dir = cache_create_location(CACHE_TYPE_METADATA, fd->path);
-				if (dest_dir)
-					{
-					gchar *filename = g_strconcat(fd->name, options->metadata.save_legacy_format ? GQ_CACHE_EXT_METADATA : GQ_CACHE_EXT_XMP_METADATA, NULL);
-
-					metadata_path = g_build_filename(dest_dir, filename, NULL);
-					g_free(filename);
-					}
-				}
-			if (access_file(metadata_path, W_OK) || (!isname(metadata_path) && access_file(dest_dir, W_OK)))
-				{
-				file_data_update_ci_dest(fd, metadata_path);
-				}
-			else
-				{
-				ret |= CHANGE_NO_WRITE_PERM_DEST;
-				DEBUG_1("Change checked: file is not writable: %s", metadata_path);
-				}
-			g_free(metadata_path);
-			}
-		g_free(dest_dir);
-		}
-
-	if (fd->change->dest && fd->change->type != FILEDATA_CHANGE_WRITE_METADATA)
+	if (fd->change->dest)
 		{
 		gboolean same;
 		gchar *dest_dir;
@@ -2060,21 +1510,7 @@ gint FileData::file_data_verify_ci(FileData *fd, GList *list)
 
 gint FileData::file_data_sc_verify_ci(FileData *fd, GList *list)
 {
-	GList *work;
-	gint ret;
-
-	ret = file_data_verify_ci(fd, list);
-
-	work = fd->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-
-		ret |= file_data_verify_ci(sfd, list);
-		work = work->next;
-		}
-
-	return ret;
+	return file_data_verify_ci(fd, list);
 }
 
 gchar *FileData::file_data_get_error_string(gint error)
@@ -2147,12 +1583,6 @@ gchar *FileData::file_data_get_error_string(gint error)
 		g_string_append(result, _("source and destination have different extension"));
 		}
 
-	if (error & CHANGE_WARN_UNSAVED_META)
-		{
-		if (result->len > 0) g_string_append(result, ", ");
-		g_string_append(result, _("there are unsaved metadata changes for the file"));
-		}
-
 	if (error & CHANGE_DUPLICATE_DEST)
 		{
 		if (result->len > 0) g_string_append(result, ", ");
@@ -2162,7 +1592,7 @@ gchar *FileData::file_data_get_error_string(gint error)
 	return g_string_free(result, FALSE);
 }
 
-gint FileData::file_data_verify_ci_list(GList *list, gchar **desc, gboolean with_sidecars)
+gint FileData::file_data_verify_ci_list(GList *list, gchar **desc, gboolean)
 {
 	GList *work;
 	gint all_errors = 0;
@@ -2185,7 +1615,7 @@ gint FileData::file_data_verify_ci_list(GList *list, gchar **desc, gboolean with
 		fd = static_cast<FileData *>(work->data);
 		work = work->next;
 
-		error = with_sidecars ? ::file_data_sc_verify_ci(fd, list) : ::file_data_verify_ci(fd, list);
+		error = ::file_data_verify_ci(fd, list);
 		all_errors |= error;
 		common_errors &= error;
 
@@ -2289,8 +1719,6 @@ gboolean FileData::file_data_perform_ci(FileData *fd)
 			return file_data_perform_move(fd); /* the same as move */
 		case FILEDATA_CHANGE_DELETE:
 			return file_data_perform_delete(fd);
-		case FILEDATA_CHANGE_WRITE_METADATA:
-			return metadata_write_perform(fd);
 		case FILEDATA_CHANGE_UNSPECIFIED:
 			/* nothing to do here */
 			break;
@@ -2302,20 +1730,10 @@ gboolean FileData::file_data_perform_ci(FileData *fd)
 
 gboolean FileData::file_data_sc_perform_ci(FileData *fd)
 {
-	GList *work;
 	gboolean ret = TRUE;
 	FileDataChangeType type = fd->change->type;
 
 	if (!file_data_sc_check_ci(fd, type)) return FALSE;
-
-	work = fd->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-
-		if (!file_data_perform_ci(sfd)) ret = FALSE;
-		work = work->next;
-		}
 
 	if (!file_data_perform_ci(fd)) ret = FALSE;
 
@@ -2359,19 +1777,9 @@ gboolean FileData::file_data_apply_ci(FileData *fd)
 
 gboolean FileData::file_data_sc_apply_ci(FileData *fd)
 {
-	GList *work;
 	FileDataChangeType type = fd->change->type;
 
 	if (!file_data_sc_check_ci(fd, type)) return FALSE;
-
-	work = fd->sidecar_files;
-	while (work)
-		{
-		auto sfd = static_cast<FileData *>(work->data);
-
-		file_data_apply_ci(sfd);
-		work = work->next;
-		}
 
 	file_data_apply_ci(fd);
 
@@ -2380,16 +1788,9 @@ gboolean FileData::file_data_sc_apply_ci(FileData *fd)
 
 static gboolean file_data_list_contains_whole_group(GList *list, FileData *fd)
 {
-	GList *work;
 	if (fd->parent) fd = fd->parent;
 	if (!g_list_find(list, fd)) return FALSE;
 
-	work = fd->sidecar_files;
-	while (work)
-		{
-		if (!g_list_find(list, work->data)) return FALSE;
-		work = work->next;
-		}
 	return TRUE;
 }
 
@@ -2408,7 +1809,6 @@ GList *FileData::file_data_process_groups_in_selection(GList *list, gboolean ung
 
 			if (!file_data_list_contains_whole_group(list, fd))
 				{
-				::file_data_disable_grouping(fd, TRUE);
 				if (ungrouped_list)
 					{
 					*ungrouped_list = g_list_prepend(*ungrouped_list, ::file_data_ref(fd));

@@ -281,65 +281,6 @@ struct ConfOptions
 		gint render_intent;
 	} color_profile;
 
-	/* Helpers programs */
-	struct {
-		struct {
-			gchar *command_name;
-			gchar *command_line;
-		} html_browser;
-	} helpers;
-
-	/* Metadata */
-	struct {
-		gboolean enable_metadata_dirs;
-
-		gboolean save_in_image_file;
-		gboolean save_legacy_IPTC;
-		gboolean warn_on_write_problems;
-
-		gboolean save_legacy_format;
-
-		gboolean sync_grouped_files;
-
-		gboolean confirm_write;
-		gint confirm_timeout;
-		gboolean confirm_after_timeout;
-		gboolean confirm_on_image_change;
-		gboolean confirm_on_dir_change;
-		gboolean write_orientation;
-		gboolean sidecar_extended_name;
-
-		gboolean check_spelling;
-	} metadata;
-
-	/* Stereo */
-	struct {
-		gint mode;
-		gint fsmode;
-		gboolean enable_fsmode;
-		gint fixed_w, fixed_h;
-		gint fixed_x1, fixed_y1;
-		gint fixed_x2, fixed_y2;
-		/**
-		 * @struct tmp
-		 * options in this struct are packed to mode and fsmode entries
-		 */
-		struct {
-			gboolean mirror_right;
-			gboolean mirror_left;
-			gboolean flip_right;
-			gboolean flip_left;
-			gboolean swap;
-			gboolean temp_disable;
-			gboolean fs_mirror_right;
-			gboolean fs_mirror_left;
-			gboolean fs_flip_right;
-			gboolean fs_flip_left;
-			gboolean fs_swap;
-			gboolean fs_temp_disable;
-		} tmp;
-	} stereo;
-
 	/* External preview extraction */
 	struct {
 		gboolean enable;
@@ -400,11 +341,6 @@ struct ConfOptions
 	gchar *mouse_button_9; /**< user-definable mouse buttons */
 
 	gboolean class_filter[FILE_FORMAT_CLASSES]; /**< class file filter */
-
-	gboolean read_metadata_in_idle;
-
-	gboolean disable_gpu; /**< GPU - see main.cc */
-	gboolean override_disable_gpu; /**< GPU - see main.cc */
 
 	GList *disabled_plugins;
 };

@@ -87,7 +87,6 @@ constexpr PixbufInline inline_pixbuf_data[] = {
 	{ PIXBUF_INLINE_ICON_ZOOMFILLHOR,       "gq-icon-zoomfillhor" },
 	{ PIXBUF_INLINE_ICON_ZOOMFILLVERT,      "gq-icon-zoomfillvert" },
 	{ PIXBUF_INLINE_LOGO,                   "geeqie-logo" },
-	{ PIXBUF_INLINE_METADATA,               "gq-icon-metadata" },
 	{ PIXBUF_INLINE_SCROLLER,               "gq-scroller" },
 	{ PIXBUF_INLINE_UNKNOWN,                "gq-icon-unknown" },
 	{ PIXBUF_INLINE_VIDEO,                  "gq-icon-video" },
@@ -341,9 +340,6 @@ GdkPixbuf *pixbuf_fallback(FileData *fd, gint requested_width, gint requested_he
 		{
 		case FORMAT_CLASS_UNKNOWN:
 			pixbuf = pixbuf_inline(PIXBUF_INLINE_UNKNOWN);
-			break;
-		case FORMAT_CLASS_META:
-			pixbuf = pixbuf_inline(PIXBUF_INLINE_METADATA);
 			break;
 		case FORMAT_CLASS_VIDEO:
 			pixbuf = pixbuf_inline(PIXBUF_INLINE_VIDEO);

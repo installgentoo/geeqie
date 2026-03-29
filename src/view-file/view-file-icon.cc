@@ -84,7 +84,7 @@ static void vficon_populate_at_new_size(ViewFile *vf, gint w, gint h, gboolean f
 
 GList *vficon_selection_get_one(ViewFile *, FileData *fd)
 {
-	return g_list_prepend(filelist_copy(fd->sidecar_files), file_data_ref(fd));
+	return g_list_append(nullptr, file_data_ref(fd));
 }
 
 void vficon_pop_menu_rename_cb(ViewFile *vf)
@@ -699,7 +699,6 @@ GList *vficon_selection_get_list(ViewFile *vf)
 		auto fd = static_cast<FileData *>(work->data);
 		g_assert(fd->magick == FD_MAGICK);
 
-		list = g_list_concat(filelist_copy(fd->sidecar_files), list);
 		list = g_list_prepend(list, file_data_ref(fd));
 		}
 
@@ -1792,17 +1791,6 @@ static void vficon_cell_data_cb(GtkTreeViewColumn *, GtkCellRenderer *cell,
 				}
 
 			name_sidecars = g_string_append(name_sidecars, fd->name);
-
-			if (fd->sidecar_files)
-				{
-				gchar *sidecars = file_data_sc_list_to_string(fd);
-				g_string_append_printf(name_sidecars, " %s", sidecars);
-				g_free(sidecars);
-				}
-			else if (fd->disable_grouping)
-				{
-				name_sidecars = g_string_append(name_sidecars, _(" [NO GROUPING]"));
-				}
 			}
 
 		GtkStyle *style = gtk_widget_get_style(vf->listview);

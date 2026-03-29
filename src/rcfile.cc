@@ -534,38 +534,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_CHAR(*options, shell.path);
 	WRITE_NL(); WRITE_CHAR(*options, shell.options);
 
-	/* Helpers */
-	WRITE_NL(); WRITE_CHAR(*options, helpers.html_browser.command_name);
-	WRITE_NL(); WRITE_CHAR(*options, helpers.html_browser.command_line);
-
-	/* Metadata Options */
-	WRITE_NL(); WRITE_BOOL(*options, metadata.enable_metadata_dirs);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.save_in_image_file);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.save_legacy_IPTC);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.warn_on_write_problems);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.save_legacy_format);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.sync_grouped_files);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.confirm_write);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.sidecar_extended_name);
-	WRITE_NL(); WRITE_INT(*options, metadata.confirm_timeout);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.confirm_after_timeout);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.confirm_on_image_change);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.confirm_on_dir_change);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.write_orientation);
-	WRITE_NL(); WRITE_BOOL(*options, metadata.check_spelling);
-
-	WRITE_NL(); WRITE_INT(*options, stereo.mode);
-	WRITE_NL(); WRITE_INT(*options, stereo.fsmode);
-	WRITE_NL(); WRITE_BOOL(*options, stereo.enable_fsmode);
-	WRITE_NL(); WRITE_INT(*options, stereo.fixed_w);
-	WRITE_NL(); WRITE_INT(*options, stereo.fixed_h);
-	WRITE_NL(); WRITE_INT(*options, stereo.fixed_x1);
-	WRITE_NL(); WRITE_INT(*options, stereo.fixed_y1);
-	WRITE_NL(); WRITE_INT(*options, stereo.fixed_x2);
-	WRITE_NL(); WRITE_INT(*options, stereo.fixed_y2);
-
-	WRITE_NL(); WRITE_BOOL(*options, read_metadata_in_idle);
-
 	/* copy move rename */
 	WRITE_NL(); WRITE_INT(*options, cp_mv_rn.auto_start);
 	WRITE_NL(); WRITE_INT(*options, cp_mv_rn.auto_padding);
@@ -592,10 +560,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	/* user-definable mouse buttons */
 	WRITE_NL(); WRITE_CHAR(*options, mouse_button_8);
 	WRITE_NL(); WRITE_CHAR(*options, mouse_button_9);
-	WRITE_SEPARATOR();
-
-	/* GPU - see main.cc */
-	WRITE_NL(); WRITE_BOOL(*options, override_disable_gpu);
 	WRITE_SEPARATOR();
 
 	/* Alternate similarity algorithm */
@@ -1001,38 +965,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_CHAR(*options, shell.path)) continue;
 		if (READ_CHAR(*options, shell.options)) continue;
 
-		/* Helpers */
-		if (READ_CHAR(*options, helpers.html_browser.command_name)) continue;
-		if (READ_CHAR(*options, helpers.html_browser.command_line)) continue;
-
-		/* Metadata */
-		if (READ_BOOL(*options, metadata.enable_metadata_dirs)) continue;
-		if (READ_BOOL(*options, metadata.save_in_image_file)) continue;
-		if (READ_BOOL(*options, metadata.save_legacy_IPTC)) continue;
-		if (READ_BOOL(*options, metadata.warn_on_write_problems)) continue;
-		if (READ_BOOL(*options, metadata.save_legacy_format)) continue;
-		if (READ_BOOL(*options, metadata.sync_grouped_files)) continue;
-		if (READ_BOOL(*options, metadata.confirm_write)) continue;
-		if (READ_BOOL(*options, metadata.sidecar_extended_name)) continue;
-		if (READ_BOOL(*options, metadata.confirm_after_timeout)) continue;
-		if (READ_INT(*options, metadata.confirm_timeout)) continue;
-		if (READ_BOOL(*options, metadata.confirm_on_image_change)) continue;
-		if (READ_BOOL(*options, metadata.confirm_on_dir_change)) continue;
-		if (READ_BOOL(*options, metadata.write_orientation)) continue;
-		if (READ_BOOL(*options, metadata.check_spelling)) continue;
-
-		if (READ_INT(*options, stereo.mode)) continue;
-		if (READ_INT(*options, stereo.fsmode)) continue;
-		if (READ_BOOL(*options, stereo.enable_fsmode)) continue;
-		if (READ_INT(*options, stereo.fixed_w)) continue;
-		if (READ_INT(*options, stereo.fixed_h)) continue;
-		if (READ_INT(*options, stereo.fixed_x1)) continue;
-		if (READ_INT(*options, stereo.fixed_y1)) continue;
-		if (READ_INT(*options, stereo.fixed_x2)) continue;
-		if (READ_INT(*options, stereo.fixed_y2)) continue;
-
-		if (READ_BOOL(*options, read_metadata_in_idle)) continue;
-
 		/* copy move rename */
 		if (READ_INT(*options, cp_mv_rn.auto_start))  continue;
 		if (READ_INT(*options, cp_mv_rn.auto_padding)) continue;
@@ -1055,9 +987,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		/* user-definable mouse buttons */
 		if (READ_CHAR(*options, mouse_button_8)) continue;
 		if (READ_CHAR(*options, mouse_button_9)) continue;
-
-		/* GPU - see main.cc */
-		if (READ_BOOL(*options, override_disable_gpu)) continue;
 
 		/* Alternative similarity algorithm */
 		if (READ_BOOL(*options, alternate_similarity_algorithm.enabled)) continue;

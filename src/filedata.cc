@@ -137,17 +137,6 @@ void file_data_change_info_free(FileDataChangeInfo *fdci, FileData *fd)
 }
 
 
-void file_data_disable_grouping(FileData *fd, gboolean disable)
-{
-	fd->file_data_disable_grouping(fd, disable);
-}
-
-void file_data_disable_grouping_list(GList *fd_list, gboolean disable)
-{
-	FileData::file_data_disable_grouping_list(fd_list, disable);
-}
-
-
 gint filelist_sort_compare_filedata(const FileData *fa, const FileData *fb, FileData::FileList::SortSettings *settings)
 {
 	return FileData::FileList::sort_compare_filedata(fa, fb, settings);
@@ -237,20 +226,6 @@ GList *file_data_filter_class_list(GList *list, guint filter)
 	return FileData::file_data_filter_class_list(list, filter);
 }
 
-
-gchar *file_data_sc_list_to_string(FileData *fd)
-{
-	return fd->file_data_sc_list_to_string(fd);
-}
-
-
-gchar *file_data_get_sidecar_path(FileData *fd, gboolean existing_only)
-{
-	return fd->file_data_get_sidecar_path(fd, existing_only);
-}
-
-
-
 gboolean file_data_add_ci(FileData *fd, FileDataChangeType type, const gchar *src, const gchar *dest)
 {
 	return fd->file_data_add_ci(fd, type, src, dest);
@@ -307,16 +282,6 @@ gboolean file_data_sc_add_ci_unspecified_list(GList *fd_list, const gchar *dest)
 	return FileData::file_data_sc_add_ci_unspecified_list(fd_list, dest);
 }
 
-gboolean file_data_add_ci_write_metadata(FileData *fd)
-{
-	return fd->file_data_add_ci_write_metadata(fd);
-}
-
-gboolean file_data_add_ci_write_metadata_list(GList *fd_list)
-{
-	return FileData::file_data_add_ci_write_metadata_list(fd_list);
-}
-
 
 gboolean file_data_sc_update_ci_copy_list(GList *fd_list, const gchar *dest)
 {
@@ -367,9 +332,9 @@ gint file_data_verify_ci(FileData *fd, GList *list)
 	return fd->file_data_verify_ci(fd, list);
 }
 
-gint file_data_verify_ci_list(GList *list, gchar **desc, gboolean with_sidecars)
+gint file_data_verify_ci_list(GList *list, gchar **desc, gboolean)
 {
-	return FileData::file_data_verify_ci_list(list, desc, with_sidecars);
+	return FileData::file_data_verify_ci_list(list, desc, FALSE);
 }
 
 
@@ -391,12 +356,6 @@ void file_data_free_ci(FileData *fd)
 void file_data_free_ci_list(GList *fd_list)
 {
 	FileData::file_data_free_ci_list(fd_list);
-}
-
-
-void file_data_set_regroup_when_finished(FileData *fd, gboolean enable)
-{
-	fd->file_data_set_regroup_when_finished(fd, enable);
 }
 
 
@@ -431,7 +390,6 @@ GList *file_data_process_groups_in_selection(GList *list, gboolean ungroup, GLis
 {
 	return FileData::file_data_process_groups_in_selection(list, ungroup, ungrouped);
 }
-
 
 
 gboolean file_data_register_notify_func(FileData::NotifyFunc func, gpointer data, NotifyPriority priority)

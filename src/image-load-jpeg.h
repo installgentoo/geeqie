@@ -54,7 +54,6 @@ private:
 	guint requested_height;
 
 	gboolean aborted;
-	gboolean stereo;
 };
 
 std::unique_ptr<ImageLoaderBackend> get_image_loader_backend_jpeg();

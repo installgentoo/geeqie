@@ -701,12 +701,12 @@ enum PathType {
 };
 
 
-static gchar *editor_command_path_parse(const FileData *fd, gboolean consider_sidecars, PathType type, const EditorDescription *editor)
+static gchar *editor_command_path_parse(const FileData *fd, gboolean, PathType type, const EditorDescription *editor)
 {
 	gchar *pathl;
 	const gchar *p = nullptr;
 
-	DEBUG_2("editor_command_path_parse: %s %d %d %s", fd->path, consider_sidecars, type, editor->key);
+	DEBUG_2("editor_command_path_parse: %s %d %s", fd->path, type, editor->key);
 
 	if (type == PATH_FILE || type == PATH_FILE_URL)
 		{
@@ -716,11 +716,6 @@ static gchar *editor_command_path_parse(const FileData *fd, gboolean consider_si
 			p = fd->path;
 		else
 			{
-			const auto file_data_compare_ext = [](gconstpointer data, gconstpointer user_data)
-			{
-				return g_ascii_strcasecmp(static_cast<const FileData *>(data)->extension, static_cast<const gchar *>(user_data));
-			};
-
 			while (work)
 				{
 				auto ext = static_cast<gchar *>(work->data);
@@ -731,16 +726,6 @@ static gchar *editor_command_path_parse(const FileData *fd, gboolean consider_si
 					{
 					p = fd->path;
 					break;
-					}
-
-				if (consider_sidecars)
-					{
-					GList *work2 = g_list_find_custom(fd->sidecar_files, ext, file_data_compare_ext);
-					if (work2)
-						{
-						auto sfd = static_cast<FileData *>(work2->data);
-						p = sfd->path;
-						}
 					}
 
 				if (p) break;
@@ -847,7 +832,7 @@ private:
 };
 
 
-EditorFlags editor_command_parse(const EditorDescription *editor, GList *list, gboolean consider_sidecars, gchar **output)
+EditorFlags editor_command_parse(const EditorDescription *editor, GList *list, gboolean, gchar **output)
 {
 	auto flags = static_cast<EditorFlags>(0);
 	const gchar *p;
@@ -856,7 +841,7 @@ EditorFlags editor_command_parse(const EditorDescription *editor, GList *list, g
 	gboolean single_quotes = FALSE;
 	gboolean double_quotes = FALSE;
 
-	DEBUG_2("editor_command_parse: %s %d %d", editor->key, consider_sidecars, !!output);
+	DEBUG_2("editor_command_parse: %s %d", editor->key, !!output);
 
 	if (output)
 		{
@@ -926,7 +911,7 @@ EditorFlags editor_command_parse(const EditorDescription *editor, GList *list, g
 							return static_cast<EditorFlags>(flags | EDITOR_ERROR_NO_FILE);
 							}
 						pathl = editor_command_path_parse(static_cast<FileData *>(list->data),
-										  consider_sidecars,
+										  FALSE,
 										  (*p == 'f') ? PATH_FILE : PATH_FILE_URL,
 										  editor);
 						if (!output)
@@ -939,7 +924,7 @@ EditorFlags editor_command_parse(const EditorDescription *editor, GList *list, g
 								{
 								auto fd = static_cast<FileData *>(work->data);
 								pathl = editor_command_path_parse(fd,
-												  consider_sidecars,
+												  FALSE,
 												  (*p == 'f') ? PATH_FILE : PATH_FILE_URL,
 												  editor);
 								work = work->next;
@@ -972,7 +957,7 @@ EditorFlags editor_command_parse(const EditorDescription *editor, GList *list, g
 						while (work)
 							{
 							auto fd = static_cast<FileData *>(work->data);
-							pathl = editor_command_path_parse(fd, consider_sidecars, (*p == 'F') ? PATH_FILE : PATH_FILE_URL, editor);
+							pathl = editor_command_path_parse(fd, FALSE, (*p == 'F') ? PATH_FILE : PATH_FILE_URL, editor);
 							if (pathl)
 								{
 								ok = TRUE;

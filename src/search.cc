@@ -74,9 +74,7 @@ enum MatchType {
 	SEARCH_MATCH_PATH_CONTAINS,
 	SEARCH_MATCH_UNDER,
 	SEARCH_MATCH_OVER,
-	SEARCH_MATCH_BETWEEN,
-	SEARCH_MATCH_ALL,
-	SEARCH_MATCH_ANY
+	SEARCH_MATCH_BETWEEN
 };
 
 enum {
@@ -1956,11 +1954,6 @@ static gboolean search_file_next(SearchData *sd)
 			search_class = FORMAT_CLASS_DOCUMENT;
 			}
 		else if (g_strcmp0(gtk_combo_box_text_get_active_text(
-						GTK_COMBO_BOX_TEXT(sd->class_type)), _("Metadata")) == 0)
-			{
-			search_class = FORMAT_CLASS_META;
-			}
-		else if (g_strcmp0(gtk_combo_box_text_get_active_text(
 						GTK_COMBO_BOX_TEXT(sd->class_type)), _("Unknown")) == 0)
 			{
 			search_class = FORMAT_CLASS_UNKNOWN;
@@ -2076,45 +2069,6 @@ static gboolean search_step_cb(gpointer data)
 		if (sd->search_type == SEARCH_MATCH_NONE)
 			{
 			success = filelist_read(fd, &list, &dlist);
-			}
-		else if (sd->search_type == SEARCH_MATCH_ALL &&
-			 sd->search_dir_fd &&
-			 strlen(fd->path) >= strlen(sd->search_dir_fd->path))
-			{
-			const gchar *path;
-
-			path = fd->path + strlen(sd->search_dir_fd->path);
-			if (path != fd->path)
-				{
-				FileData *dir_fd = file_data_new_dir(path);
-				success = filelist_read(dir_fd, &list, nullptr);
-				file_data_unref(dir_fd);
-				}
-			success |= filelist_read(fd, nullptr, &dlist);
-			if (success)
-				{
-				GList *work;
-
-				work = list;
-				while (work)
-					{
-					FileData *fdp;
-					GList *link;
-					gchar *meta_path;
-
-					fdp = static_cast<FileData *>(work->data);
-					link = work;
-					work = work->next;
-
-					meta_path = cache_find_location(CACHE_TYPE_METADATA, fdp->path);
-					if (!meta_path)
-						{
-						list = g_list_delete_link(list, link);
-						file_data_unref(fdp);
-						}
-					g_free(meta_path);
-					}
-				}
 			}
 
 		if (success)
@@ -2313,13 +2267,6 @@ static void search_start_cb(GtkWidget *, gpointer data)
 			}
 
 		g_free(path);
-		}
-	else if (sd->search_type == SEARCH_MATCH_ALL)
-		{
-		/* search metadata */
-		file_data_unref(sd->search_dir_fd);
-		sd->search_dir_fd = file_data_new_dir(get_metadata_cache_dir());
-		search_start(sd);
 		}
 	else if (sd->search_type == SEARCH_MATCH_CONTAINS)
 		{
@@ -3156,7 +3103,6 @@ static void search_notify_cb(FileData *fd, NotifyType type, gpointer data)
 			break;
 		case FILEDATA_CHANGE_COPY:
 		case FILEDATA_CHANGE_UNSPECIFIED:
-		case FILEDATA_CHANGE_WRITE_METADATA:
 			break;
 		}
 }

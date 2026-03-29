@@ -730,8 +730,6 @@ static void exif_init_cache()
 
 ExifData *exif_read_fd(FileData *fd)
 {
-	gchar *sidecar_path;
-
 	if (!exif_cache) exif_init_cache();
 
 	if (!fd) return nullptr;
@@ -739,16 +737,8 @@ ExifData *exif_read_fd(FileData *fd)
 	if (file_cache_get(exif_cache, fd)) return fd->exif;
 	g_assert(fd->exif == nullptr);
 
-	/* CACHE_TYPE_XMP_METADATA file should exist only if the metadata are
-	 * not writable directly, thus it should contain the most up-to-date version */
-	sidecar_path = nullptr;
-	sidecar_path = cache_find_location(CACHE_TYPE_XMP_METADATA, fd->path);
+	fd->exif = exif_read(fd->path, nullptr, nullptr);
 
-	if (!sidecar_path) sidecar_path = file_data_get_sidecar_path(fd, TRUE);
-
-	fd->exif = exif_read(fd->path, sidecar_path, fd->modified_xmp);
-
-	g_free(sidecar_path);
 	file_cache_put(exif_cache, fd, 1);
 	return fd->exif;
 }

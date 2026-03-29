@@ -165,21 +165,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->progressive_key_scrolling = TRUE;
 	options->keyboard_scroll_step = 1;
 
-	options->metadata.enable_metadata_dirs = FALSE;
-	options->metadata.save_in_image_file = FALSE;
-	options->metadata.save_legacy_IPTC = FALSE;
-	options->metadata.warn_on_write_problems = TRUE;
-	options->metadata.save_legacy_format = FALSE;
-	options->metadata.sync_grouped_files = TRUE;
-	options->metadata.confirm_write = TRUE;
-	options->metadata.confirm_after_timeout = FALSE;
-	options->metadata.confirm_timeout = 10;
-	options->metadata.confirm_on_image_change = FALSE;
-	options->metadata.confirm_on_dir_change = TRUE;
-	options->metadata.write_orientation = TRUE;
-	options->metadata.sidecar_extended_name = FALSE;
-	options->metadata.check_spelling = TRUE;
-
 	options->show_icon_names = TRUE;
 	options->expand_menu_toolbar = FALSE;
 
@@ -201,20 +186,11 @@ ConfOptions *init_options(ConfOptions *options)
 	options->update_on_time_change = TRUE;
 	options->clipboard_selection = CLIPBOARD_BOTH;
 
-	options->stereo.fixed_w = 1920;
-	options->stereo.fixed_h = 1080;
-	options->stereo.fixed_x1 = 0;
-	options->stereo.fixed_y1 = 0;
-	options->stereo.fixed_x2 = 0;
-	options->stereo.fixed_y2 = 1125;
-
 	options->log_window_lines = 1000;
 	options->log_window.line_wrap = FALSE;
 	options->log_window.paused = FALSE;
 	options->log_window.timer_data = FALSE;
 	options->log_window.action = g_strdup("echo");
-
-	options->read_metadata_in_idle = FALSE;
 
 	options->printer.template_string = nullptr;
 	options->printer.image_font = g_strdup("Serif 10");
@@ -229,9 +205,6 @@ ConfOptions *init_options(ConfOptions *options)
 
 	options->mouse_button_8 = g_strdup("Back");
 	options->mouse_button_9 = g_strdup("Forward");
-
-	options->disable_gpu = FALSE;
-	options->override_disable_gpu = FALSE;
 
 	for (i = 0; i < FILE_FORMAT_CLASSES; i++)
 		{

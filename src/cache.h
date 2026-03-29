@@ -29,22 +29,16 @@
 struct ImageSimilarityData;
 
 #define GQ_CACHE_THUMB		"thumbnails"
-#define GQ_CACHE_METADATA    	"metadata"
 
 #define GQ_CACHE_LOCAL_THUMB    ".thumbnails"
-#define GQ_CACHE_LOCAL_METADATA ".metadata"
 
 #define GQ_CACHE_EXT_THUMB      ".png"
 #define GQ_CACHE_EXT_SIM        ".sim"
-#define GQ_CACHE_EXT_METADATA   ".meta"
-#define GQ_CACHE_EXT_XMP_METADATA   ".gq.xmp"
 
 
 enum CacheType {
 	CACHE_TYPE_THUMB,
-	CACHE_TYPE_SIM,
-	CACHE_TYPE_METADATA,
-	CACHE_TYPE_XMP_METADATA
+	CACHE_TYPE_SIM
 };
 
 struct CacheData
@@ -82,7 +76,6 @@ gchar *cache_find_location(CacheType type, const gchar *source);
 
 const gchar *get_thumbnails_cache_dir();
 const gchar *get_thumbnails_standard_cache_dir();
-const gchar *get_metadata_cache_dir();
 
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

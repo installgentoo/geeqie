@@ -149,11 +149,8 @@ const gchar *format_class_list[] = {
 	N_("Unknown"),
 	N_("Image"),
 	N_("RAW Image"),
-	N_("Metadata"),
 	N_("Video"),
-	N_("Collection"),
-	N_("Document"),
-	N_("Archive")
+	N_("Document")
 	};
 
 /* config memory values */
@@ -303,7 +300,6 @@ static void config_window_apply()
 	options->thumbnails.use_color_management = c_options->thumbnails.use_color_management;
 	options->thumbnails.use_ft_metadata = c_options->thumbnails.use_ft_metadata;
 	options->thumbnails.spec_standard = c_options->thumbnails.spec_standard;
-	options->metadata.enable_metadata_dirs = c_options->metadata.enable_metadata_dirs;
 	options->file_filter.show_hidden_files = c_options->file_filter.show_hidden_files;
 	options->file_filter.show_parent_directory = c_options->file_filter.show_parent_directory;
 	options->file_filter.show_dot_directory = c_options->file_filter.show_dot_directory;
@@ -383,20 +379,6 @@ static void config_window_apply()
 	options->clipboard_selection = c_options->clipboard_selection;
 	options->dnd_default_action = c_options->dnd_default_action;
 
-	options->metadata.save_in_image_file = c_options->metadata.save_in_image_file;
-	options->metadata.save_legacy_IPTC = c_options->metadata.save_legacy_IPTC;
-	options->metadata.warn_on_write_problems = c_options->metadata.warn_on_write_problems;
-	options->metadata.save_legacy_format = c_options->metadata.save_legacy_format;
-	options->metadata.sync_grouped_files = c_options->metadata.sync_grouped_files;
-	options->metadata.confirm_write = c_options->metadata.confirm_write;
-	options->metadata.sidecar_extended_name = c_options->metadata.sidecar_extended_name;
-	options->metadata.confirm_timeout = c_options->metadata.confirm_timeout;
-	options->metadata.confirm_after_timeout = c_options->metadata.confirm_after_timeout;
-	options->metadata.confirm_on_image_change = c_options->metadata.confirm_on_image_change;
-	options->metadata.confirm_on_dir_change = c_options->metadata.confirm_on_dir_change;
-	options->metadata.write_orientation = c_options->metadata.write_orientation;
-	options->metadata.check_spelling = c_options->metadata.check_spelling;
-
 	options->info_title.height = c_options->info_title.height;
 	options->info_comment.height = c_options->info_comment.height;
 
@@ -416,8 +398,6 @@ static void config_window_apply()
 	options->external_preview.enable = c_options->external_preview.enable;
 	config_entry_to_option(external_preview_select_entry, &options->external_preview.select, nullptr);
 	config_entry_to_option(external_preview_extract_entry, &options->external_preview.extract, nullptr);
-
-	options->read_metadata_in_idle = c_options->read_metadata_in_idle;
 
 	options->threads.duplicates = c_options->threads.duplicates > 0 ? c_options->threads.duplicates : -1;
 
@@ -446,8 +426,6 @@ static void config_window_apply()
 
 	options->mouse_button_8 = c_options->mouse_button_8;
 	options->mouse_button_9 = c_options->mouse_button_9;
-
-	options->override_disable_gpu = c_options->override_disable_gpu;
 
 	image_options_sync();
 
@@ -2336,119 +2314,6 @@ static void config_tab_files(GtkWidget *notebook)
 }
 
 /* metadata tab */
-static void config_tab_metadata(GtkWidget *notebook)
-{
-	GtkWidget *vbox;
-	GtkWidget *hbox;
-	GtkWidget *group;
-	GtkWidget *ct_button;
-	GtkWidget *label;
-	GtkWidget *tmp_widget;
-	char *markup;
-	GtkWidget *text_label;
-
-	vbox = scrolled_notebook_page(notebook, _("Metadata"));
-
-
-	group = pref_group_new(vbox, FALSE, _("Metadata writing sequence"), GTK_ORIENTATION_VERTICAL);
-	label = pref_label_new(group, _("When writing metadata, Geeqie will follow these steps, if selected. This process will stop when the first successful write occurs."));
-	gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-	gtk_label_set_yalign(GTK_LABEL(label), 0.5);
-
-	gtk_widget_set_tooltip_text(label, _("A flowchart of the sequence is shown in the Help file"));
-
-	ct_button = pref_checkbox_new_int(group, "", options->metadata.save_in_image_file, &c_options->metadata.save_in_image_file);
-	text_label = gtk_bin_get_child(GTK_BIN(ct_button));
-	markup = g_markup_printf_escaped ("<span weight=\"bold\">%s</span>%s", _("Step 1"), _(") Save metadata in either the image file or the sidecar file, according to the XMP standard"));
-	gtk_label_set_markup (GTK_LABEL(text_label), markup);
-	g_free(markup);
-	markup = g_markup_printf_escaped ("%s<span style=\"italic\">%s</span>%s<span style=\"italic\">%s</span>%s", _("The destination is dependent on the settings in the "), _("Writable"), _(" and "), _("Sidecar Is Allowed"), _(" columns of the File Filters tab)"));
-	gtk_widget_set_tooltip_markup(ct_button, markup);
-	g_free(markup);
-
-	tmp_widget = pref_checkbox_new_int(group, "", options->metadata.enable_metadata_dirs, &c_options->metadata.enable_metadata_dirs);
-	text_label = gtk_bin_get_child(GTK_BIN(tmp_widget));
-	markup = g_markup_printf_escaped ("<span weight=\"bold\">%s</span>%s<span style=\"italic\">%s</span>%s", _("Step 2"), _(") Save metadata in the folder "),".metadata,", _(" local to the image folder (non-standard)"));
-	gtk_label_set_markup (GTK_LABEL(text_label), markup);
-	g_free(markup);
-
-	label = pref_label_new(group, "");
-	markup = g_markup_printf_escaped ("<span weight=\"bold\">%s</span>%s<span style=\"italic\">%s</span>%s", _("Step 3"), _(") Save metadata in Geeqie private directory "), get_metadata_cache_dir(), "/");
-	gtk_label_set_markup (GTK_LABEL(label), markup);
-	g_free(markup);
-
-	gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-	gtk_label_set_yalign(GTK_LABEL(label), 0.5);
-	gtk_widget_set_margin_start(label, 22);
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("Step 1 Options:"), GTK_ORIENTATION_VERTICAL);
-
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_VERTICAL, PREF_PAD_SPACE);
-	pref_checkbox_link_sensitivity(ct_button, hbox);
-
-	tmp_widget=	pref_checkbox_new_int(hbox, _("Store metadata also in IPTC tags (converted according to the IPTC4XMP standard)"), options->metadata.save_legacy_IPTC, &c_options->metadata.save_legacy_IPTC);
-	gtk_widget_set_tooltip_text(tmp_widget, _("A simplified conversion list is in the Help file"));
-
-	pref_checkbox_new_int(hbox, _("Warn if the image or sidecar file is not writable"), options->metadata.warn_on_write_problems, &c_options->metadata.warn_on_write_problems);
-
-	pref_checkbox_new_int(hbox, _("Ask before writing to image files"), options->metadata.confirm_write, &c_options->metadata.confirm_write);
-
-	tmp_widget=	pref_checkbox_new_int(hbox, "", options->metadata.sidecar_extended_name, &c_options->metadata.sidecar_extended_name);
-	gtk_widget_set_tooltip_text(tmp_widget, _("This file naming convention is used by Darktable"));
-	text_label = gtk_bin_get_child(GTK_BIN(tmp_widget));
-	markup = g_markup_printf_escaped ("%s<span style=\"italic\">%s</span>%s<span style=\"italic\">%s</span>%s", _("Create sidecar files named "), "image.ext.xmp", _(" (as opposed to the normal "), "image.xmp", ")");
-	gtk_label_set_markup (GTK_LABEL(text_label), markup);
-	g_free(markup);
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("Steps 2 and 3 Option:"), GTK_ORIENTATION_VERTICAL);
-
-	pref_checkbox_new_int(group, _("Use GQview legacy metadata format instead of XMP (supports only Keywords and Comments)"), options->metadata.save_legacy_format, &c_options->metadata.save_legacy_format);
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("Miscellaneous"), GTK_ORIENTATION_VERTICAL);
-	tmp_widget = pref_checkbox_new_int(group, _("Write the same description tags to all grouped sidecars"), options->metadata.sync_grouped_files, &c_options->metadata.sync_grouped_files);
-	gtk_widget_set_tooltip_text(tmp_widget, _("See the Help file for a list of the tags used"));
-
-	ct_button = pref_checkbox_new_int(group, _("Write altered image orientation to the metadata"), options->metadata.write_orientation, &c_options->metadata.write_orientation);
-	gtk_widget_set_tooltip_text(ct_button, _("If checked, the results of orientation commands (Rotate, Mirror and Flip) issued on an image will be written to metadata\nNote: If this option is not checked, the results of orientation commands will be lost when Geeqie closes"));
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("Auto-save options"), GTK_ORIENTATION_VERTICAL);
-
-	ct_button = pref_checkbox_new_int(group, _("Write metadata after timeout"), options->metadata.confirm_after_timeout, &c_options->metadata.confirm_after_timeout);
-
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	pref_checkbox_link_sensitivity(ct_button, hbox);
-
-	pref_spin_new_int(hbox, _("Timeout (seconds):"), nullptr, 0, 900, 1, options->metadata.confirm_timeout, &c_options->metadata.confirm_timeout);
-
-	pref_checkbox_new_int(group, _("Write metadata on image change"), options->metadata.confirm_on_image_change, &c_options->metadata.confirm_on_image_change);
-
-	pref_checkbox_new_int(group, _("Write metadata on directory change"), options->metadata.confirm_on_dir_change, &c_options->metadata.confirm_on_dir_change);
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-#if HAVE_SPELL
-	group = pref_group_new(vbox, FALSE, _("Spelling checks"), GTK_ORIENTATION_VERTICAL);
-
-	ct_button = pref_checkbox_new_int(group, _("Check spelling - Requires restart"), options->metadata.check_spelling, &c_options->metadata.check_spelling);
-	gtk_widget_set_tooltip_text(ct_button, _("Spelling checks are performed on info sidebar panes Comment, Headline and Title"));
-#endif
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("Pre-load metadata"), GTK_ORIENTATION_VERTICAL);
-
-	ct_button = pref_checkbox_new_int(group, _("Read metadata in background"), options->read_metadata_in_idle, &c_options->read_metadata_in_idle);
-	gtk_widget_set_tooltip_text(ct_button,_("On folder change, read DateTimeOriginal, DateTimeDigitized and Star Rating in the idle loop.\nIf this is not selected, initial loading of the folder will be faster but sorting on these items will be slower"));
-}
-
-/* metadata tab */
 #if HAVE_LCMS
 static void intent_menu_cb(GtkWidget *combo, gpointer data)
 {
@@ -2622,7 +2487,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 	GtkWidget *with_rename;
 	GtkWidget *hide_window_in_fullscreen;
 	GtkWidget *hide_osd_in_fullscreen;
-	GtkWidget *checkbox;
 	GtkWidget *tmp;
 
 	vbox = scrolled_notebook_page(notebook, _("Behavior"));
@@ -2746,14 +2610,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 	add_mouse_selection_menu(table, 0, 0, _("Mouse button Back:"), options->mouse_button_8, &c_options->mouse_button_8);
 	table = pref_table_new(group, 2, 1, FALSE, FALSE);
 	add_mouse_selection_menu(table, 0, 0, _("Mouse button Forward:"), options->mouse_button_9, &c_options->mouse_button_9);
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("GPU"), GTK_ORIENTATION_VERTICAL);
-
-	checkbox = pref_checkbox_new_int(group, _("Override disable GPU"),
-				options->override_disable_gpu, &c_options->override_disable_gpu);
-	gtk_widget_set_tooltip_text(checkbox, _("Contact the developers for usage"));
 
 #ifdef DEBUG
 	pref_spacer(group, PREF_PAD_GROUP);
@@ -3112,7 +2968,6 @@ static void config_window_create(LayoutWindow *lw)
 	config_tab_windows(notebook);
 	config_tab_accelerators(notebook);
 	config_tab_files(notebook);
-	config_tab_metadata(notebook);
 	config_tab_color(notebook);
 	config_tab_behavior(notebook);
 	config_tab_toolbar_main(notebook);

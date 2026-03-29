@@ -65,7 +65,7 @@ class FileDataSortTest : public t::Test
 		fd_last->date = fd_last->cdate = 3333333333;
 		fd_last->exifdate = fd_last->exifdate_digitized = 3333333333;
 		fd_last->rating = 3;
-		fd_last->format_class = FORMAT_CLASS_META;
+		fd_last->format_class = FORMAT_CLASS_VIDEO;
 	}
 
 	void TearDown() override

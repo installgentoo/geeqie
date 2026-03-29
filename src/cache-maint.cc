@@ -63,16 +63,15 @@ struct CMData
 	GtkWidget *button_stop;
 	GtkWidget *button_close;
 	gboolean clear;
-	gboolean metadata;
 	gboolean remote;
 };
 
 constexpr gint PURGE_DIALOG_WIDTH = 400;
 
 /* sorry for complexity (cm->done_list), but need it to remove empty dirs */
-CMData *cache_maintain_data_new(gboolean clear, gboolean metadata, gboolean remote)
+CMData *cache_maintain_data_new(gboolean clear, gboolean, gboolean remote)
 {
-	const gchar *cache_folder = metadata ? get_metadata_cache_dir() : get_thumbnails_cache_dir();
+	const gchar *cache_folder = get_thumbnails_cache_dir();
 	FileData *dir_fd = file_data_new_dir(cache_folder);
 
 	GList *dlist;
@@ -88,7 +87,6 @@ CMData *cache_maintain_data_new(gboolean clear, gboolean metadata, gboolean remo
 	cm->list = dlist;
 	cm->done_list = nullptr;
 	cm->clear = clear;
-	cm->metadata = metadata;
 	cm->remote = remote;
 
 	return cm;
@@ -236,11 +234,6 @@ static gboolean cache_maintain_home_cb(gpointer data)
 	const gchar *cache_folder;
 	gboolean filter_disable;
 
-	if (cm->metadata)
-		{
-		cache_folder = get_metadata_cache_dir();
-		}
-	else
 		{
 		cache_folder = get_thumbnails_cache_dir();
 		}
@@ -257,7 +250,7 @@ static gboolean cache_maintain_home_cb(gpointer data)
 
 	fd = static_cast<FileData *>(cm->list->data);
 
-	DEBUG_1("purge chk (%d) \"%s\"", (cm->clear && !cm->metadata), fd->path);
+	DEBUG_1("purge chk (%d) \"%s\"", cm->clear, fd->path);
 
 /**
  * It is necessary to disable the file filter when clearing the cache,
@@ -286,7 +279,7 @@ static gboolean cache_maintain_home_cb(gpointer data)
 				gchar *dot = strrchr(path_buf, '.');
 
 				if (dot) *dot = '\0';
-				if ((!cm->metadata && cm->clear) ||
+				if (cm->clear ||
 				    (strlen(path_buf) > base_length && !isfile(path_buf + base_length)) )
 					{
 					if (dot) *dot = '.';
@@ -368,19 +361,15 @@ static void cache_maintain_home_stop_cb(GenericDialog *, gpointer data)
 	cache_maintain_home_stop(cm);
 }
 
-static void cache_maintain_home(gboolean metadata, gboolean clear, GtkWidget *parent)
+static void cache_maintain_home(gboolean, gboolean clear, GtkWidget *parent)
 {
-	CMData *cm = cache_maintain_data_new(clear, metadata, FALSE);
+	CMData *cm = cache_maintain_data_new(clear, FALSE, FALSE);
 	if (!cm) return;
 
 	const gchar *msg;
 	GtkWidget *hbox;
 
-	if (metadata)
-		{
-		msg = _("Removing old metadata...");
-		}
-	else if (clear)
+	if (clear)
 		{
 		msg = _("Clearing cached thumbnails...");
 		}
@@ -425,15 +414,14 @@ static void cache_maintain_home(gboolean metadata, gboolean clear, GtkWidget *pa
 
 /**
  * @brief Clears or culls cached data
- * @param metadata TRUE - work on metadata cache, FALSE - work on thumbnail cache
  * @param clear TRUE - clear cache, FALSE - delete orphaned cached items
  * @param func Function called when idle loop function terminates
  *
  *
  */
-void cache_maintain_home_remote(gboolean metadata, gboolean clear, GDestroyNotify func)
+void cache_maintain_home_remote(gboolean, gboolean clear, GDestroyNotify func)
 {
-	CMData *cm = cache_maintain_data_new(clear, metadata, TRUE);
+	CMData *cm = cache_maintain_data_new(clear, FALSE, TRUE);
 	if (!cm) return;
 
 	cm->idle_id = g_idle_add_full(G_PRIORITY_LOW, cache_maintain_home_cb, cm, func);
@@ -467,7 +455,6 @@ static void cache_maint_moved(FileData *fd)
 
 	cache_move(CACHE_TYPE_THUMB);
 	cache_move(CACHE_TYPE_SIM);
-	cache_move(CACHE_TYPE_METADATA);
 
 	if (options->thumbnails.enable_caching && options->thumbnails.spec_standard)
 		thumb_std_maint_moved(src, dest);
@@ -488,25 +475,9 @@ static void cache_maint_removed(FileData *fd)
 
 	cache_remove(CACHE_TYPE_THUMB);
 	cache_remove(CACHE_TYPE_SIM);
-	cache_remove(CACHE_TYPE_METADATA);
 
 	if (options->thumbnails.enable_caching && options->thumbnails.spec_standard)
 		thumb_std_maint_removed(fd->path);
-}
-
-static void cache_maint_copied(FileData *fd)
-{
-	g_autofree gchar *src_path = cache_find_location(CACHE_TYPE_METADATA, fd->change->source);
-	if (!src_path) return;
-
-	g_autofree gchar *dest_base = cache_create_location(CACHE_TYPE_METADATA, fd->change->dest);
-	if (!dest_base) return;
-
-	g_autofree gchar *dest_path = cache_get_location(CACHE_TYPE_METADATA, fd->change->dest);
-	if (!copy_file(src_path, dest_path))
-		{
-		DEBUG_1("failed to copy metadata %s to %s", src_path, dest_path);
-		}
 }
 
 void cache_notify_cb(FileData *fd, NotifyType type, gpointer)
@@ -520,14 +491,11 @@ void cache_notify_cb(FileData *fd, NotifyType type, gpointer)
 		case FILEDATA_CHANGE_RENAME:
 			cache_maint_moved(fd);
 			break;
-		case FILEDATA_CHANGE_COPY:
-			cache_maint_copied(fd);
-			break;
 		case FILEDATA_CHANGE_DELETE:
 			cache_maint_removed(fd);
 			break;
+		case FILEDATA_CHANGE_COPY:
 		case FILEDATA_CHANGE_UNSPECIFIED:
-		case FILEDATA_CHANGE_WRITE_METADATA:
 			break;
 		}
 }
@@ -1190,12 +1158,6 @@ static void cache_manager_render_cb(GtkWidget *widget, gpointer)
 	cache_manager_render_dialog(widget, path);
 }
 
-static void cache_manager_metadata_clean_cb(GtkWidget *widget, gpointer)
-{
-	cache_maintain_home(TRUE, FALSE, widget);
-}
-
-
 static CacheManager *cache_manager = nullptr;
 
 static void cache_manager_close_cb(GenericDialog *gd, gpointer)
@@ -1661,7 +1623,6 @@ void cache_manager_show()
 	gtk_size_group_add_widget(sizegroup, button);
 	pref_table_label(table, 1, 1, _("Delete all cached data."), GTK_ALIGN_START);
 
-
 	group = pref_group_new(gd->vbox, FALSE, _("Shared thumbnail cache"), GTK_ORIENTATION_VERTICAL);
 
 	path = g_build_filename(get_thumbnails_standard_cache_dir(), NULL);
@@ -1699,17 +1660,6 @@ void cache_manager_show()
 	gtk_size_group_add_widget(sizegroup, button);
 	pref_table_label(table, 1, 0, _("Create sim. files recursively."), GTK_ALIGN_START);
 	gtk_widget_set_sensitive(group, options->thumbnails.enable_caching);
-
-	group = pref_group_new(gd->vbox, FALSE, _("Metadata"), GTK_ORIENTATION_VERTICAL);
-
-	cache_manager_location_label(group, get_metadata_cache_dir());
-
-	table = pref_table_new(group, 2, 1, FALSE, FALSE);
-
-	button = pref_table_button(table, 0, 0, GQ_ICON_CLEAR, _("Clean up"),
-				   G_CALLBACK(cache_manager_metadata_clean_cb), cache_manager);
-	gtk_size_group_add_widget(sizegroup, button);
-	pref_table_label(table, 1, 0, _("Remove orphaned keywords and comments."), GTK_ALIGN_START);
 
 	group = pref_group_new(gd->vbox, FALSE, _("Background cache maintenance"), GTK_ORIENTATION_VERTICAL);
 

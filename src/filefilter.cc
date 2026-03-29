@@ -237,11 +237,6 @@ void filter_add_defaults()
 	filter_add_if_missing("jps", "Stereo side-by-side jpeg", ".jps", FORMAT_CLASS_IMAGE, TRUE, FALSE, TRUE);
 	filter_add_if_missing("mpo", "Stereo multi-image jpeg", ".mpo", FORMAT_CLASS_IMAGE, FALSE, TRUE, TRUE);
 
-	/* non-image files that might be desirable to show */
-	filter_add_if_missing("xmp", "XMP sidecar", ".xmp", FORMAT_CLASS_META, TRUE, FALSE, TRUE);
-	filter_add_if_missing("meta", "GQview legacy metadata", GQ_CACHE_EXT_METADATA, FORMAT_CLASS_META, TRUE, FALSE, TRUE);
-	filter_add_if_missing("pto", "Panorama script file", ".pto", FORMAT_CLASS_META, FALSE, FALSE, TRUE);
-
 	/* These are the raw camera formats with embedded jpeg/exif.
 	 * (see format-raw.cc and/or exiv2.cc)
 	 */
@@ -299,7 +294,6 @@ GList *filter_to_list(const gchar *extensions)
 
 		if (g_ascii_strcasecmp(ext, "%image") == 0) file_class = FORMAT_CLASS_IMAGE;
 		else if (g_ascii_strcasecmp(ext, "%raw") == 0) file_class = FORMAT_CLASS_RAWIMAGE;
-		else if (g_ascii_strcasecmp(ext, "%meta") == 0) file_class = FORMAT_CLASS_META;
 		else if (g_ascii_strcasecmp(ext, "%unknown") == 0) file_class = FORMAT_CLASS_UNKNOWN;
 
 		if (file_class == -1)
@@ -447,7 +441,6 @@ FileFormatClass filter_file_get_class(const gchar *name)
 {
 	if (filter_file_class(name, FORMAT_CLASS_IMAGE)) return FORMAT_CLASS_IMAGE;
 	if (filter_file_class(name, FORMAT_CLASS_RAWIMAGE)) return FORMAT_CLASS_RAWIMAGE;
-	if (filter_file_class(name, FORMAT_CLASS_META)) return FORMAT_CLASS_META;
 	if (filter_file_class(name, FORMAT_CLASS_VIDEO)) return FORMAT_CLASS_VIDEO;
 	if (filter_file_class(name, FORMAT_CLASS_DOCUMENT)) return FORMAT_CLASS_DOCUMENT;
 	return FORMAT_CLASS_UNKNOWN;

@@ -78,7 +78,6 @@ enum FileFormatClass {
 	FORMAT_CLASS_UNKNOWN,
 	FORMAT_CLASS_IMAGE,
 	FORMAT_CLASS_RAWIMAGE,
-	FORMAT_CLASS_META,
 	FORMAT_CLASS_VIDEO,
 	FORMAT_CLASS_DOCUMENT,
 	FILE_FORMAT_CLASSES
@@ -87,12 +86,9 @@ enum FileFormatClass {
 extern const gchar *format_class_list[]; /**< defined in preferences.cc */
 
 enum NotifyType {
-	NOTIFY_MARKS		= 1 << 1, /**< changed marks */
 	NOTIFY_PIXBUF		= 1 << 2, /**< image was read into fd->pixbuf */
 	NOTIFY_HISTMAP		= 1 << 3, /**< histmap was read into fd->histmap */
 	NOTIFY_ORIENTATION	= 1 << 4, /**< image was rotated */
-	NOTIFY_METADATA		= 1 << 5, /**< changed image metadata, not yet written */
-	NOTIFY_GROUPING		= 1 << 6, /**< change in fd->sidecar_files or fd->parent */
 	NOTIFY_REREAD		= 1 << 7, /**< changed file size, date, etc., file name remains unchanged */
 	NOTIFY_CHANGE		= 1 << 8  /**< generic change described by fd->change */
 };
@@ -103,7 +99,6 @@ enum ChangeError {
 	CHANGE_WARN_NO_WRITE_PERM      = 1 << 1,
 	CHANGE_WARN_SAME               = 1 << 2,
 	CHANGE_WARN_CHANGED_EXT        = 1 << 3,
-	CHANGE_WARN_UNSAVED_META       = 1 << 4,
 	CHANGE_WARN_NO_WRITE_PERM_DEST_DIR  = 1 << 5,
 	CHANGE_ERROR_MASK              = ~0xff, /**< the values below are fatal errors */
 	CHANGE_NO_READ_PERM            = 1 << 8,

@@ -351,8 +351,7 @@ enum UtilityType {
 	UTILITY_TYPE_DELETE,
 	UTILITY_TYPE_DELETE_LINK,
 	UTILITY_TYPE_DELETE_FOLDER,
-	UTILITY_TYPE_CREATE_FOLDER,
-	UTILITY_TYPE_WRITE_METADATA
+	UTILITY_TYPE_CREATE_FOLDER
 };
 
 enum UtilityPhase {
@@ -396,8 +395,6 @@ struct UtilityData {
 	guint update_idle_id; /* event source id */
 	guint perform_idle_id; /* event source id */
 
-	gboolean with_sidecars; /* operate on grouped or single files; TRUE = use file_data_sc_, FALSE = use file_data_ functions */
-
 	/* alternative dialog parts */
 	GtkWidget *notebook;
 
@@ -437,7 +434,6 @@ enum {
 	UTILITY_COLUMN_PIXBUF,
 	UTILITY_COLUMN_PATH,
 	UTILITY_COLUMN_NAME,
-	UTILITY_COLUMN_SIDECARS,
 	UTILITY_COLUMN_DEST_PATH,
 	UTILITY_COLUMN_DEST_NAME,
 	UTILITY_COLUMN_COUNT
@@ -494,8 +490,6 @@ static void generic_dialog_image_set(UtilityData *ud, FileData *fd)
 			}
 		}
 }
-
-static gboolean file_util_write_metadata_first(UtilityType type, UtilityPhase phase, GList *flist, const gchar *dest_path, const gchar *editor_key, GtkWidget *parent);
 
 enum {
 	UTILITY_LIST_MIN_WIDTH =  250,
@@ -584,7 +578,7 @@ static void file_util_dialog_list_select(GtkWidget *view, gint n)
 		}
 }
 
-static GtkWidget *file_util_dialog_add_list(GtkWidget *box, GList *list, gboolean full_paths, gboolean with_sidecars)
+static GtkWidget *file_util_dialog_add_list(GtkWidget *box, GList *list, gboolean full_paths, gboolean)
 {
 	GtkWidget *scrolled;
 	GtkWidget *view;
@@ -623,9 +617,7 @@ static GtkWidget *file_util_dialog_add_list(GtkWidget *box, GList *list, gboolea
 		{
 		auto fd = static_cast<FileData *>(list->data);
 		GtkTreeIter iter;
-		gchar *sidecars;
 
-		sidecars = with_sidecars ? file_data_sc_list_to_string(fd) : nullptr;
 		GdkPixbuf *icon = file_util_get_error_icon(fd, list, view);
 		gtk_list_store_append(store, &iter);
 		gtk_list_store_set(store, &iter,
@@ -633,11 +625,9 @@ static GtkWidget *file_util_dialog_add_list(GtkWidget *box, GList *list, gboolea
 				   UTILITY_COLUMN_PIXBUF, icon,
 				   UTILITY_COLUMN_PATH, fd->path,
 				   UTILITY_COLUMN_NAME, fd->name,
-				   UTILITY_COLUMN_SIDECARS, sidecars,
 				   UTILITY_COLUMN_DEST_PATH, fd->change ? fd->change->dest : "error",
 				   UTILITY_COLUMN_DEST_NAME, fd->change ? filename_from_path(fd->change->dest) : "error",
 				   -1);
-		g_free(sidecars);
 
 		list = list->next;
 		}
@@ -724,9 +714,6 @@ static gint file_util_perform_ci_cb(gpointer resume_data, EditorFlags flags, GLi
 
 		if (!editor_errors(flags)) /* files were successfully deleted, call the maint functions */
 			{
-			if (ud->with_sidecars)
-				file_data_sc_apply_ci(fd);
-			else
 				file_data_apply_ci(fd);
 			}
 
@@ -737,10 +724,7 @@ static gint file_util_perform_ci_cb(gpointer resume_data, EditorFlags flags, GLi
 			ud->finalize_func(fd);
 			}
 
-		if (ud->with_sidecars)
-			file_data_sc_free_ci(fd);
-		else
-			file_data_free_ci(fd);
+		file_data_free_ci(fd);
 		file_data_unref(fd);
 		}
 
@@ -786,8 +770,7 @@ static gboolean file_util_perform_ci_internal(gpointer data)
 		gboolean last = !ud->flist->next;
 		EditorFlags status = EDITOR_ERROR_STATUS;
 
-		if (ud->with_sidecars ? file_data_sc_perform_ci(static_cast<FileData *>(single_entry->data))
-		                      : file_data_perform_ci(static_cast<FileData *>(single_entry->data)))
+		if (file_data_perform_ci(static_cast<FileData *>(single_entry->data)))
 			status = static_cast<EditorFlags>(0); /* OK */
 
 		ret = file_util_perform_ci_cb(GINT_TO_POINTER(!last), status, single_entry, ud);
@@ -811,7 +794,6 @@ static void file_util_perform_ci_dir(UtilityData *ud, gboolean internal, gboolea
 		{
 		case UTILITY_TYPE_DELETE_LINK:
 			{
-			g_assert(ud->dir_fd->sidecar_files == nullptr); // directories should not have sidecars
 			if ((internal && file_data_perform_ci(ud->dir_fd)) ||
 			    (!internal && ext_result))
 				{
@@ -857,7 +839,6 @@ static void file_util_perform_ci_dir(UtilityData *ud, gboolean internal, gboolea
 
 			if (!fail)
 				{
-				g_assert(ud->dir_fd->sidecar_files == nullptr); // directories should not have sidecars
 				if ((internal && file_data_sc_perform_ci(ud->dir_fd)) ||
 				    (!internal && ext_result))
 					{
@@ -895,7 +876,6 @@ static void file_util_perform_ci_dir(UtilityData *ud, gboolean internal, gboolea
 			{
 			FileData *fail = nullptr;
 			GList *work;
-			g_assert(ud->dir_fd->sidecar_files == nullptr); // directories should not have sidecars
 
 			if ((internal && file_data_sc_perform_ci(ud->dir_fd)) ||
 			    (!internal && ext_result))
@@ -993,8 +973,6 @@ static void file_util_perform_ci(UtilityData *ud)
 		case UTILITY_TYPE_EDITOR:
 			g_assert(ud->external_command != nullptr); /* it should be already set */
 			break;
-		case UTILITY_TYPE_WRITE_METADATA:
-			ud->external_command = nullptr;
 		}
 
 	if (is_valid_editor_command(ud->external_command))
@@ -1077,13 +1055,12 @@ static void file_util_check_ci(UtilityData *ud)
 			}
 		else if (ud->dir_fd)
 			{
-			g_assert(ud->dir_fd->sidecar_files == nullptr); // directories should not have sidecars
 			error = file_data_verify_ci(ud->dir_fd, ud->flist);
 			if (error) desc = file_data_get_error_string(error);
 			}
 		else
 			{
-			error = file_data_verify_ci_list(ud->flist, &desc, ud->with_sidecars);
+			error = file_data_verify_ci_list(ud->flist, &desc, FALSE);
 			}
 		}
 	else
@@ -1198,7 +1175,6 @@ static void file_util_dest_folder_update_path(UtilityData *ud)
 		case UTILITY_TYPE_DELETE_FOLDER:
 		case UTILITY_TYPE_RENAME:
 		case UTILITY_TYPE_RENAME_FOLDER:
-		case UTILITY_TYPE_WRITE_METADATA:
 			g_warning("unhandled operation");
 		}
 }
@@ -1351,7 +1327,6 @@ static void file_util_rename_preview_update(UtilityData *ud)
 			const gchar *dest = gq_gtk_entry_get_text(GTK_ENTRY(ud->rename_entry));
 
 			gtk_tree_model_get(store, &iter, UTILITY_COLUMN_FD, &fd, -1);
-			g_assert(ud->with_sidecars); /* sidecars must be renamed too, it would break the pairing otherwise */
 
 			dirname = g_path_get_dirname(fd->change->dest);
 			destname = g_build_filename(dirname, dest, NULL);
@@ -1416,8 +1391,6 @@ static void file_util_rename_preview_update(UtilityData *ud)
 				{
 				dest = g_strdup_printf("%s%0*d%s", front, padding, n, end);
 				}
-
-			g_assert(ud->with_sidecars); /* sidecars must be renamed too, it would break the pairing otherwise */
 
 			dirname = g_path_get_dirname(fd->change->dest);
 			destname = g_build_filename(dirname, dest, NULL);
@@ -1613,10 +1586,7 @@ static void file_util_dialog_init_simple_list(UtilityData *ud)
 
 	box = pref_group_new(box, TRUE, ud->messages.desc_flist, GTK_ORIENTATION_HORIZONTAL);
 
-	ud->listview = file_util_dialog_add_list(box, ud->flist, FALSE, ud->with_sidecars);
-	if (ud->with_sidecars) file_util_dialog_add_list_column(ud->listview, _("Sidecars"), FALSE, UTILITY_COLUMN_SIDECARS);
-
-	if (ud->type == UTILITY_TYPE_WRITE_METADATA) file_util_dialog_add_list_column(ud->listview, _("Write to file"), FALSE, UTILITY_COLUMN_DEST_NAME);
+	ud->listview = file_util_dialog_add_list(box, ud->flist, FALSE, FALSE);
 
 	selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(ud->listview));
 	gtk_tree_selection_set_mode(selection, GTK_SELECTION_SINGLE);
@@ -1740,8 +1710,7 @@ static void file_util_dialog_init_source_dest(UtilityData *ud, gboolean second_i
 	box = pref_group_new(box, TRUE, destination_message, GTK_ORIENTATION_HORIZONTAL);
 	g_free(destination_message);
 
-	ud->listview = file_util_dialog_add_list(box, ud->flist, FALSE, ud->with_sidecars);
-	file_util_dialog_add_list_column(ud->listview, _("Sidecars"), FALSE, UTILITY_COLUMN_SIDECARS);
+	ud->listview = file_util_dialog_add_list(box, ud->flist, FALSE, FALSE);
 
 	file_util_dialog_add_list_column(ud->listview, _("New name"), FALSE, UTILITY_COLUMN_DEST_NAME);
 
@@ -1893,10 +1862,7 @@ static gboolean file_util_exclude_fd(UtilityData *ud, FileData *fd)
 
 	ud->flist = g_list_remove(ud->flist, fd);
 
-	if (ud->with_sidecars)
-		file_data_sc_free_ci(fd);
-	else
-		file_data_free_ci(fd);
+	file_data_free_ci(fd);
 
 	file_data_unref(fd);
 	return TRUE;
@@ -1914,7 +1880,6 @@ void file_util_dialog_run(UtilityData *ud)
 				case UTILITY_TYPE_DELETE_LINK:
 				case UTILITY_TYPE_DELETE_FOLDER:
 				case UTILITY_TYPE_EDITOR:
-				case UTILITY_TYPE_WRITE_METADATA:
 					file_util_dialog_init_simple_list(ud);
 					ud->phase = UTILITY_PHASE_ENTERING;
 					break;
@@ -1965,10 +1930,7 @@ void file_util_dialog_run(UtilityData *ud)
 			if (ud->done_func)
 				ud->done_func((ud->phase != UTILITY_PHASE_CANCEL), ud->dest_path, ud->done_data);
 
-			if (ud->with_sidecars)
-				file_data_sc_free_ci_list(ud->flist);
-			else
-				file_data_free_ci_list(ud->flist);
+			file_data_free_ci_list(ud->flist);
 
 			/* directory content is always handled including sidecars */
 			file_data_sc_free_ci_list(ud->content_list);
@@ -2030,33 +1992,15 @@ static void file_util_details_dialog_exclude_cb(GenericDialog *gd, gpointer data
 	file_util_details_dialog_exclude(gd, data, FALSE);
 }
 
-static void file_util_details_dialog_discard_cb(GenericDialog *gd, gpointer data)
-{
-	file_util_details_dialog_exclude(gd, data, TRUE);
-}
-
 static gchar *file_util_details_get_message(UtilityData *ud, FileData *fd, const gchar **icon_name)
 {
 	GString *message = g_string_new("");
 	gint error;
 	g_string_append_printf(message, _("File: '%s'\n"), fd->path);
 
-	if (ud->with_sidecars && fd->sidecar_files)
-		{
-		GList *work = fd->sidecar_files;
-		g_string_append(message, _("with sidecar files:\n"));
-
-		while (work)
-			{
-			auto sfd = static_cast<FileData *>(work->data);
-			work =work->next;
-			g_string_append_printf(message, _(" '%s'\n"), sfd->path);
-			}
-		}
-
 	g_string_append(message, _("\nStatus: "));
 
-	error = ud->with_sidecars ? file_data_sc_verify_ci(fd, ud->flist) : file_data_verify_ci(fd, ud->flist);
+	error = file_data_verify_ci(fd, ud->flist);
 
 	if (error)
 		{
@@ -2105,116 +2049,6 @@ static void file_util_details_dialog(UtilityData *ud, FileData *fd)
 
 	g_free(message);
 }
-
-static void file_util_write_metadata_details_dialog(UtilityData *ud, FileData *fd)
-{
-	GenericDialog *gd;
-	GtkWidget *box;
-	GtkWidget *table;
-	GtkWidget *frame;
-	GtkWidget *label;
-	GList *keys = nullptr;
-	GList *work;
-	gchar *message1;
-	gchar *message2;
-	gint i;
-	const gchar *icon_name;
-
-	if (fd && fd->modified_xmp)
-		{
-		keys = g_hash_table_get_keys(fd->modified_xmp);
-		}
-
-	g_assert(keys);
-
-
-	gd = file_util_gen_dlg(_("Overview of changed metadata"), "details", ud->gd->dialog, TRUE, nullptr, ud);
-	generic_dialog_add_button(gd, GQ_ICON_CLOSE, _("Close"), file_util_details_dialog_ok_cb, TRUE);
-	generic_dialog_add_button(gd, GQ_ICON_REMOVE, _("Exclude file"), file_util_details_dialog_exclude_cb, FALSE);
-	generic_dialog_add_button(gd, GQ_ICON_REVERT, _("Discard changes"), file_util_details_dialog_discard_cb, FALSE);
-
-	g_object_set_data(G_OBJECT(gd->dialog), "file_data", fd);
-
-	g_signal_connect(G_OBJECT(gd->dialog), "destroy",
-			 G_CALLBACK(file_util_details_dialog_destroy_cb), ud);
-
-	/* in case the ud->gd->dialog is closed during editing */
-	g_signal_connect(G_OBJECT(ud->gd->dialog), "destroy",
-			 G_CALLBACK(file_util_details_dialog_close_cb), gd->dialog);
-
-	message1 = file_util_details_get_message(ud, fd, &icon_name);
-
-	if (fd->change && fd->change->dest)
-		{
-		message2 = g_strdup_printf(_("The following metadata tags will be written to\n'%s'."), fd->change->dest);
-		}
-	else
-		{
-		message2 = g_strdup_printf("%s", _("The following metadata tags will be written to the image file itself."));
-		}
-
-	box = generic_dialog_add_message(gd, icon_name, _("Overview of changed metadata"), message1, TRUE);
-
-	box = pref_group_new(box, TRUE, message2, GTK_ORIENTATION_HORIZONTAL);
-
-	frame = pref_frame_new(box, TRUE, nullptr, GTK_ORIENTATION_HORIZONTAL, 2);
-	table = pref_table_new(frame, 2, g_list_length(keys), FALSE, TRUE);
-
-	work = keys;
-	i = 0;
-	while (work)
-		{
-		auto key = static_cast<const gchar *>(work->data);
-		gchar *title = exif_get_description_by_key(key);
-		gchar *title_f = g_strdup_printf("%s:", title);
-		gchar *value = metadata_read_string(fd, key, METADATA_FORMATTED);
-		work = work->next;
-
-
-		label = gtk_label_new(title_f);
-		gtk_label_set_xalign(GTK_LABEL(label), 1.0);
-		gtk_label_set_yalign(GTK_LABEL(label), 0.0);
-
-		pref_label_bold(label, TRUE, FALSE);
-		gq_gtk_grid_attach(GTK_GRID(table), label, 0, 1, i, i + 1,  GTK_FILL, GTK_FILL,  2, 2);
-		gtk_widget_show(label);
-
-		label = gtk_label_new(value);
-
-		gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-		gtk_label_set_yalign(GTK_LABEL(label), 0.0);
-
-		gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
-		gq_gtk_grid_attach(GTK_GRID(table), label,  1, 2, i, i + 1, GTK_FILL, GTK_FILL,  2, 2);
-		gtk_widget_show(label);
-
-		g_free(title);
-		g_free(title_f);
-		g_free(value);
-		i++;
-		}
-
-	generic_dialog_add_image(gd, box, fd, nullptr, FALSE, nullptr, nullptr, FALSE);
-
-	gtk_widget_set_size_request(gd->dialog, DIALOG_WIDTH, -1);
-	gtk_widget_show(gd->dialog);
-
-	g_list_free(keys);
-	g_free(message1);
-	g_free(message2);
-}
-
-
-static void file_util_mark_ungrouped_files(GList *work)
-{
-	while (work)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-		file_data_set_regroup_when_finished(fd, TRUE);
-		work = work->next;
-		}
-}
-
 static void file_util_delete_full(FileData *source_fd, GList *flist, GtkWidget *parent, UtilityPhase phase, FileUtilDoneFunc done_func, gpointer done_data)
 {
 	UtilityData *ud;
@@ -2231,20 +2065,16 @@ static void file_util_delete_full(FileData *source_fd, GList *flist, GtkWidget *
 	if (!file_data_sc_add_ci_delete_list(flist))
 		{
 		file_util_warn_op_in_progress(_("File deletion failed"));
-		file_data_disable_grouping_list(ungrouped, FALSE);
 		filelist_free(flist);
 		filelist_free(ungrouped);
 		return;
 		}
 
-	file_util_mark_ungrouped_files(ungrouped);
 	filelist_free(ungrouped);
 
 	ud = file_util_data_new(UTILITY_TYPE_DELETE);
 
 	ud->phase = phase;
-
-	ud->with_sidecars = TRUE;
 
 	ud->dir_fd = nullptr;
 	ud->flist = flist;
@@ -2289,49 +2119,6 @@ static void file_util_delete_full(FileData *source_fd, GList *flist, GtkWidget *
 }
 
 
-static void file_util_write_metadata_full(FileData *source_fd, GList *flist, GtkWidget *parent, UtilityPhase phase, FileUtilDoneFunc done_func, gpointer done_data)
-{
-	UtilityData *ud;
-
-	if (source_fd)
-		flist = g_list_append(flist, file_data_ref(source_fd));
-
-	if (!flist) return;
-
-	if (!file_data_add_ci_write_metadata_list(flist))
-		{
-		file_util_warn_op_in_progress(_("Can't write metadata"));
-		filelist_free(flist);
-		return;
-		}
-
-	ud = file_util_data_new(UTILITY_TYPE_WRITE_METADATA);
-
-	ud->phase = phase;
-
-	ud->with_sidecars = FALSE; /* operate on individual files, not groups */
-
-	ud->dir_fd = nullptr;
-	ud->flist = flist;
-	ud->content_list = nullptr;
-	ud->parent = parent;
-
-	ud->done_func = done_func;
-	ud->done_data = done_data;
-
-	ud->details_func = file_util_write_metadata_details_dialog;
-	ud->finalize_func = metadata_write_queue_remove;
-	ud->discard_func = metadata_write_queue_remove;
-
-	ud->messages.title = _("Write metadata");
-	ud->messages.question = _("Write metadata?");
-	ud->messages.desc_flist = _("This will write the changed metadata into the following files");
-	ud->messages.desc_source_fd = "";
-	ud->messages.fail = _("Metadata writing failed");
-
-	file_util_dialog_run(ud);
-}
-
 static void file_util_move_full(FileData *source_fd, GList *flist, const gchar *dest_path, GtkWidget *parent, UtilityPhase phase)
 {
 	UtilityData *ud;
@@ -2347,20 +2134,16 @@ static void file_util_move_full(FileData *source_fd, GList *flist, const gchar *
 	if (!file_data_sc_add_ci_move_list(flist, dest_path))
 		{
 		file_util_warn_op_in_progress(_("Move failed"));
-		file_data_disable_grouping_list(ungrouped, FALSE);
 		filelist_free(flist);
 		filelist_free(ungrouped);
 		return;
 		}
 
-	file_util_mark_ungrouped_files(ungrouped);
 	filelist_free(ungrouped);
 
 	ud = file_util_data_new(UTILITY_TYPE_MOVE);
 
 	ud->phase = phase;
-
-	ud->with_sidecars = TRUE;
 
 	ud->dir_fd = nullptr;
 	ud->flist = flist;
@@ -2389,28 +2172,21 @@ static void file_util_copy_full(FileData *source_fd, GList *flist, const gchar *
 
 	if (!flist) return;
 
-	if (file_util_write_metadata_first(UTILITY_TYPE_COPY, phase, flist, dest_path, nullptr, parent))
-		return;
-
 	flist = file_data_process_groups_in_selection(flist, TRUE, &ungrouped);
 
 	if (!file_data_sc_add_ci_copy_list(flist, dest_path))
 		{
 		file_util_warn_op_in_progress(_("Copy failed"));
-		file_data_disable_grouping_list(ungrouped, FALSE);
 		filelist_free(flist);
 		filelist_free(ungrouped);
 		return;
 		}
 
-	file_util_mark_ungrouped_files(ungrouped);
 	filelist_free(ungrouped);
 
 	ud = file_util_data_new(UTILITY_TYPE_COPY);
 
 	ud->phase = phase;
-
-	ud->with_sidecars = TRUE;
 
 	ud->dir_fd = nullptr;
 	ud->flist = flist;
@@ -2444,20 +2220,16 @@ static void file_util_rename_full(FileData *source_fd, GList *flist, const gchar
 	if (!file_data_sc_add_ci_rename_list(flist, dest_path))
 		{
 		file_util_warn_op_in_progress(_("Rename failed"));
-		file_data_disable_grouping_list(ungrouped, FALSE);
 		filelist_free(flist);
 		filelist_free(ungrouped);
 		return;
 		}
 
-	file_util_mark_ungrouped_files(ungrouped);
 	filelist_free(ungrouped);
 
 	ud = file_util_data_new(UTILITY_TYPE_RENAME);
 
 	ud->phase = phase;
-
-	ud->with_sidecars = TRUE;
 
 	ud->dir_fd = nullptr;
 	ud->flist = flist;
@@ -2507,27 +2279,21 @@ static void file_util_start_editor_full(const gchar *key, FileData *source_fd, G
 		/* flist is most probably NULL
 		   operate on source_fd and it's sidecars
 		*/
-		flist = g_list_concat(filelist_copy(source_fd->sidecar_files), flist);
 		flist = g_list_append(flist, file_data_ref(source_fd));
 		}
 
 	if (!flist) return;
-
-	if (file_util_write_metadata_first(UTILITY_TYPE_FILTER, phase, flist, dest_path, key, parent))
-		return;
 
 	flist = file_data_process_groups_in_selection(flist, TRUE, &ungrouped);
 
 	if (!file_data_sc_add_ci_unspecified_list(flist, dest_path))
 		{
 		file_util_warn_op_in_progress(_("Can't run external editor"));
-		file_data_disable_grouping_list(ungrouped, FALSE);
 		filelist_free(flist);
 		filelist_free(ungrouped);
 		return;
 		}
 
-	file_util_mark_ungrouped_files(ungrouped);
 	filelist_free(ungrouped);
 
 	if (editor_is_filter(key))
@@ -2540,8 +2306,6 @@ static void file_util_start_editor_full(const gchar *key, FileData *source_fd, G
 	if (ud->type == UTILITY_TYPE_FILTER && dest_path == nullptr) phase = UTILITY_PHASE_START;
 
 	ud->phase = phase;
-
-	ud->with_sidecars = TRUE;
 
 	ud->external_command = g_strdup(key);
 
@@ -2576,8 +2340,7 @@ static GList *file_util_delete_dir_remaining_folders(GList *dlist)
 
 		if (!fd->name ||
 		    (strcmp(fd->name, THUMB_FOLDER_GLOBAL) != 0 &&
-		     strcmp(fd->name, THUMB_FOLDER_LOCAL) != 0 &&
-		     strcmp(fd->name, GQ_CACHE_LOCAL_METADATA) != 0) )
+		     strcmp(fd->name, THUMB_FOLDER_LOCAL) != 0) )
 			{
 			rlist = g_list_prepend(rlist, fd);
 			}
@@ -2714,7 +2477,6 @@ static void file_util_delete_dir_full(FileData *fd, GtkWidget *parent, UtilityPh
 		ud = file_util_data_new(UTILITY_TYPE_DELETE_LINK);
 
 		ud->phase = phase;
-		ud->with_sidecars = TRUE;
 		ud->dir_fd = file_data_ref(fd);
 		ud->content_list = nullptr;
 		ud->flist = nullptr;
@@ -2784,7 +2546,6 @@ static void file_util_delete_dir_full(FileData *fd, GtkWidget *parent, UtilityPh
 		ud = file_util_data_new(UTILITY_TYPE_DELETE_FOLDER);
 
 		ud->phase = phase;
-		ud->with_sidecars = TRUE;
 		ud->dir_fd = file_data_ref(fd);
 		ud->content_list = nullptr; /* will be filled by file_util_delete_dir_prepare */
 		ud->flist = flist = filelist_sort_path(flist);
@@ -2910,8 +2671,6 @@ static void file_util_rename_dir_full(FileData *fd, const gchar *new_path, GtkWi
 	ud = file_util_data_new(UTILITY_TYPE_RENAME_FOLDER);
 
 	ud->phase = phase;
-	ud->with_sidecars = TRUE; /* does not matter, the directory should not have sidecars
-	                            and the content must be handled including sidecars */
 
 	ud->dir_fd = file_data_ref(fd);
 	ud->flist = nullptr;
@@ -2945,7 +2704,6 @@ static void file_util_create_dir_full(const gchar *path, const gchar *dest_path,
 	ud = file_util_data_new(UTILITY_TYPE_CREATE_FOLDER);
 
 	ud->phase = phase;
-	ud->with_sidecars = TRUE;
 
 	ud->dir_fd = nullptr;
 	ud->flist = nullptr;
@@ -2976,89 +2734,6 @@ static void file_util_create_dir_full(const gchar *path, const gchar *dest_path,
 	file_util_dialog_run(ud);
 }
 
-static gboolean file_util_write_metadata_first_after_done(gpointer data)
-{
-	auto dd = static_cast<UtilityDelayData *>(data);
-
-	/* start the delayed operation with original arguments */
-	switch (dd->type)
-		{
-		case UTILITY_TYPE_FILTER:
-		case UTILITY_TYPE_EDITOR:
-			file_util_start_editor_full(dd->editor_key, nullptr, dd->flist, dd->dest_path, nullptr, dd->parent, dd->phase);
-			break;
-		case UTILITY_TYPE_COPY:
-			file_util_copy_full(nullptr, dd->flist, dd->dest_path, dd->parent, dd->phase);
-			break;
-		default:
-			g_warning("unsupported type");
-		}
-	g_free(dd->dest_path);
-	g_free(dd->editor_key);
-	g_free(dd);
-	return G_SOURCE_REMOVE;
-}
-
-static void file_util_write_metadata_first_done(gboolean success, const gchar *, gpointer data)
-{
-	auto dd = static_cast<UtilityDelayData *>(data);
-
-	if (success)
-		{
-		dd->idle_id = g_idle_add(file_util_write_metadata_first_after_done, dd);
-		return;
-		}
-
-	/* the operation was cancelled */
-	filelist_free(dd->flist);
-	g_free(dd->dest_path);
-	g_free(dd->editor_key);
-	g_free(dd);
-}
-
-static gboolean file_util_write_metadata_first(UtilityType type, UtilityPhase phase, GList *flist, const gchar *dest_path, const gchar *editor_key, GtkWidget *parent)
-{
-	GList *unsaved = nullptr;
-	UtilityDelayData *dd;
-
-	GList *work;
-
-	work = flist;
-	while (work)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-		work = work->next;
-
-		if (fd->change)
-			{
-			filelist_free(unsaved);
-			return FALSE; /* another op. in progress, let the caller handle it */
-			}
-
-		if (fd->modified_xmp) /* has unsaved metadata */
-			{
-			unsaved = g_list_prepend(unsaved, file_data_ref(fd));
-			}
-		}
-
-	if (!unsaved) return FALSE;
-
-	/* save arguments of the original operation */
-
-	dd = g_new0(UtilityDelayData, 1);
-
-	dd->type = type;
-	dd->phase = phase;
-	dd->flist = flist;
-	dd->dest_path = g_strdup(dest_path);
-	dd->editor_key = g_strdup(editor_key);
-	dd->parent = parent;
-
-	file_util_write_metadata(nullptr, unsaved, parent, FALSE, file_util_write_metadata_first_done, dd);
-	return TRUE;
-}
-
-
 /* full-featured entry points
 */
 
@@ -3077,13 +2752,6 @@ void file_util_delete(FileData *source_fd, GList *source_list, GtkWidget *parent
 void file_util_delete_notify_done(FileData *source_fd, GList *source_list, GtkWidget *parent, FileUtilDoneFunc done_func, gpointer done_data)
 {
 	file_util_delete_full(source_fd, source_list, parent, options->file_ops.confirm_delete ? UTILITY_PHASE_START : UTILITY_PHASE_ENTERING, done_func, done_data);
-}
-
-void file_util_write_metadata(FileData *source_fd, GList *source_list, GtkWidget *parent, gboolean force_dialog, FileUtilDoneFunc done_func, gpointer done_data)
-{
-	file_util_write_metadata_full(source_fd, source_list, parent,
-	                              ((options->metadata.save_in_image_file && options->metadata.confirm_write) || force_dialog) ? UTILITY_PHASE_START : UTILITY_PHASE_ENTERING,
-	                              done_func, done_data);
 }
 
 void file_util_copy(FileData *source_fd, GList *source_list, const gchar *dest_path, GtkWidget *parent)
