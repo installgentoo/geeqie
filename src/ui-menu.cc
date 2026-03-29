@@ -35,45 +35,6 @@
  */
 
 /**
- * @brief Add accelerator key to a window popup menu
- * @param menu
- * @param accel_group
- * @param window_keys
- *
- * This is used only so that the user can see the applicable
- * shortcut key displayed in the menu. The actual handling of
- * the keystroke is done elsewhere in the code.
- */
-static void menu_item_add_accelerator(GtkWidget *menu, GtkAccelGroup *accel_group, hard_coded_window_keys *window_keys)
-{
-	gchar *label;
-	gchar *label_text;
-	gchar **label_stripped;
-	gint i = 0;
-
-	label = g_strdup(gtk_menu_item_get_label(GTK_MENU_ITEM(menu)));
-
-	pango_parse_markup(label, -1, '_', nullptr, &label_text, nullptr, nullptr);
-
-	label_stripped = g_strsplit(label_text, "...", 2);
-
-	while (window_keys[i].text != nullptr)
-		{
-		if (g_strcmp0(window_keys[i].text, label_stripped[0]) == 0)
-			{
-			gtk_widget_add_accelerator(menu, "activate", accel_group, window_keys[i].key_value, window_keys[i].mask, GTK_ACCEL_VISIBLE);
-
-			break;
-			}
-		i++;
-		}
-
-	g_free(label);
-	g_free(label_text);
-	g_strfreev(label_stripped);
-}
-
-/**
  * @brief Callback for the actions GList sort function
  * @param a
  * @param b
@@ -179,17 +140,11 @@ GtkWidget *menu_item_add(GtkWidget *menu, const gchar *label,
 {
 	GtkWidget *item;
 	GtkAccelGroup *accel_group;
-	hard_coded_window_keys *window_keys;
 
 	item = gtk_menu_item_new_with_mnemonic(label);
-	window_keys = static_cast<hard_coded_window_keys *>(g_object_get_data(G_OBJECT(menu), "window_keys"));
 	accel_group = static_cast<GtkAccelGroup *>(g_object_get_data(G_OBJECT(menu), "accel_group"));
 
-	if (accel_group && window_keys)
-		{
-		menu_item_add_accelerator(item, accel_group, window_keys);
-		}
-	else if (accel_group)
+	if (accel_group)
 		{
 		menu_item_add_main_window_accelerator(item, accel_group);
 		}
@@ -205,20 +160,14 @@ GtkWidget *menu_item_add_stock(GtkWidget *menu, const gchar *label, const gchar 
 	GtkWidget *item;
 	GtkWidget *image;
 	GtkAccelGroup *accel_group;
-	hard_coded_window_keys *window_keys;
 
 	item = gtk_image_menu_item_new_with_mnemonic(label);
-	window_keys = static_cast<hard_coded_window_keys *>(g_object_get_data(G_OBJECT(menu), "window_keys"));
 	accel_group = static_cast<GtkAccelGroup *>(g_object_get_data(G_OBJECT(menu), "accel_group"));
 
 	image = gtk_image_new_from_stock(stock_id, GTK_ICON_SIZE_MENU);
 	gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(item), image);
 
-	if (accel_group && window_keys)
-		{
-		menu_item_add_accelerator(item, accel_group, window_keys);
-		}
-	else if (accel_group)
+	if (accel_group)
 		{
 		menu_item_add_main_window_accelerator(item, accel_group);
 		}
@@ -235,20 +184,14 @@ GtkWidget *menu_item_add_icon(GtkWidget *menu, const gchar *label, const gchar *
 	GtkWidget *item;
 	GtkWidget *image;
 	GtkAccelGroup *accel_group;
-	hard_coded_window_keys *window_keys;
 
 	item = gtk_image_menu_item_new_with_mnemonic(label);
-	window_keys = static_cast<hard_coded_window_keys *>(g_object_get_data(G_OBJECT(menu), "window_keys"));
 	accel_group = static_cast<GtkAccelGroup *>(g_object_get_data(G_OBJECT(menu), "accel_group"));
 
 	image = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_MENU);
 	gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(item), image);
 
-	if (accel_group && window_keys)
-		{
-		menu_item_add_accelerator(item, accel_group, window_keys);
-		}
-	else if (accel_group)
+	if (accel_group)
 		{
 		menu_item_add_main_window_accelerator(item, accel_group);
 		}
@@ -264,17 +207,11 @@ GtkWidget *menu_item_add_sensitive(GtkWidget *menu, const gchar *label, gboolean
 {
 	GtkWidget *item;
 	GtkAccelGroup *accel_group;
-	hard_coded_window_keys *window_keys;
 
 	item = menu_item_add(menu, label, func, data);
 	gtk_widget_set_sensitive(item, sensitive);
-	window_keys = static_cast<hard_coded_window_keys *>(g_object_get_data(G_OBJECT(menu), "window_keys"));
 	accel_group = static_cast<GtkAccelGroup *>(g_object_get_data(G_OBJECT(menu), "accel_group"));
-	if (accel_group && window_keys)
-		{
-		menu_item_add_accelerator(item, accel_group, window_keys);
-		}
-	else if (accel_group)
+	if (accel_group)
 		{
 		menu_item_add_main_window_accelerator(item, accel_group);
 		}
@@ -287,17 +224,11 @@ GtkWidget *menu_item_add_stock_sensitive(GtkWidget *menu, const gchar *label, co
 {
 	GtkWidget *item;
 	GtkAccelGroup *accel_group;
-	hard_coded_window_keys *window_keys;
 
 	item = menu_item_add_stock(menu, label, stock_id, func, data);
 	gtk_widget_set_sensitive(item, sensitive);
-	window_keys = static_cast<hard_coded_window_keys *>(g_object_get_data(G_OBJECT(menu), "window_keys"));
 	accel_group = static_cast<GtkAccelGroup *>(g_object_get_data(G_OBJECT(menu), "accel_group"));
-	if (accel_group && window_keys)
-		{
-		menu_item_add_accelerator(item, accel_group, window_keys);
-		}
-	else if (accel_group)
+	if (accel_group)
 		{
 		menu_item_add_main_window_accelerator(item, accel_group);
 		}
@@ -310,17 +241,11 @@ GtkWidget *menu_item_add_icon_sensitive(GtkWidget *menu, const gchar *label, con
 {
 	GtkWidget *item;
 	GtkAccelGroup *accel_group;
-	hard_coded_window_keys *window_keys;
 
 	item = menu_item_add_icon(menu, label, icon_name, func, data);
 	gtk_widget_set_sensitive(item, sensitive);
-	window_keys = static_cast<hard_coded_window_keys *>(g_object_get_data(G_OBJECT(menu), "window_keys"));
 	accel_group = static_cast<GtkAccelGroup *>(g_object_get_data(G_OBJECT(menu), "accel_group"));
-	if (accel_group && window_keys)
-		{
-		menu_item_add_accelerator(item, accel_group, window_keys);
-		}
-	else if (accel_group)
+	if (accel_group)
 		{
 		menu_item_add_main_window_accelerator(item, accel_group);
 		}
@@ -333,17 +258,11 @@ GtkWidget *menu_item_add_check(GtkWidget *menu, const gchar *label, gboolean act
 {
 	GtkWidget *item;
 	GtkAccelGroup *accel_group;
-	hard_coded_window_keys *window_keys;
 
 	item = gtk_check_menu_item_new_with_mnemonic(label);
-	window_keys = static_cast<hard_coded_window_keys *>(g_object_get_data(G_OBJECT(menu), "window_keys"));
 	accel_group = static_cast<GtkAccelGroup *>(g_object_get_data(G_OBJECT(menu), "accel_group"));
 
-	if (accel_group && window_keys)
-		{
-		menu_item_add_accelerator(item, accel_group, window_keys);
-		}
-	else if (accel_group)
+	if (accel_group)
 		{
 		menu_item_add_main_window_accelerator(item, accel_group);
 		}
@@ -358,19 +277,13 @@ GtkWidget *menu_item_add_radio(GtkWidget *menu, const gchar *label, gpointer ite
 			       GCallback func, gpointer data)
 {
 	GtkAccelGroup *accel_group;
-	hard_coded_window_keys *window_keys;
 
 	GtkWidget *item = menu_item_add_check(menu, label, active, func, data);
 	g_object_set_data(G_OBJECT(item), "menu_item_radio_data", item_data);
 	g_object_set(G_OBJECT(item), "draw-as-radio", TRUE, NULL);
 
-	window_keys = static_cast<hard_coded_window_keys *>(g_object_get_data(G_OBJECT(menu), "window_keys"));
 	accel_group = static_cast<GtkAccelGroup *>(g_object_get_data(G_OBJECT(menu), "accel_group"));
-	if (accel_group && window_keys)
-		{
-		menu_item_add_accelerator(item, accel_group, window_keys);
-		}
-	else if (accel_group)
+	if (accel_group)
 		{
 		menu_item_add_main_window_accelerator(item, accel_group);
 		}

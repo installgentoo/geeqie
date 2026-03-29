@@ -282,31 +282,6 @@ static void search_notify_cb(FileData *fd, NotifyType type, gpointer data);
 static void search_start_cb(GtkWidget *widget, gpointer data);
 void mfd_list_free(GList *list);
 
-
-/**
- * This array must be kept in sync with the contents of:\n
- * @link search_result_press_cb @endlink \n
- * @link search_window_keypress_cb @endlink \n
- * @link search_result_menu @endlink
- *
- * See also @link hard_coded_window_keys @endlink
- **/
-
-hard_coded_window_keys search_window_keys[] = {
-	{GDK_CONTROL_MASK, 'C', N_("Copy")},
-	{GDK_CONTROL_MASK, 'M', N_("Move")},
-	{GDK_CONTROL_MASK, 'R', N_("Rename")},
-	{GDK_SHIFT_MASK, GDK_KEY_Delete, N_("Delete selection")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_Delete, N_("Remove")},
-	{GDK_CONTROL_MASK, 'A', N_("Select all")},
-	{static_cast<GdkModifierType>(GDK_CONTROL_MASK + GDK_SHIFT_MASK), 'A', N_("Select none")},
-	{GDK_CONTROL_MASK, GDK_KEY_Delete, N_("Clear")},
-	{GDK_CONTROL_MASK, 'T', N_("Toggle thumbs")},
-	{GDK_CONTROL_MASK, 'W', N_("Close window")},
-	{GDK_CONTROL_MASK, GDK_KEY_Return, N_("Start/stop search")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_F3, N_("Find duplicates")},
-	{static_cast<GdkModifierType>(0), 0, nullptr}
-};
 /*
  *-------------------------------------------------------------------
  * utils
@@ -995,7 +970,6 @@ static GtkWidget *search_result_menu(SearchData *sd, gboolean on_row, gboolean e
 	accel_group = gtk_accel_group_new();
 	gtk_menu_set_accel_group(GTK_MENU(menu), accel_group);
 
-	g_object_set_data(G_OBJECT(menu), "window_keys", search_window_keys);
 	g_object_set_data(G_OBJECT(menu), "accel_group", accel_group);
 
 	menu_item_add_sensitive(menu, _("_View"), on_row,

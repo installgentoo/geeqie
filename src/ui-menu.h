@@ -27,21 +27,6 @@
 #include <glib.h>
 #include <gtk/gtk.h>
 
-/**
- * @struct hard_coded_window_keys
- * @brief hard coded window shortcut keys
- *
- * Used for two purposes:\n
- * to display the shortcuts keys in popup menus\n
- * used by ./doc/create-shortcuts-xml.sh to generate shortcut documentation in the Help files
- *
- */
-struct hard_coded_window_keys {
-	GdkModifierType mask; /**< modifier key mask */
-	guint key_value;  /**< GDK_keyval */
-	const gchar *text;  /**< menu item label - NULL if end of list */
-};
-
 GtkWidget *menu_item_add(GtkWidget *menu, const gchar *label,
 			 GCallback func, gpointer data);
 GtkWidget *menu_item_add_stock(GtkWidget *menu, const gchar *label, const gchar *stock_id,

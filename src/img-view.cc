@@ -77,49 +77,6 @@ static void view_window_dnd_init(ViewWindow *vw);
 
 static void view_window_notify_cb(FileData *fd, NotifyType type, gpointer data);
 
-
-/**
- * This array must be kept in sync with the contents of:\n
- *  @link view_popup_menu() @endlink \n
- *  @link view_window_key_press_cb() @endlink
- *
- * See also @link hard_coded_window_keys @endlink
- **/
-hard_coded_window_keys image_window_keys[] = {
-	{GDK_CONTROL_MASK, 'C', N_("Copy")},
-	{GDK_CONTROL_MASK, 'M', N_("Move")},
-	{GDK_CONTROL_MASK, 'R', N_("Rename")},
-	{GDK_SHIFT_MASK, GDK_KEY_Delete, N_("Delete")},
-	{GDK_CONTROL_MASK, 'W', N_("Close window")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_Page_Up, N_("Previous")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_KP_Page_Up, N_("Previous")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_BackSpace, N_("Previous")},
-	{static_cast<GdkModifierType>(0), 'B', N_("Previous")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_Page_Down, N_("Next")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_KP_Page_Down, N_("Next")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_space, N_("Next")},
-	{static_cast<GdkModifierType>(0), 'N', N_("Next")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_equal, N_("Zoom in")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_plus, N_("Zoom in")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_minus, N_("Zoom out")},
-	{static_cast<GdkModifierType>(0), 'X', N_("Zoom to fit")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_KP_Multiply, N_("Zoom to fit")},
-	{static_cast<GdkModifierType>(0), 'Z', N_("Zoom 1:1")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_KP_Divide, N_("Zoom 1:1")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_1, N_("Zoom 1:1")},
-	{static_cast<GdkModifierType>(0), 'R', N_("Reload image")},
-	{static_cast<GdkModifierType>(0), 'F', N_("Full screen")},
-	{static_cast<GdkModifierType>(0), 'V', N_("Fullscreen")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_F11, N_("Fullscreen")},
-	{static_cast<GdkModifierType>(0), 'I', N_("Image overlay")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_Escape, N_("Exit fullscreen")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_Escape, N_("Close window")},
-	{GDK_SHIFT_MASK, 'G', N_("Desaturate")},
-	{GDK_SHIFT_MASK, 'P', N_("Print")},
-	{static_cast<GdkModifierType>(0), 0, nullptr}
-};
-
-
 /*
  *-----------------------------------------------------------------------------
  * misc
@@ -937,7 +894,6 @@ static GtkWidget *view_popup_menu(ViewWindow *vw)
 	accel_group = gtk_accel_group_new();
 	gtk_menu_set_accel_group(GTK_MENU(menu), accel_group);
 
-	g_object_set_data(G_OBJECT(menu), "window_keys", image_window_keys);
 	g_object_set_data(G_OBJECT(menu), "accel_group", accel_group);
 
 	menu_item_add_icon(menu, _("Zoom _in"), GQ_ICON_ZOOM_IN, G_CALLBACK(view_zoom_in_cb), vw);
