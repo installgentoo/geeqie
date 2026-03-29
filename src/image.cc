@@ -62,7 +62,7 @@ static void image_cache_set(ImageWindow *imd, FileData *fd);
 static void image_click_cb(PixbufRenderer *, GdkEventButton *event, gpointer data)
 {
 	auto imd = static_cast<ImageWindow *>(data);
-	if (!options->image_lm_click_nav && event->button == MOUSE_BUTTON_MIDDLE)
+	if (event->button == MOUSE_BUTTON_MIDDLE)
 		{
 		imd->mouse_wheel_mode = !imd->mouse_wheel_mode;
 		}
@@ -84,25 +84,10 @@ static void image_press_cb(PixbufRenderer *, GdkEventButton *event, gpointer dat
 		layout_valid(&lw);
 		}
 
-	if (lw && event->button == MOUSE_BUTTON_LEFT && event->type == GDK_2BUTTON_PRESS
-												&& !options->image_lm_click_nav)
+	if (lw && event->button == MOUSE_BUTTON_LEFT && event->type == GDK_2BUTTON_PRESS)
 		{
 		layout_image_full_screen_toggle(lw);
 		}
-}
-
-static void image_release_cb(PixbufRenderer *, GdkEventButton *event, gpointer data)
-{
-	auto imd = static_cast<ImageWindow *>(data);
-	LayoutWindow *lw;
-
-	lw = layout_find_by_image(imd);
-	if (!lw)
-		{
-		layout_valid(&lw);
-		}
-
-	defined_mouse_buttons(nullptr, event, lw);
 }
 
 static void image_drag_cb(PixbufRenderer *pr, GdkEventMotion *event, gpointer data)
@@ -210,15 +195,6 @@ void image_update_title(ImageWindow *imd)
 
 	if (imd->image_fd) title = g_string_append(title, " - ");
 	if (imd->title_right) title = g_string_append(title, imd->title_right);
-
-	if (options->show_window_ids)
-		{
-		LayoutWindow *lw = layout_find_by_image(imd);
-		if (lw)
-			{
-			g_string_append_printf(title, " (%s)", lw->options.id);
-			}
-		}
 
 	gtk_window_set_title(GTK_WINDOW(imd->top_window), title->str);
 }
@@ -1773,8 +1749,6 @@ ImageWindow *image_new(gboolean frame)
 			 G_CALLBACK(image_click_cb), imd);
 	g_signal_connect(G_OBJECT(imd->pr), "button_press_event",
 			 G_CALLBACK(image_press_cb), imd);
-	g_signal_connect(G_OBJECT(imd->pr), "button_release_event",
-			 G_CALLBACK(image_release_cb), imd);
 	g_signal_connect(G_OBJECT(imd->pr), "scroll_notify",
 			 G_CALLBACK(image_scroll_notify_cb), imd);
 

@@ -1005,14 +1005,6 @@ gboolean vd_release_cb(GtkWidget *widget, GdkEventButton *bevent, gpointer data)
 	GtkTreePath *tpath;
 	FileData *fd = nullptr;
 
-	if (defined_mouse_buttons(widget, bevent, vd->layout))
-		{
-		return TRUE;
-		}
-
-	if (!options->view_dir_list_single_click_enter)
-		return FALSE;
-
 	if (!vd->click_fd) return FALSE;
 	vd_color_set(vd, vd->click_fd, FALSE);
 

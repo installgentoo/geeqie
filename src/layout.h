@@ -75,10 +75,6 @@ struct LayoutWindow
 
 	GtkWidget *path_entry;
 
-	/* image */
-
-	LayoutLocation image_location;
-
 	ImageWindow *image;
 
 	/* tools window (float) */
@@ -94,16 +90,8 @@ struct LayoutWindow
 
 	GtkWidget *back_button;
 
-	/* dir view */
-
-	LayoutLocation dir_location;
-
 	ViewDir *vd;
 	GtkWidget *dir_view;
-
-	/* file view */
-
-	LayoutLocation file_location;
 
 	ViewFile *vf;
 
@@ -132,7 +120,6 @@ LayoutWindow *layout_new_from_config(const gchar **attribute_names, const gchar 
 void layout_update_from_config(LayoutWindow *lw, const gchar **attribute_names, const gchar **attribute_values);
 LayoutWindow *layout_new_from_default();
 
-void layout_close(LayoutWindow *lw);
 void layout_free(LayoutWindow *lw);
 
 gboolean layout_valid(LayoutWindow **lw);
@@ -149,7 +136,6 @@ void layout_write_config(LayoutWindow *lw, GString *outstr, gint indent);
 
 LayoutWindow *layout_find_by_image(ImageWindow *imd);
 LayoutWindow *layout_find_by_image_fd(ImageWindow *imd);
-LayoutWindow *layout_find_by_layout_id(const gchar *id);
 gint layout_compare_options_id(const LayoutWindow *lw, const gchar *id);
 
 const gchar *layout_get_path(LayoutWindow *lw);
@@ -166,7 +152,6 @@ guint layout_list_count(LayoutWindow *lw, gint64 *bytes);
 FileData *layout_list_get_fd(LayoutWindow *lw, gint index);
 gint layout_list_get_index(LayoutWindow *lw, FileData *fd);
 void layout_list_sync_fd(LayoutWindow *lw, FileData *fd);
-GString *layout_get_window_list();
 
 GList *layout_selection_list(LayoutWindow *lw);
 /* return list of pointers to int for selection */

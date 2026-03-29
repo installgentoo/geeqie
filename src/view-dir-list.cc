@@ -419,17 +419,15 @@ gboolean vdlist_press_cb(GtkWidget *widget, GdkEventButton *bevent, gpointer dat
 
 	vd->click_fd = fd;
 
-	if (options->view_dir_list_single_click_enter)
-		vd_color_set(vd, vd->click_fd, TRUE);
+	vd_color_set(vd, vd->click_fd, TRUE);
 
 	if (bevent->button == MOUSE_BUTTON_RIGHT)
 		{
 		vd->popup = vd_pop_menu(vd, vd->click_fd);
 		gtk_menu_popup_at_pointer(GTK_MENU(vd->popup), nullptr);
-		return TRUE;
 		}
 
-	return options->view_dir_list_single_click_enter;
+	return TRUE;
 }
 
 void vdlist_destroy_cb(GtkWidget *, gpointer data)

@@ -1633,12 +1633,6 @@ static void file_util_dialog_init_dest_folder(UtilityData *ud)
 
 	if (ud->show_rename_button == TRUE)
 		{
-		if (options->with_rename)
-			{
-			file_dialog_add_button(fdlg, icon_name, ud->messages.title, file_util_fdlg_ok_cb, TRUE);
-			file_dialog_add_button(fdlg, GQ_ICON_EDIT, _("With Rename"), file_util_fdlg_rename_cb, TRUE);
-			}
-		else
 			{
 			file_dialog_add_button(fdlg, GQ_ICON_EDIT, _("With Rename"), file_util_fdlg_rename_cb, TRUE);
 			file_dialog_add_button(fdlg, icon_name, ud->messages.title, file_util_fdlg_ok_cb, TRUE);
@@ -2917,19 +2911,10 @@ void file_util_copy_path_to_clipboard(FileData *fd, gboolean quoted)
 {
 	if (!fd || !*fd->path) return;
 
-	if (options->clipboard_selection == CLIPBOARD_PRIMARY || options->clipboard_selection == CLIPBOARD_BOTH)
-		{
-		GList *path_list = g_list_append(nullptr, g_strdup(fd->path));
+	GList *path_list = g_list_append(nullptr, g_strdup(fd->path));
 
-		path_list_to_clipboard(path_list, quoted, GDK_SELECTION_PRIMARY);
-		}
-
-	if (options->clipboard_selection == CLIPBOARD_CLIPBOARD || options->clipboard_selection == CLIPBOARD_BOTH)
-		{
-		GList *path_list = g_list_append(nullptr, g_strdup(fd->path));
-
-		path_list_to_clipboard(path_list, quoted, GDK_SELECTION_CLIPBOARD);
-		}
+	path_list_to_clipboard(path_list, quoted, GDK_SELECTION_PRIMARY);
+	path_list_to_clipboard(path_list, quoted, GDK_SELECTION_CLIPBOARD);
 }
 
 /**
@@ -2957,15 +2942,8 @@ void file_util_path_list_to_clipboard(GList *fd_list, gboolean quoted)
 		return path_list;
 	};
 
-	if (options->clipboard_selection == CLIPBOARD_PRIMARY || options->clipboard_selection == CLIPBOARD_BOTH)
-		{
-		path_list_to_clipboard(get_path_list(fd_list), quoted, GDK_SELECTION_PRIMARY);
-		}
-
-	if (options->clipboard_selection == CLIPBOARD_CLIPBOARD || options->clipboard_selection == CLIPBOARD_BOTH)
-		{
-		path_list_to_clipboard(get_path_list(fd_list), quoted, GDK_SELECTION_CLIPBOARD);
-		}
+	path_list_to_clipboard(get_path_list(fd_list), quoted, GDK_SELECTION_PRIMARY);
+	path_list_to_clipboard(get_path_list(fd_list), quoted, GDK_SELECTION_CLIPBOARD);
 
 	filelist_free(fd_list);
 }

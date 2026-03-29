@@ -11,6 +11,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+add_project_arguments('-Wno-deprecated-declarations', language: 'cpp')
+
 main_sources = files(
 'cache.cc',
 'cache.h',
@@ -76,8 +78,6 @@ main_sources = files(
 'keymap-template.h',
 'layout.cc',
 'layout.h',
-'layout-config.cc',
-'layout-config.h',
 'layout-image.cc',
 'layout-image.h',
 'layout-util.cc',

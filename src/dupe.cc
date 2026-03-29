@@ -4395,14 +4395,10 @@ DupeWindow *dupe_window_new()
 	gtk_window_set_geometry_hints(GTK_WINDOW(dw->window), nullptr, &geometry,
 				      static_cast<GdkWindowHints>(GDK_HINT_MIN_SIZE | GDK_HINT_BASE_SIZE));
 
-	if (lw && options->save_window_positions)
+	if (lw)
 		{
 		gtk_window_set_default_size(GTK_WINDOW(dw->window), lw->options.dupe_window.width, lw->options.dupe_window.height);
 		gq_gtk_window_move(GTK_WINDOW(dw->window), lw->options.dupe_window.x, lw->options.dupe_window.y);
-		}
-	else
-		{
-		gtk_window_set_default_size(GTK_WINDOW(dw->window), DUPE_DEF_WIDTH, DUPE_DEF_HEIGHT);
 		}
 
 	gtk_window_set_resizable(GTK_WINDOW(dw->window), TRUE);

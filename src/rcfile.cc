@@ -380,8 +380,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_BOOL(*options, show_icon_names);
 	WRITE_SEPARATOR();
 
-	WRITE_NL(); WRITE_BOOL(*options, tree_descend_subdirs);
-	WRITE_NL(); WRITE_BOOL(*options, view_dir_list_single_click_enter);
 	WRITE_NL(); WRITE_BOOL(*options, circular_selection_lists);
 	WRITE_NL(); WRITE_BOOL(*options, lazy_image_sync);
 	WRITE_NL(); WRITE_BOOL(*options, update_on_time_change);
@@ -399,8 +397,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_SEPARATOR();
 
 	WRITE_NL(); WRITE_BOOL(*options, mousewheel_scrolls);
-	WRITE_NL(); WRITE_BOOL(*options, image_lm_click_nav);
-	WRITE_NL(); WRITE_BOOL(*options, image_l_click_archive);
 	WRITE_NL(); WRITE_BOOL(*options, image_l_click_video);
 	WRITE_NL(); WRITE_CHAR(*options, image_l_click_video_editor);
 	WRITE_NL(); WRITE_INT(*options, open_recent_list_maxsize);
@@ -408,34 +404,20 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_INT(*options, dnd_icon_size);
 	WRITE_NL(); WRITE_UINT(*options, dnd_default_action);
 	WRITE_NL(); WRITE_BOOL(*options, place_dialogs_under_mouse);
-	WRITE_NL(); WRITE_INT(*options, clipboard_selection);
 
-	WRITE_NL(); WRITE_BOOL(*options, save_window_positions);
-	WRITE_NL(); WRITE_BOOL(*options, use_saved_window_positions_for_new_windows);
-	WRITE_NL(); WRITE_BOOL(*options, save_window_workspace);
-	WRITE_NL(); WRITE_BOOL(*options, tools_restore_state);
-	WRITE_NL(); WRITE_BOOL(*options, save_dialog_window_positions);
 	WRITE_NL(); WRITE_BOOL(*options, hide_window_decorations);
-	WRITE_NL(); WRITE_BOOL(*options, show_window_ids);
 
 	WRITE_NL(); WRITE_UINT(*options, log_window_lines);
 	WRITE_NL(); WRITE_BOOL(*options, log_window.timer_data);
 	WRITE_NL(); WRITE_CHAR(*options, log_window.action);
 
-	WRITE_NL(); WRITE_CHAR(*options, help_search_engine);
-
 	WRITE_NL(); WRITE_BOOL(*options, external_preview.enable);
 	WRITE_NL(); WRITE_CHAR(*options, external_preview.select);
 	WRITE_NL(); WRITE_CHAR(*options, external_preview.extract);
 
-	WRITE_NL(); WRITE_BOOL(*options, with_rename);
-	WRITE_NL(); WRITE_BOOL(*options, collections_duplicates);
-	WRITE_NL(); WRITE_BOOL(*options, collections_on_top);
 	WRITE_NL(); WRITE_BOOL(*options, hide_window_in_fullscreen);
-	WRITE_NL(); WRITE_BOOL(*options, hide_osd_in_fullscreen);
 
 	/* File operations Options */
-	WRITE_NL(); WRITE_BOOL(*options, file_ops.enable_in_place_rename);
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.confirm_delete);
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.enable_delete_key);
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.use_system_trash);
@@ -521,9 +503,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_BOOL(*options, file_filter.disable);
 	WRITE_SEPARATOR();
 
-	/* Sidecars Options */
-	WRITE_NL(); WRITE_CHAR(*options, sidecar.ext);
-
 	/* Shell command */
 	WRITE_NL(); WRITE_CHAR(*options, shell.path);
 	WRITE_NL(); WRITE_CHAR(*options, shell.options);
@@ -549,11 +528,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 
 	/* Threads */
 	WRITE_NL(); WRITE_INT(*options, threads.duplicates);
-	WRITE_SEPARATOR();
-
-	/* user-definable mouse buttons */
-	WRITE_NL(); WRITE_CHAR(*options, mouse_button_8);
-	WRITE_NL(); WRITE_CHAR(*options, mouse_button_9);
 	WRITE_SEPARATOR();
 
 	/* Alternate similarity algorithm */
@@ -647,7 +621,7 @@ static void write_disabled_plugins(GString *outstr, gint indent)
  *-----------------------------------------------------------------------------
  */
 
-gboolean save_config_to_file(const gchar *utf8_path, ConfOptions *options, LayoutWindow *lw)
+gboolean save_config_to_file(const gchar *utf8_path, ConfOptions *, LayoutWindow *lw)
 {
 	SecureSaveInfo *ssi;
 	gchar *rc_pathl;
@@ -709,9 +683,6 @@ gboolean save_config_to_file(const gchar *utf8_path, ConfOptions *options, Layou
 	/* Layout Options */
 	if (!lw)
 		{
-		/* If not save_window_positions, do not include a <layout> section */
-		if (options->save_window_positions)
-			{
 			work = layout_window_list;
 			while (work)
 				{
@@ -719,7 +690,6 @@ gboolean save_config_to_file(const gchar *utf8_path, ConfOptions *options, Layou
 				layout_write_config(lw, outstr, indent);
 				work = work->next;
 				}
-			}
 		}
 	else
 		{
@@ -810,8 +780,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		/* General options */
 		if (READ_BOOL(*options, show_icon_names)) continue;
 
-		if (READ_BOOL(*options, tree_descend_subdirs)) continue;
-		if (READ_BOOL(*options, view_dir_list_single_click_enter)) continue;
 		if (READ_BOOL(*options, circular_selection_lists)) continue;
 		if (READ_BOOL(*options, lazy_image_sync)) continue;
 		if (READ_BOOL(*options, update_on_time_change)) continue;
@@ -827,8 +795,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_UINT_CLAMP(*options, keyboard_scroll_step, 1, 32)) continue;
 
 		if (READ_BOOL(*options, mousewheel_scrolls)) continue;
-		if (READ_BOOL(*options, image_lm_click_nav)) continue;
-		if (READ_BOOL(*options, image_l_click_archive)) continue;
 		if (READ_BOOL(*options, image_l_click_video)) continue;
 		if (READ_CHAR(*options, image_l_click_video_editor)) continue;
 
@@ -837,35 +803,21 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_INT(*options, dnd_icon_size)) continue;
 		if (READ_UINT_ENUM(*options, dnd_default_action)) continue;
 		if (READ_BOOL(*options, place_dialogs_under_mouse)) continue;
-		if (READ_INT(*options, clipboard_selection)) continue;
 
-		if (READ_BOOL(*options, save_window_positions)) continue;
-		if (READ_BOOL(*options, use_saved_window_positions_for_new_windows)) continue;
-		if (READ_BOOL(*options, save_window_workspace)) continue;
-		if (READ_BOOL(*options, tools_restore_state)) continue;
-		if (READ_BOOL(*options, save_dialog_window_positions)) continue;
 		if (READ_BOOL(*options, hide_window_decorations)) continue;
-		if (READ_BOOL(*options, show_window_ids)) continue;
 
 		if (READ_INT(*options, log_window_lines)) continue;
 		if (READ_BOOL(*options, log_window.timer_data)) continue;
 		if (READ_CHAR(*options, log_window.action)) continue;
 
-		if (READ_CHAR(*options, help_search_engine)) continue;
-
 		if (READ_BOOL(*options, external_preview.enable)) continue;
 		if (READ_CHAR(*options, external_preview.select)) continue;
 		if (READ_CHAR(*options, external_preview.extract)) continue;
 
-		if (READ_BOOL(*options, collections_duplicates)) continue;
-		if (READ_BOOL(*options, collections_on_top)) continue;
 		if (READ_BOOL(*options, hide_window_in_fullscreen)) continue;
-		if (READ_BOOL(*options, hide_osd_in_fullscreen)) continue;
 
 		/* Properties dialog options */
 		if (READ_CHAR(*options, properties.tabs_order)) continue;
-
-		if (READ_BOOL(*options, with_rename)) continue;
 
 		/* Image options */
 		if (READ_UINT_ENUM_CLAMP(*options, image.zoom_mode, 0, ZOOM_RESET_NONE)) continue;
@@ -910,7 +862,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_BOOL(*options, file_sort.case_sensitive)) continue;
 
 		/* File operations *options */
-		if (READ_BOOL(*options, file_ops.enable_in_place_rename)) continue;
 		if (READ_BOOL(*options, file_ops.confirm_delete)) continue;
 		if (READ_BOOL(*options, file_ops.enable_delete_key)) continue;
 		if (READ_BOOL(*options, file_ops.use_system_trash)) continue;
@@ -945,9 +896,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_BOOL(*options, file_filter.show_dot_directory)) continue;
 		if (READ_BOOL(*options, file_filter.disable_file_extension_checks)) continue;
 		if (READ_BOOL(*options, file_filter.disable)) continue;
-		if (READ_CHAR(*options, sidecar.ext)) continue;
-
-		/* Color Profiles */
 
 		/* Shell command */
 		if (READ_CHAR(*options, shell.path)) continue;
@@ -971,10 +919,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 
 		/* Threads */
 		if (READ_INT(*options, threads.duplicates)) continue;
-
-		/* user-definable mouse buttons */
-		if (READ_CHAR(*options, mouse_button_8)) continue;
-		if (READ_CHAR(*options, mouse_button_9)) continue;
 
 		/* Alternative similarity algorithm */
 		if (READ_BOOL(*options, alternate_similarity_algorithm.enabled)) continue;
@@ -1055,19 +999,6 @@ static void options_load_disabled_plugins(GQParserData *parser_data, const gchar
  * xml file structure (private)
  *-----------------------------------------------------------------------------
  */
-static const gchar *options_get_id(const gchar **attribute_names, const gchar **attribute_values)
-{
-	while (*attribute_names)
-		{
-		const gchar *option = *attribute_names++;
-		const gchar *value = *attribute_values++;
-
-		if (strcmp(option, "id") == 0) return value;
-
-		}
-	return nullptr;
-}
-
 
 static void options_parse_leaf(GQParserData *parser_data, const gchar *element_name, const gchar **, const gchar **, gpointer)
 {
@@ -1325,12 +1256,6 @@ static void options_parse_toplevel(GQParserData *parser_data, const gchar *eleme
 	if (g_ascii_strcasecmp(element_name, "layout") == 0)
 		{
 		LayoutWindow *lw;
-		lw = layout_find_by_layout_id(options_get_id(attribute_names, attribute_values));
-		if (lw)
-			{
-			layout_update_from_config(lw, attribute_names, attribute_values);
-			}
-		else
 			{
 			lw = layout_new_from_config(attribute_names, attribute_values, parser_data->startup);
 			}

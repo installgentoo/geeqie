@@ -506,12 +506,6 @@ static void button_cb(ImageWindow *imd, GdkEventButton *event, gpointer data)
 				{
 				start_editor_from_file(options->image_l_click_video_editor, imd->image_fd);
 				}
-			else if (options->image_lm_click_nav)
-				view_step_next(vw);
-			break;
-		case MOUSE_BUTTON_MIDDLE:
-			if (options->image_lm_click_nav)
-				view_step_prev(vw);
 			break;
 		case MOUSE_BUTTON_RIGHT:
 			menu = view_popup_menu(vw);
@@ -526,8 +520,7 @@ static void scroll_cb(ImageWindow *imd, GdkEventScroll *event, gpointer data)
 {
 	auto vw = static_cast<ViewWindow *>(data);
 
-	if ((event->state & GDK_CONTROL_MASK) ||
-				(imd->mouse_wheel_mode && !options->image_lm_click_nav))
+	if ((event->state & GDK_CONTROL_MASK) || imd->mouse_wheel_mode)
 		{
 		switch (event->direction)
 			{

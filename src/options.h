@@ -56,16 +56,10 @@ struct ConfOptions
 	guint keyboard_scroll_step;
 	gboolean place_dialogs_under_mouse;
 	gboolean mousewheel_scrolls;
-	gboolean image_lm_click_nav;
-	gboolean image_l_click_archive;
 	gboolean image_l_click_video;
 	gchar *image_l_click_video_editor;
 	gboolean show_icon_names;
 	gboolean overunderexposed;
-
-	/* various */
-	gboolean tree_descend_subdirs;
-	gboolean view_dir_list_single_click_enter;
 
 	gboolean circular_selection_lists;
 
@@ -83,25 +77,12 @@ struct ConfOptions
 	gint recent_folder_image_list_maxsize;
 	gint dnd_icon_size;
 	DnDAction dnd_default_action;
-	gint clipboard_selection;
 
-	gboolean save_window_positions;
-	gboolean use_saved_window_positions_for_new_windows;
-	gboolean save_window_workspace;
-	gboolean tools_restore_state;
-	gboolean save_dialog_window_positions;
 	gboolean hide_window_decorations;
-	gboolean show_window_ids;
 
 	gint log_window_lines;
 
-	gboolean with_rename;
-	gboolean collections_duplicates;
-	gboolean collections_on_top;
 	gboolean hide_window_in_fullscreen;
-	gboolean hide_osd_in_fullscreen;
-
-	gchar *help_search_engine;
 
 	/**
 	 * @struct info_comment
@@ -145,8 +126,6 @@ struct ConfOptions
 
 	/* file ops */
 	struct {
-		gboolean enable_in_place_rename;
-
 		gboolean confirm_delete;
 		gboolean enable_delete_key;
 		gboolean safe_delete_enable;
@@ -210,10 +189,6 @@ struct ConfOptions
 		gboolean disable_file_extension_checks;
 		gboolean disable;
 	} file_filter;
-
-	struct {
-		gchar *ext;
-	} sidecar;
 
 	/* collections */
 	struct {
@@ -328,9 +303,6 @@ struct ConfOptions
 		gboolean grayscale; /**< convert fingerprint to greyscale */
 	} alternate_similarity_algorithm;
 
-	gchar *mouse_button_8; /**< user-definable mouse buttons */
-	gchar *mouse_button_9; /**< user-definable mouse buttons */
-
 	gboolean class_filter[FILE_FORMAT_CLASSES]; /**< class file filter */
 
 	GList *disabled_plugins;
@@ -386,11 +358,6 @@ enum SortSelectionType {
 
 struct LayoutOptions
 {
-	gchar *id;
-
-	gchar *order;
-	gint style;
-
 	struct SortParams
 	{
 		SortType method;
@@ -440,7 +407,6 @@ struct LayoutOptions
 	StartUpPath startup_path;
 
 	gboolean animate;
-	gint workspace;
 
 	SortActionType action;
 	SortSelectionType selection;

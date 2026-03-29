@@ -349,7 +349,7 @@ void generic_dialog_windows_write_config(GString *outstr, gint indent)
 {
 	GList *work;
 
-	if (options->save_dialog_window_positions && dialog_windows)
+	if (dialog_windows)
 		{
 		WRITE_NL(); WRITE_STRING("<%s>", "dialogs");
 		indent++;
@@ -390,7 +390,6 @@ static void generic_dialog_setup(GenericDialog *gd,
 	DEBUG_NAME(gd->dialog);
 	gtk_window_set_type_hint(GTK_WINDOW(gd->dialog), GDK_WINDOW_TYPE_HINT_DIALOG);
 
-	if (options->save_dialog_window_positions)
 		{
 		GdkRectangle rect;
 		if (generic_dialog_find_window(title, role, rect))

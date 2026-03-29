@@ -41,7 +41,6 @@
 #include "image-overlay.h"
 #include "image.h"
 #include "intl.h"
-#include "layout-config.h"
 #include "layout-image.h"
 #include "layout-util.h"
 #include "logwindow.h"
@@ -81,17 +80,6 @@ constexpr gint ZOOM_LABEL_WIDTH = 120;
 
 constexpr gint CONFIG_WINDOW_DEF_WIDTH = 600;
 constexpr gint CONFIG_WINDOW_DEF_HEIGHT = 400;
-
-struct LayoutConfig
-{
-	LayoutWindow *lw;
-
-	GtkWidget *configwindow;
-	GtkWidget *home_path_entry;
-	GtkWidget *layout_widget;
-
-	LayoutOptions options;
-};
 
 } // namespace
 
@@ -151,107 +139,11 @@ LayoutWindow *layout_find_by_image_fd(ImageWindow *imd)
 	return nullptr;
 }
 
-LayoutWindow *layout_find_by_layout_id(const gchar *id)
-{
-	GList *work;
-
-	if (!id || !id[0]) return nullptr;
-
-	if (strcmp(id, LAYOUT_ID_CURRENT) == 0)
-		{
-		if (current_lw) return current_lw;
-		if (layout_window_list) return static_cast<LayoutWindow *>(layout_window_list->data);
-		return nullptr;
-		}
-
-	work = g_list_find_custom(layout_window_list, id, reinterpret_cast<GCompareFunc>(layout_compare_options_id));
-	return work ? static_cast<LayoutWindow *>(work->data) : nullptr;
-}
-
-gint layout_compare_options_id(const LayoutWindow *lw, const gchar *id)
-{
-	return g_strcmp0(lw->options.id, id);
-}
-
-gchar *layout_get_unique_id()
-{
-	char id[10];
-	gint i;
-
-	i = 1;
-	while (TRUE)
-		{
-		g_snprintf(id, sizeof(id), "lw%d", i);
-		if (!layout_find_by_layout_id(id))
-			{
-			return g_strdup(id);
-			}
-		i++;
-		}
-}
-
-static void layout_set_unique_id(LayoutWindow *lw)
-{
-	char id[10];
-	gint i;
-	if (lw->options.id && lw->options.id[0]) return; /* id is already set */
-
-	g_free(lw->options.id);
-	lw->options.id = nullptr;
-
-	i = 1;
-	while (TRUE)
-		{
-		g_snprintf(id, sizeof(id), "lw%d", i);
-		if (!layout_find_by_layout_id(id))
-			{
-			lw->options.id = g_strdup(id);
-			return;
-			}
-		i++;
-		}
-}
-
 static gboolean layout_set_current_cb(GtkWidget *, GdkEventFocus *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 	current_lw = lw;
 	return FALSE;
-}
-
-static gint window_list_sort_cb(gconstpointer a, gconstpointer b)
-{
-	return CASE_SORT((gchar *)a, (gchar *)b);
-}
-
-GString *layout_get_window_list()
-{
-	LayoutWindow *lw;
-	GList *work;
-	GList *window_list = nullptr;
-	GString *ret = g_string_new(nullptr);
-
-	work = layout_window_list;
-	while (work)
-		{
-		lw = static_cast<LayoutWindow *>(work->data);
-		window_list = g_list_insert_sorted(window_list, g_strdup(lw->options.id), window_list_sort_cb);
-		work = work->next;
-		}
-
-	work = g_list_first(window_list);
-	g_string_append_printf(ret, "%s", (gchar *)work->data);
-	work = work->next;
-
-	while (work)
-		{
-		g_string_append_printf(ret, "\n%s", (gchar *)work->data);
-		work = work->next;
-		}
-
-	g_list_free(window_list);
-
-	return ret;
 }
 
 /*
@@ -1400,7 +1292,7 @@ static void layout_grid_setup(LayoutWindow *lw)
 	image_grab_focus(lw->image);
 }
 
-void layout_style_set(LayoutWindow *lw, gint style, const gchar *order)
+void layout_style_set(LayoutWindow *lw, gint style, const gchar *)
 {
 	FileData *dir_fd;
 
@@ -1408,19 +1300,7 @@ void layout_style_set(LayoutWindow *lw, gint style, const gchar *order)
 
 	if (style != -1)
 		{
-		LayoutLocation d;
-		LayoutLocation f;
-		LayoutLocation i;
-
-		layout_config_parse(style, order, &d,  &f, &i);
-
-		if (lw->dir_location == d &&
-		    lw->file_location == f &&
-		    lw->image_location == i) return;
-
-		lw->dir_location = d;
-		lw->file_location = f;
-		lw->image_location = i;
+		return;
 		}
 
 	/* remember state */
@@ -1503,207 +1383,12 @@ void layout_colors_update()
 
 /*
  *-----------------------------------------------------------------------------
- * configuration
- *-----------------------------------------------------------------------------
- */
-
-static gint layout_config_delete_cb(GtkWidget *w, GdkEventAny *event, gpointer data);
-
-static void layout_config_close_cb(GtkWidget *, gpointer data)
-{
-	auto lc = static_cast<LayoutConfig *>(data);
-
-	gq_gtk_widget_destroy(lc->configwindow);
-	free_layout_options_content(&lc->options);
-	g_free(lc);
-}
-
-static gint layout_config_delete_cb(GtkWidget *w, GdkEventAny *, gpointer data)
-{
-	layout_config_close_cb(w, data);
-	return TRUE;
-}
-
-static void layout_config_apply_cb(GtkWidget *, gpointer data)
-{
-	auto lc = static_cast<LayoutConfig *>(data);
-
-	g_free(lc->options.order);
-	lc->options.order = layout_config_get(lc->layout_widget, &lc->options.style);
-
-	config_entry_to_option(lc->home_path_entry, &lc->options.home_path, remove_trailing_slash);
-
-	layout_apply_options(lc->lw, &lc->options);
-}
-
-static void layout_config_ok_cb(GtkWidget *widget, gpointer data)
-{
-	auto lc = static_cast<LayoutConfig *>(data);
-	layout_config_apply_cb(widget, lc);
-	layout_config_close_cb(widget, lc);
-}
-
-static void home_path_set_current_cb(GtkWidget *, gpointer data)
-{
-	auto lc = static_cast<LayoutConfig *>(data);
-	gq_gtk_entry_set_text(GTK_ENTRY(lc->home_path_entry), layout_get_path(lc->lw));
-}
-
-static void startup_path_set_current_cb(GtkWidget *widget, gpointer data)
-{
-	auto lc = static_cast<LayoutConfig *>(data);
-	if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
-		{
-		return;
-		}
-	lc->options.startup_path = STARTUP_PATH_CURRENT;
-}
-
-static void startup_path_set_last_cb(GtkWidget *widget, gpointer data)
-{
-	auto lc = static_cast<LayoutConfig *>(data);
-	if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
-		{
-		return;
-		}
-	lc->options.startup_path = STARTUP_PATH_LAST;
-}
-
-static void startup_path_set_home_cb(GtkWidget *widget, gpointer data)
-{
-	auto lc = static_cast<LayoutConfig *>(data);
-	if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
-		{
-		return;
-		}
-	lc->options.startup_path = STARTUP_PATH_HOME;
-}
-
-void layout_show_config_window(LayoutWindow *lw)
-{
-	LayoutConfig *lc;
-	GtkWidget *win_vbox;
-	GtkWidget *hbox;
-	GtkWidget *vbox;
-	GtkWidget *button;
-	GtkWidget *ct_button;
-	GtkWidget *group;
-	GtkWidget *frame;
-	GtkWidget *tabcomp;
-
-	lc = g_new0(LayoutConfig, 1);
-	lc->lw = lw;
-	layout_sync_options_with_current_state(lw);
-	copy_layout_options(&lc->options, &lw->options);
-
-	lc->configwindow = window_new("Layout", PIXBUF_INLINE_ICON_CONFIG, nullptr, _("Window options and layout"));
-	DEBUG_NAME(lc->configwindow);
-	gtk_window_set_type_hint(GTK_WINDOW(lc->configwindow), GDK_WINDOW_TYPE_HINT_DIALOG);
-
-	g_signal_connect(G_OBJECT(lc->configwindow), "delete_event",
-			 G_CALLBACK(layout_config_delete_cb), lc);
-
-	gtk_window_set_default_size(GTK_WINDOW(lc->configwindow), CONFIG_WINDOW_DEF_WIDTH, CONFIG_WINDOW_DEF_HEIGHT);
-	gtk_window_set_resizable(GTK_WINDOW(lc->configwindow), TRUE);
-	gtk_container_set_border_width(GTK_CONTAINER(lc->configwindow), PREF_PAD_BORDER);
-
-	win_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, PREF_PAD_SPACE);
-	DEBUG_NAME(win_vbox);
-	gq_gtk_container_add(GTK_WIDGET(lc->configwindow), win_vbox);
-	gtk_widget_show(win_vbox);
-
-	hbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
-	gtk_button_box_set_layout(GTK_BUTTON_BOX(hbox), GTK_BUTTONBOX_END);
-	gtk_box_set_spacing(GTK_BOX(hbox), PREF_PAD_BUTTON_GAP);
-	gq_gtk_box_pack_end(GTK_BOX(win_vbox), hbox, FALSE, FALSE, 0);
-	gtk_widget_show(hbox);
-
-	button = pref_button_new(nullptr, GQ_ICON_OK, "OK",
-				 G_CALLBACK(layout_config_ok_cb), lc);
-	gq_gtk_container_add(GTK_WIDGET(hbox), button);
-	gtk_widget_set_can_default(button, TRUE);
-	gtk_widget_grab_default(button);
-	gtk_widget_show(button);
-
-	ct_button = button;
-
-	button = pref_button_new(nullptr, GQ_ICON_APPLY, _("Apply"),
-				 G_CALLBACK(layout_config_apply_cb), lc);
-	gq_gtk_container_add(GTK_WIDGET(hbox), button);
-	gtk_widget_set_can_default(button, TRUE);
-	gtk_widget_show(button);
-
-	button = pref_button_new(nullptr, GQ_ICON_CANCEL, _("Cancel"),
-				 G_CALLBACK(layout_config_close_cb), lc);
-	gq_gtk_container_add(GTK_WIDGET(hbox), button);
-	gtk_widget_set_can_default(button, TRUE);
-	gtk_widget_show(button);
-
-	if (!generic_dialog_get_alternative_button_order(lc->configwindow))
-		{
-		gtk_box_reorder_child(GTK_BOX(hbox), ct_button, -1);
-		}
-
-	frame = pref_frame_new(win_vbox, TRUE, nullptr, GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
-	DEBUG_NAME(frame);
-
-	vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, PREF_PAD_SPACE);
-	DEBUG_NAME(vbox);
-	gq_gtk_container_add(GTK_WIDGET(frame), vbox);
-	gtk_widget_show(vbox);
-
-
-	group = pref_group_new(vbox, FALSE, _("General options"), GTK_ORIENTATION_VERTICAL);
-
-	pref_label_new(group, _("Home path (empty to use your home directory)"));
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-
-	tabcomp = tab_completion_new(&lc->home_path_entry, lc->options.home_path, nullptr, nullptr, nullptr, nullptr);
-	tab_completion_add_select_button(lc->home_path_entry, nullptr, TRUE);
-	gq_gtk_box_pack_start(GTK_BOX(hbox), tabcomp, TRUE, TRUE, 0);
-	gtk_widget_show(tabcomp);
-
-	button = pref_button_new(hbox, nullptr, _("Use current"),
-				 G_CALLBACK(home_path_set_current_cb), lc);
-
-	pref_checkbox_new_int(group, _("Show date in directories list view"),
-			      lc->options.show_directory_date, &lc->options.show_directory_date);
-
-	group = pref_group_new(vbox, FALSE, _("Start-up directory:"), GTK_ORIENTATION_VERTICAL);
-
-	button = pref_radiobutton_new(group, nullptr, _("No change"),
-				      (lc->options.startup_path == STARTUP_PATH_CURRENT),
-				      G_CALLBACK(startup_path_set_current_cb), lc);
-	button = pref_radiobutton_new(group, button, _("Restore last path"),
-				      (lc->options.startup_path == STARTUP_PATH_LAST),
-				      G_CALLBACK(startup_path_set_last_cb), lc);
-	button = pref_radiobutton_new(group, button, _("Home path"),
-				      (lc->options.startup_path == STARTUP_PATH_HOME),
-				      G_CALLBACK(startup_path_set_home_cb), lc);
-
-	group = pref_group_new(vbox, FALSE, _("Layout"), GTK_ORIENTATION_VERTICAL);
-
-	lc->layout_widget = layout_config_new();
-	DEBUG_NAME(lc->layout_widget);
-	layout_config_set(lc->layout_widget, lw->options.style, lw->options.order);
-	gq_gtk_box_pack_start(GTK_BOX(group), lc->layout_widget, TRUE, TRUE, 0);
-
-	gtk_widget_show(lc->layout_widget);
-	gtk_widget_show(lc->configwindow);
-}
-
-/*
- *-----------------------------------------------------------------------------
  * base
  *-----------------------------------------------------------------------------
  */
 
 void layout_sync_options_with_current_state(LayoutWindow *lw)
 {
-#ifdef GDK_WINDOWING_X11
-	GdkWindow *window;
-#endif
-
 	if (!layout_valid(&lw)) return;
 
 	lw->options.main_window.maximized =  window_maximized(lw->window);
@@ -1722,50 +1407,20 @@ void layout_sync_options_with_current_state(LayoutWindow *lw)
 	lw->options.last_path = g_strdup(layout_get_path(lw));
 
 	layout_geometry_get_log_window(lw, lw->options.log_window);
-
-#ifdef GDK_WINDOWING_X11
-	GdkDisplay *display;
-
-	if (options->save_window_workspace)
-		{
-		display = gdk_display_get_default();
-
-		if (GDK_IS_X11_DISPLAY(display))
-			{
-			window = gtk_widget_get_window(GTK_WIDGET(lw->window));
-			lw->options.workspace = gdk_x11_window_get_desktop(window);
-			}
-		}
-#endif
 }
 
 void layout_apply_options(LayoutWindow *lw, LayoutOptions *lop)
 {
-	gboolean refresh_style;
 	gboolean refresh_lists;
 
 	if (!layout_valid(&lw)) return;
 /** @FIXME add other options too */
 
-	refresh_style = (lop->style != lw->options.style || strcmp(lop->order, lw->options.order) != 0);
 	refresh_lists = (lop->show_directory_date != lw->options.show_directory_date);
 
 	copy_layout_options(&lw->options, lop);
 
-	if (refresh_style) layout_style_set(lw, lw->options.style, lw->options.order);
 	if (refresh_lists) layout_refresh(lw);
-}
-
-void layout_close(LayoutWindow *lw)
-{
-	if (layout_window_list && layout_window_list->next)
-		{
-		layout_free(lw);
-		}
-	else
-		{
-		exit_program();
-		}
 }
 
 void layout_free(LayoutWindow *lw)
@@ -1797,41 +1452,9 @@ void layout_free(LayoutWindow *lw)
 	g_free(lw);
 }
 
-static gboolean layout_delete_cb(GtkWidget *, GdkEventAny *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_close(lw);
-	return TRUE;
-}
-
 LayoutWindow *layout_new(FileData *dir_fd, LayoutOptions *lop)
 {
 	return layout_new_with_geometry(dir_fd, lop, nullptr);
-}
-
-static gboolean move_window_to_workspace_cb(gpointer data)
-{
-#ifdef GDK_WINDOWING_X11
-	auto lw = static_cast<LayoutWindow *>(data);
-	GdkWindow *window;
-	GdkDisplay *display;
-
-	if (options->save_window_workspace)
-		{
-		display = gdk_display_get_default();
-
-		if (GDK_IS_X11_DISPLAY(display))
-			{
-			if (lw->options.workspace != -1)
-				{
-				window = gtk_widget_get_window(GTK_WIDGET(lw->window));
-				gdk_x11_window_move_to_desktop(window, lw->options.workspace);
-				}
-			}
-		}
-#endif
-	return G_SOURCE_REMOVE;
 }
 
 LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
@@ -1850,25 +1473,7 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	else
 		init_layout_options(&lw->options);
 
-	layout_set_unique_id(lw);
-
-	/* default layout */
-
-	layout_config_parse(lw->options.style, lw->options.order,
-			    &lw->dir_location,  &lw->file_location, &lw->image_location);
-	/* divider positions */
-
 	default_path = g_build_filename(get_rc_dir(), DEFAULT_WINDOW_LAYOUT, NULL);
-
-	if (!options->save_window_positions)
-		{
-		if (!isfile(default_path))
-			{
-			lw->options.main_window.hdivider_pos = MAIN_WINDOW_DIV_HPOS;
-			lw->options.main_window.vdivider_pos = MAIN_WINDOW_DIV_VPOS;
-			lw->options.float_window.vdivider_pos = MAIN_WINDOW_DIV_VPOS;
-			}
-		}
 
 	/* window */
 
@@ -1877,14 +1482,7 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	gtk_window_set_resizable(GTK_WINDOW(lw->window), TRUE);
 	gtk_container_set_border_width(GTK_CONTAINER(lw->window), 0);
 
-	if (options->save_window_positions)
-		{
-		hint_mask = GDK_HINT_USER_POS;
-		}
-	else
-		{
-		hint_mask = static_cast<GdkWindowHints>(0);
-		}
+	hint_mask = GDK_HINT_USER_POS;
 
 	hint.min_width = 32;
 	hint.min_height = 32;
@@ -1893,22 +1491,16 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	gtk_window_set_geometry_hints(GTK_WINDOW(lw->window), nullptr, &hint,
 				      static_cast<GdkWindowHints>(GDK_HINT_MIN_SIZE | GDK_HINT_BASE_SIZE | hint_mask));
 
-	if (options->save_window_positions || isfile(default_path))
-		{
+	if (isfile(default_path))
+	{
 		gtk_window_set_default_size(GTK_WINDOW(lw->window), lw->options.main_window.rect.width, lw->options.main_window.rect.height);
 		gq_gtk_window_move(GTK_WINDOW(lw->window), lw->options.main_window.rect.x, lw->options.main_window.rect.y);
 		if (lw->options.main_window.maximized) gtk_window_maximize(GTK_WINDOW(lw->window));
-
-		g_idle_add(move_window_to_workspace_cb, lw);
-		}
-	else
-		{
-		gtk_window_set_default_size(GTK_WINDOW(lw->window), MAINWINDOW_DEF_WIDTH, MAINWINDOW_DEF_HEIGHT);
-		}
+	}
 
 	g_free(default_path);
 	g_signal_connect(G_OBJECT(lw->window), "delete_event",
-			 G_CALLBACK(layout_delete_cb), lw);
+			 G_CALLBACK(exit_program), lw);
 
 	g_signal_connect(G_OBJECT(lw->window), "focus-in-event",
 			 G_CALLBACK(layout_set_current_cb), lw);
@@ -1965,11 +1557,6 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 
 void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent)
 {
-	WRITE_NL(); WRITE_CHAR(*layout, id);
-
-	WRITE_NL(); WRITE_INT(*layout, style);
-	WRITE_NL(); WRITE_CHAR(*layout, order);
-
 	WRITE_NL(); WRITE_UINT(*layout, file_view_list_sort.method);
 	WRITE_NL(); WRITE_BOOL(*layout, file_view_list_sort.ascend);
 	WRITE_NL(); WRITE_BOOL(*layout, file_view_list_sort.case_sensitive);
@@ -1990,7 +1577,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_BOOL(*layout, main_window.maximized);
 	WRITE_NL(); WRITE_INT(*layout, main_window.hdivider_pos);
 	WRITE_NL(); WRITE_INT(*layout, main_window.vdivider_pos);
-	WRITE_NL(); WRITE_INT(*layout, workspace);
 	WRITE_SEPARATOR();
 
 	WRITE_NL(); WRITE_INT(*layout, folder_window.vdivider_pos);
@@ -2051,18 +1637,10 @@ void layout_write_config(LayoutWindow *lw, GString *outstr, gint indent)
 
 void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names, const gchar **attribute_values)
 {
-	gchar *id = nullptr;
-
 	while (*attribute_names)
 		{
 		const gchar *option = *attribute_names++;
 		const gchar *value = *attribute_values++;
-
-		/* layout options */
-		if (READ_CHAR_FULL("id", id)) continue;
-
-		if (READ_INT(*layout, style)) continue;
-		if (READ_CHAR(*layout, order)) continue;
 
 		if (READ_UINT_ENUM(*layout, file_view_list_sort.method)) continue;
 		if (READ_BOOL(*layout, file_view_list_sort.ascend)) continue;
@@ -2117,18 +1695,8 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_INT_FULL("dupe_window.h", layout->dupe_window.height)) continue;
 
 		if (READ_BOOL(*layout, animate)) continue;
-		if (READ_INT(*layout, workspace)) continue;
 
 		log_printf("unknown attribute %s = %s\n", option, value);
-		}
-	if (id && strcmp(id, LAYOUT_ID_CURRENT) != 0)
-		{
-		g_free(layout->id);
-		layout->id = id;
-		}
-	else
-		{
-		g_free(id);
 		}
 }
 
@@ -2250,10 +1818,6 @@ LayoutWindow *layout_new_from_default()
 		{
 		lw = layout_new_from_config(nullptr, nullptr, TRUE);
 		}
-
-	gchar *id_tmp = g_strdup(layout_get_unique_id());
-	g_free(lw->options.id);
-	lw->options.id = id_tmp;
 
 	return lw;
 }

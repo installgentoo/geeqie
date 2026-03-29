@@ -1156,12 +1156,6 @@ static void layout_image_button_cb(ImageWindow *imd, GdkEventButton *event, gpoi
 				{
 				start_editor_from_file(options->image_l_click_video_editor, imd->image_fd);
 				}
-			else if (options->image_lm_click_nav)
-				layout_image_next(lw);
-			break;
-		case MOUSE_BUTTON_MIDDLE:
-			if (options->image_lm_click_nav)
-				layout_image_prev(lw);
 			break;
 		case MOUSE_BUTTON_RIGHT:
 			menu = layout_image_pop_menu(lw);
@@ -1180,8 +1174,7 @@ static void layout_image_scroll_cb(ImageWindow *imd, GdkEventScroll *event, gpoi
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	if ((event->state & GDK_CONTROL_MASK) ||
-				(imd->mouse_wheel_mode && !options->image_lm_click_nav))
+	if ((event->state & GDK_CONTROL_MASK) || imd->mouse_wheel_mode)
 		{
 		switch (event->direction)
 			{

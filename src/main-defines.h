@@ -58,8 +58,6 @@
 
 #define GQ_LINK_STR "↩"
 
-#define HELP_SEARCH_ENGINE "https://duckduckgo.com/?q=site:geeqie.org/help "
-
 #define GQ_ICON_ADD "list-add"
 #define GQ_ICON_REMOVE "list-remove"
 #define GQ_ICON_UNDO "edit-undo"

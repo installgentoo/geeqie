@@ -388,7 +388,6 @@ void filter_rebuild()
 
 	/* make sure registered_extension_from_path finds the longer match first */
 	extension_list = g_list_sort(extension_list, filter_sort_ext_len_cb);
-	sidecar_ext_parse(options->sidecar.ext); /* this must be updated after changed file extensions */
 }
 
 /* return the extension part of the name or NULL */

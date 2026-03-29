@@ -74,18 +74,11 @@ ConfOptions *init_options(ConfOptions *options)
 	options->file_filter.show_parent_directory = TRUE;
 	options->file_filter.disable_file_extension_checks = FALSE;
 
-	options->save_window_positions = TRUE;
-	options->use_saved_window_positions_for_new_windows = FALSE;
-	options->save_window_workspace = FALSE;
-	options->tools_restore_state = TRUE;
-	options->save_dialog_window_positions = TRUE;
 	options->hide_window_decorations = FALSE;
-	options->show_window_ids = FALSE;
 
 	options->file_ops.confirm_delete = TRUE;
 	options->file_ops.enable_delete_key = TRUE;
 	options->file_ops.use_system_trash = TRUE;
-	options->file_ops.enable_in_place_rename = TRUE;
 	options->file_ops.safe_delete_enable = TRUE;
 	options->file_ops.safe_delete_folder_maxsize = 128;
 	options->file_ops.safe_delete_path = nullptr;
@@ -98,11 +91,7 @@ ConfOptions *init_options(ConfOptions *options)
 	options->fullscreen.disable_saver = TRUE;
 	options->fullscreen.screen = -1;
 
-	options->with_rename = FALSE;
-	options->collections_duplicates = FALSE;
-	options->collections_on_top = FALSE;
 	options->hide_window_in_fullscreen = TRUE;
-	options->hide_osd_in_fullscreen = FALSE;
 
 	memset(&options->image.border_color, 0, sizeof(options->image.border_color));
 	memset(&options->image.alpha_color_1, 0, sizeof(options->image.alpha_color_1));
@@ -153,8 +142,6 @@ ConfOptions *init_options(ConfOptions *options)
 
 	options->lazy_image_sync = FALSE;
 	options->mousewheel_scrolls = FALSE;
-	options->image_lm_click_nav = TRUE;
-	options->image_l_click_archive = FALSE;
 	options->image_l_click_video = TRUE;
 	options->image_l_click_video_editor = g_strdup("video-player.desktop");
 	options->open_recent_list_maxsize = 10;
@@ -178,11 +165,8 @@ ConfOptions *init_options(ConfOptions *options)
 	options->thumbnails.use_ft_metadata = TRUE;
 	options->thumbnails.collection_preview = 20;
 
-	options->tree_descend_subdirs = FALSE;
-	options->view_dir_list_single_click_enter = TRUE;
 	options->circular_selection_lists = TRUE;
 	options->update_on_time_change = TRUE;
-	options->clipboard_selection = CLIPBOARD_BOTH;
 
 	options->log_window_lines = 1000;
 	options->log_window.line_wrap = FALSE;
@@ -200,9 +184,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->threads.duplicates = get_cpu_cores() - 1;
 
 	options->disabled_plugins = nullptr;
-
-	options->mouse_button_8 = g_strdup("Back");
-	options->mouse_button_9 = g_strdup("Forward");
 
 	for (i = 0; i < FILE_FORMAT_CLASSES; i++)
 		{
@@ -234,12 +215,9 @@ void setup_default_options(ConfOptions *options)
 		}
 
 	set_default_image_overlay_template_string(&options->image_overlay.template_string);
-	options->sidecar.ext = g_strdup(".jpg;%raw;.gqv;.xmp;%unknown");
 
 	options->shell.path = g_strdup(GQ_DEFAULT_SHELL_PATH);
 	options->shell.options = g_strdup(GQ_DEFAULT_SHELL_OPTIONS);
-
-	options->help_search_engine = g_strdup(HELP_SEARCH_ENGINE);
 }
 
 void copy_layout_options(LayoutOptions *dest, const LayoutOptions *src)
@@ -247,16 +225,12 @@ void copy_layout_options(LayoutOptions *dest, const LayoutOptions *src)
 	free_layout_options_content(dest);
 
 	*dest = *src;
-	dest->id = g_strdup(src->id);
-	dest->order = g_strdup(src->order);
 	dest->home_path = g_strdup(src->home_path);
 	dest->last_path = g_strdup(src->last_path);
 }
 
 void free_layout_options_content(LayoutOptions *dest)
 {
-	g_free(dest->id);
-	g_free(dest->order);
 	g_free(dest->home_path);
 	g_free(dest->last_path);
 }
@@ -274,7 +248,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->float_window.rect = {0, 0, 260, 450};
 	options->float_window.vdivider_pos = -1;
 	options->home_path = nullptr;
-	options->id = g_strdup("null");
 	options->main_window.hdivider_pos = -1;
 	options->main_window.maximized = FALSE;
 	options->main_window.rect = {0, 0, 720, 540};
@@ -282,15 +255,12 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->search_window = {100, 100, 700, 650};
 	options->dupe_window = {100, 100, 800, 400};
 	options->folder_window.vdivider_pos = 100;
-	options->order = g_strdup("123");
 	options->show_directory_date = FALSE;
 	options->show_file_filter = FALSE;
-	options->style = 0;
 	options->image_overlay.state = OSD_SHOW_NOTHING;
 	options->animate = TRUE;
 	options->log_window = {0, 0, 520, 400};
 	options->preferences_window.rect = {0, 0, 700, 600};
-	options->workspace = -1;
 	return options;
 }
 

@@ -1396,58 +1396,6 @@ std::vector<ActionItem> get_action_items()
 	return list_unique;
 }
 
-gboolean defined_mouse_buttons(GtkWidget *, GdkEventButton *event, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	GtkAction *action;
-	gboolean ret = FALSE;
-
-	switch (event->button)
-		{
-		case MOUSE_BUTTON_8:
-			if (options->mouse_button_8)
-				{
-				if (g_strstr_len(options->mouse_button_8, -1, ".desktop") != nullptr)
-					{
-					file_util_start_editor_from_filelist(options->mouse_button_8, layout_selection_list(lw), layout_get_path(lw), lw->window);
-					ret = TRUE;
-					}
-				else
-					{
-					action = gq_gtk_action_group_get_action(lw->action_group, options->mouse_button_8);
-					if (action)
-						{
-						gq_gtk_action_activate(action);
-						}
-					ret = TRUE;
-					}
-				}
-			break;
-		case MOUSE_BUTTON_9:
-			if (options->mouse_button_9)
-				{
-				if (g_strstr_len(options->mouse_button_9, -1, ".desktop") != nullptr)
-					{
-					file_util_start_editor_from_filelist(options->mouse_button_9, layout_selection_list(lw), layout_get_path(lw), lw->window);
-					}
-				else
-					{
-					action = gq_gtk_action_group_get_action(lw->action_group, options->mouse_button_9);
-					if (action)
-						{
-						gq_gtk_action_activate(action);
-						}
-					ret = TRUE;
-					}
-				}
-			break;
-		default:
-			break;
-		}
-
-	return ret;
-}
-
 GdkPixbuf *gq_gtk_icon_theme_load_icon_copy(GtkIconTheme *icon_theme, const gchar *icon_name, gint size, GtkIconLookupFlags flags)
 {
 	g_autoptr(GError) error = nullptr;

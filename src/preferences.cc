@@ -173,11 +173,7 @@ static GtkWidget *color_profile_screen_file_entry;
 static GtkWidget *external_preview_select_entry;
 static GtkWidget *external_preview_extract_entry;
 
-static GtkWidget *sidecar_ext_entry;
-static GtkWidget *help_search_engine_entry;
-
 static GtkWidget *log_window_f1_entry;
-
 
 enum {
 	CONFIG_WINDOW_DEF_WIDTH =		700,
@@ -263,13 +259,7 @@ static void config_window_apply()
 	options->file_ops.use_system_trash = c_options->file_ops.use_system_trash;
 	options->file_ops.no_trash = c_options->file_ops.no_trash;
 	options->file_ops.safe_delete_folder_maxsize = c_options->file_ops.safe_delete_folder_maxsize;
-	options->tools_restore_state = c_options->tools_restore_state;
-	options->save_window_positions = c_options->save_window_positions;
-	options->use_saved_window_positions_for_new_windows = c_options->use_saved_window_positions_for_new_windows;
-	options->save_window_workspace = c_options->save_window_workspace;
-	options->save_dialog_window_positions = c_options->save_dialog_window_positions;
 	options->hide_window_decorations = c_options->hide_window_decorations;
-	options->show_window_ids = c_options->show_window_ids;
 	options->image.scroll_reset_method = c_options->image.scroll_reset_method;
 	options->image.zoom_2pass = c_options->image.zoom_2pass;
 	options->image.fit_window_to_image = c_options->image.fit_window_to_image;
@@ -307,16 +297,9 @@ static void config_window_apply()
 	options->file_sort.case_sensitive = c_options->file_sort.case_sensitive;
 	options->file_filter.disable = c_options->file_filter.disable;
 
-	config_entry_to_option(sidecar_ext_entry, &options->sidecar.ext, nullptr);
-	sidecar_ext_parse(options->sidecar.ext);
-
 	options->mousewheel_scrolls = c_options->mousewheel_scrolls;
-	options->image_lm_click_nav = c_options->image_lm_click_nav;
-	options->image_l_click_archive = c_options->image_l_click_archive;
 	options->image_l_click_video = c_options->image_l_click_video;
 	options->image_l_click_video_editor = c_options->image_l_click_video_editor;
-
-	options->file_ops.enable_in_place_rename = c_options->file_ops.enable_in_place_rename;
 
 	options->image.tile_cache_max = c_options->image.tile_cache_max;
 	options->image.image_cache_max = c_options->image.image_cache_max;
@@ -367,26 +350,17 @@ static void config_window_apply()
 	options->duplicates_similarity_threshold = c_options->duplicates_similarity_threshold;
 	options->rot_invariant_sim = c_options->rot_invariant_sim;
 
-	options->tree_descend_subdirs = c_options->tree_descend_subdirs;
-
-	options->view_dir_list_single_click_enter = c_options->view_dir_list_single_click_enter;
 	options->circular_selection_lists = c_options->circular_selection_lists;
 
 	options->open_recent_list_maxsize = c_options->open_recent_list_maxsize;
 	options->recent_folder_image_list_maxsize = c_options->recent_folder_image_list_maxsize;
 	options->dnd_icon_size = c_options->dnd_icon_size;
-	options->clipboard_selection = c_options->clipboard_selection;
 	options->dnd_default_action = c_options->dnd_default_action;
 
 	options->info_title.height = c_options->info_title.height;
 	options->info_comment.height = c_options->info_comment.height;
 
-	options->with_rename = c_options->with_rename;
-	options->collections_duplicates = c_options->collections_duplicates;
-	options->collections_on_top = c_options->collections_on_top;
 	options->hide_window_in_fullscreen = c_options->hide_window_in_fullscreen;
-	options->hide_osd_in_fullscreen = c_options->hide_osd_in_fullscreen;
-	config_entry_to_option(help_search_engine_entry, &options->help_search_engine, nullptr);
 
 	options->external_preview.enable = c_options->external_preview.enable;
 	config_entry_to_option(external_preview_select_entry, &options->external_preview.select, nullptr);
@@ -416,9 +390,6 @@ static void config_window_apply()
 		color_man_update();
 		}
 #endif
-
-	options->mouse_button_8 = c_options->mouse_button_8;
-	options->mouse_button_9 = c_options->mouse_button_9;
 
 	image_options_sync();
 
@@ -515,25 +486,6 @@ static void dnd_default_action_selection_menu_cb(GtkWidget *combo, gpointer data
 			break;
 		}
 }
-static void clipboard_selection_menu_cb(GtkWidget *combo, gpointer data)
-{
-	auto option = static_cast<gint *>(data);
-
-	switch (gtk_combo_box_get_active(GTK_COMBO_BOX(combo)))
-		{
-		case 0:
-			*option = CLIPBOARD_PRIMARY;
-			break;
-		case 1:
-			*option = CLIPBOARD_CLIPBOARD;
-			break;
-		case 2:
-			*option = CLIPBOARD_BOTH;
-			break;
-		default:
-			*option = CLIPBOARD_BOTH;
-		}
-}
 
 static void add_quality_menu(GtkWidget *table, gint column, gint row, const gchar *text,
 			     guint option, guint *option_c)
@@ -590,34 +542,6 @@ static void add_dnd_default_action_selection_menu(GtkWidget *table, gint column,
 	gtk_widget_show(combo);
 }
 
-static void add_clipboard_selection_menu(GtkWidget *table, gint column, gint row, const gchar *text,
-			     gint option, gint *option_c)
-{
-	GtkWidget *combo;
-	gint current = 0;
-
-	*option_c = option;
-
-	pref_table_label(table, column, row, text, GTK_ALIGN_START);
-
-	combo = gtk_combo_box_text_new();
-
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), _("Primary"));
-	if (option == CLIPBOARD_PRIMARY) current = 0;
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), _("Clipboard"));
-	if (option == CLIPBOARD_CLIPBOARD) current = 1;
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), _("Both"));
-	if (option == CLIPBOARD_BOTH) current = 2;
-
-	gtk_combo_box_set_active(GTK_COMBO_BOX(combo), current);
-
-	g_signal_connect(G_OBJECT(combo), "changed",
-			 G_CALLBACK(clipboard_selection_menu_cb), option_c);
-
-	gq_gtk_grid_attach(GTK_GRID(table), combo, column + 1, column + 2, row, row + 1, GTK_SHRINK, static_cast<GtkAttachOptions>(0), 0, 0);
-	gtk_widget_show(combo);
-}
-
 static void zoom_style_selection_menu_cb(GtkWidget *combo, gpointer data)
 {
 	auto option = static_cast<gint *>(data);
@@ -654,57 +578,6 @@ static void add_zoom_style_selection_menu(GtkWidget *table, gint column, gint ro
 	gtk_combo_box_set_active(GTK_COMBO_BOX(combo), current);
 
 	g_signal_connect(G_OBJECT(combo), "changed", G_CALLBACK(zoom_style_selection_menu_cb), option_c);
-
-	gq_gtk_grid_attach(GTK_GRID(table), combo, column + 1, column + 2, row, row + 1, GTK_SHRINK, static_cast<GtkAttachOptions>(0), 0, 0);
-	gtk_widget_show(combo);
-}
-
-static void mouse_buttons_selection_menu_cb(GtkWidget *combo, gpointer data)
-{
-	auto option = static_cast<gchar **>(data);
-
-	g_autofree gchar *label = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
-
-	std::vector<ActionItem> list = get_action_items();
-	const auto action_item_has_label = [label](const ActionItem &action_item)
-	{
-		return action_item.has_label(label);
-	};
-	const auto work = std::find_if(list.cbegin(), list.cend(), action_item_has_label);
-	if (work != list.cend())
-		{
-		g_free(*option);
-		*option = g_strdup(work->name);
-		}
-}
-
-static void add_mouse_selection_menu(GtkWidget *table, gint column, gint row, const gchar *text, gchar *option, gchar **option_c)
-{
-	gint current = 0;
-	gint i = 0;
-	GtkWidget *combo;
-
-	*option_c = option;
-
-	pref_table_label(table, column, row, text, GTK_ALIGN_START);
-
-	combo = gtk_combo_box_text_new();
-
-	std::vector<ActionItem> list = get_action_items();
-	for (const ActionItem &action_item : list)
-		{
-		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), action_item.label);
-
-		if (g_strcmp0(action_item.name, option) == 0)
-			{
-			current = i;
-			}
-		i++;
-		}
-
-	gtk_combo_box_set_active(GTK_COMBO_BOX(combo), current);
-
-	g_signal_connect(G_OBJECT(combo), "changed", G_CALLBACK(mouse_buttons_selection_menu_cb), option_c);
 
 	gq_gtk_grid_attach(GTK_GRID(table), combo, column + 1, column + 2, row, row + 1, GTK_SHRINK, static_cast<GtkAttachOptions>(0), 0, 0);
 	gtk_widget_show(combo);
@@ -937,24 +810,6 @@ static void filter_store_writable_cb(GtkCellRendererToggle *, gchar *path_str, g
 
 	fe->writable = !fe->writable;
 	if (fe->writable) fe->allow_sidecar = FALSE;
-
-	gtk_tree_path_free(tpath);
-	filter_rebuild();
-}
-
-static void filter_store_sidecar_cb(GtkCellRendererToggle *, gchar *path_str, gpointer data)
-{
-	auto model = static_cast<GtkWidget *>(data);
-	FilterEntry *fe;
-	GtkTreePath *tpath;
-	GtkTreeIter iter;
-
-	tpath = gtk_tree_path_new_from_string(path_str);
-	gtk_tree_model_get_iter(GTK_TREE_MODEL(model), &iter, tpath);
-	gtk_tree_model_get(GTK_TREE_MODEL(model), &iter, 0, &fe, -1);
-
-	fe->allow_sidecar = !fe->allow_sidecar;
-	if (fe->allow_sidecar) fe->writable = FALSE;
 
 	gtk_tree_path_free(tpath);
 	filter_rebuild();
@@ -1587,18 +1442,6 @@ static void cache_local_cb(GtkWidget *widget, gpointer)
 		}
 }
 
-static void help_search_engine_entry_icon_cb(GtkEntry *, GtkEntryIconPosition pos, GdkEvent *, gpointer userdata)
-{
-	if (pos == GTK_ENTRY_ICON_PRIMARY)
-		{
-		gq_gtk_entry_set_text(GTK_ENTRY(userdata), HELP_SEARCH_ENGINE);
-		}
-	else
-		{
-		gq_gtk_entry_set_text(GTK_ENTRY(userdata), "");
-		}
-}
-
 static void config_tab_general(GtkWidget *notebook)
 {
 	GtkWidget *vbox;
@@ -1673,30 +1516,6 @@ static void config_tab_general(GtkWidget *notebook)
 
 	pref_checkbox_new_int(group, _("Refresh on file change"),
 			      options->update_on_time_change, &c_options->update_on_time_change);
-
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("On-line help search engine"), GTK_ORIENTATION_VERTICAL);
-
-	help_search_engine_entry = gtk_entry_new();
-	gq_gtk_entry_set_text(GTK_ENTRY(help_search_engine_entry), options->help_search_engine);
-	gq_gtk_box_pack_start(GTK_BOX(group), help_search_engine_entry, FALSE, FALSE, 0);
-	gtk_widget_show(help_search_engine_entry);
-
-	gtk_widget_set_tooltip_text(help_search_engine_entry, _("The format varies between search engines, e.g the format may be:\nhttps://www.search_engine.com/search?q=site:geeqie.org/help\nhttps://www.search_engine.com/?q=site:geeqie.org/help"));
-
-	gtk_entry_set_icon_from_icon_name(GTK_ENTRY(help_search_engine_entry),
-						GTK_ENTRY_ICON_SECONDARY, GQ_ICON_CLEAR);
-	gtk_entry_set_icon_tooltip_text (GTK_ENTRY(help_search_engine_entry),
-						GTK_ENTRY_ICON_SECONDARY, _("Clear"));
-	gtk_entry_set_icon_from_icon_name(GTK_ENTRY(help_search_engine_entry),
-						GTK_ENTRY_ICON_PRIMARY, GQ_ICON_REVERT);
-	gtk_entry_set_icon_tooltip_text (GTK_ENTRY(help_search_engine_entry),
-						GTK_ENTRY_ICON_PRIMARY, _("Default"));
-	g_signal_connect(GTK_ENTRY(help_search_engine_entry), "icon-press",
-						G_CALLBACK(help_search_engine_entry_icon_cb),
-						help_search_engine_entry);
 }
 
 /* image tab */
@@ -1781,64 +1600,11 @@ static void config_tab_image(GtkWidget *notebook)
 	c_options->image.alpha_color_2 = options->image.alpha_color_2;
 }
 
-/* windows tab */
-
-static void save_default_window_layout_cb(GtkWidget *, gpointer)
-{
-	LayoutWindow *lw = nullptr;
-	gchar *default_path;
-	gchar *tmp_id;
-
-	/* Get current lw */
-	layout_valid(&lw);
-
-	tmp_id = lw->options.id;
-	lw->options.id = g_strdup("");
-
-	default_path = g_build_filename(get_rc_dir(), DEFAULT_WINDOW_LAYOUT, NULL);
-	save_default_layout_options_to_file(default_path, options, lw);
-	g_free(lw->options.id);
-	lw->options.id = tmp_id;
-	g_free(default_path);
-}
-
-static gboolean popover_cb(gpointer data)
-{
-	auto popover = static_cast<GtkPopover *>(data);
-
-	gtk_popover_popdown(popover);
-
-	return FALSE;
-}
-
-static void default_layout_changed_cb(GtkWidget *, GtkPopover *popover)
-{
-	gtk_popover_popup(popover);
-
-	g_timeout_add(2000, popover_cb, popover);
-}
-
-static GtkWidget *create_popover(GtkWidget *parent, GtkWidget *child, GtkPositionType pos)
-{
-	GtkWidget *popover;
-
-	popover = gtk_popover_new(parent);
-	gtk_popover_set_position(GTK_POPOVER (popover), pos);
-	gq_gtk_container_add(GTK_WIDGET(popover), child);
-	gtk_container_set_border_width(GTK_CONTAINER (popover), 6);
-	gtk_widget_show (child);
-
-	return popover;
-}
-
 static void config_tab_windows(GtkWidget *notebook)
 {
 	GtkWidget *hbox;
 	GtkWidget *vbox;
 	GtkWidget *group;
-	GtkWidget *subgroup;
-	GtkWidget *button;
-	GtkWidget *checkbox;
 	GtkWidget *ct_button;
 	GtkWidget *spin;
 	GtkWidget *widget;
@@ -1847,39 +1613,9 @@ static void config_tab_windows(GtkWidget *notebook)
 
 	group = pref_group_new(vbox, FALSE, _("State"), GTK_ORIENTATION_VERTICAL);
 
-	ct_button = pref_checkbox_new_int(group, _("Remember session"),
-					  options->save_window_positions, &c_options->save_window_positions);
-
-	checkbox = pref_checkbox_new_int(group, _("Use saved window positions also for new windows"),
-				       options->use_saved_window_positions_for_new_windows, &c_options->use_saved_window_positions_for_new_windows);
-	pref_checkbox_link_sensitivity(ct_button, checkbox);
-
-	checkbox = pref_checkbox_new_int(group, _("Remember window workspace"),
-			      options->save_window_workspace, &c_options->save_window_workspace);
-	pref_checkbox_link_sensitivity(ct_button, checkbox);
-
-	pref_checkbox_new_int(group, _("Remember tool state (float/hidden)"),
-			      options->tools_restore_state, &c_options->tools_restore_state);
-
-	pref_checkbox_new_int(group, _("Remember dialog window positions"),
-			      options->save_dialog_window_positions, &c_options->save_dialog_window_positions);
-
 	widget = pref_checkbox_new_int(group, _("Hide window decorations"),
 			      options->hide_window_decorations, &c_options->hide_window_decorations);
 	gtk_widget_set_tooltip_text(widget, _("Remove borders and title bar from windows. A restart of Geeqie is required for this feature to take effect on the main layout window"));
-
-	pref_checkbox_new_int(group, _("Show window IDs"),
-			      options->show_window_ids, &c_options->show_window_ids);
-
-	subgroup = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	pref_label_new(subgroup, _("Use current layout for default: "));
-	button = pref_button_new(subgroup, nullptr, _("Set"), G_CALLBACK(save_default_window_layout_cb), nullptr);
-
-	GtkWidget *popover;
-
-	popover = create_popover(button, gtk_label_new(_("Current window layout\nhas been set as default")), GTK_POS_TOP);
-	gtk_popover_set_modal(GTK_POPOVER (popover), FALSE);
-	g_signal_connect(button, "clicked", G_CALLBACK(default_layout_changed_cb), popover);
 
 	group = pref_group_new(vbox, FALSE, _("Size"), GTK_ORIENTATION_VERTICAL);
 
@@ -2139,13 +1875,6 @@ static void config_tab_files(GtkWidget *notebook)
 					  options->file_filter.disable, &c_options->file_filter.disable);
 
 
-	group = pref_group_new(vbox, FALSE, _("Grouping sidecar extensions"), GTK_ORIENTATION_VERTICAL);
-
-	sidecar_ext_entry = gtk_entry_new();
-	gq_gtk_entry_set_text(GTK_ENTRY(sidecar_ext_entry), options->sidecar.ext);
-	gq_gtk_box_pack_start(GTK_BOX(group), sidecar_ext_entry, FALSE, FALSE, 0);
-	gtk_widget_show(sidecar_ext_entry);
-
 	group = pref_group_new(vbox, TRUE, _("File types"), GTK_ORIENTATION_VERTICAL);
 
 	frame = pref_group_parent(group);
@@ -2248,19 +1977,6 @@ static void config_tab_files(GtkWidget *notebook)
 	gtk_tree_view_append_column(GTK_TREE_VIEW(filter_view), column);
 	gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(filter_store), FILETYPES_COLUMN_WRITABLE, filter_table_sort_cb, GINT_TO_POINTER(FILETYPES_COLUMN_WRITABLE), nullptr);
 	gtk_tree_view_column_set_sort_column_id(column, FILETYPES_COLUMN_WRITABLE);
-
-	column = gtk_tree_view_column_new();
-	gtk_tree_view_column_set_title(column, _("Sidecar is allowed"));
-	gtk_tree_view_column_set_resizable(column, FALSE);
-	renderer = gtk_cell_renderer_toggle_new();
-	g_signal_connect(G_OBJECT(renderer), "toggled",
-			 G_CALLBACK(filter_store_sidecar_cb), filter_store);
-	gtk_tree_view_column_pack_start(column, renderer, FALSE);
-	gtk_tree_view_column_set_cell_data_func(column, renderer, filter_set_func,
-						GINT_TO_POINTER(FE_ALLOW_SIDECAR), nullptr);
-	gtk_tree_view_append_column(GTK_TREE_VIEW(filter_view), column);
-	gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(filter_store), FILETYPES_COLUMN_SIDECAR, filter_table_sort_cb, GINT_TO_POINTER(FILETYPES_COLUMN_SIDECAR), nullptr);
-	gtk_tree_view_column_set_sort_column_id(column, FILETYPES_COLUMN_SIDECAR);
 
 	filter_store_populate();
 	gq_gtk_container_add(GTK_WIDGET(scrolled), filter_view);
@@ -2455,9 +2171,7 @@ static void config_tab_behavior(GtkWidget *notebook)
 	GtkWidget *ct_button;
 	GtkWidget *spin;
 	GtkWidget *table;
-	GtkWidget *with_rename;
 	GtkWidget *hide_window_in_fullscreen;
-	GtkWidget *hide_osd_in_fullscreen;
 	GtkWidget *tmp;
 
 	vbox = scrolled_notebook_page(notebook, _("Behavior"));
@@ -2515,30 +2229,13 @@ static void config_tab_behavior(GtkWidget *notebook)
 
 	group = pref_group_new(vbox, FALSE, _("Behavior"), GTK_ORIENTATION_VERTICAL);
 
-	pref_checkbox_new_int(group, _("Descend folders in tree view"),
-			      options->tree_descend_subdirs, &c_options->tree_descend_subdirs);
-
-	pref_checkbox_new_int(group, _("In place renaming"),
-			      options->file_ops.enable_in_place_rename, &c_options->file_ops.enable_in_place_rename);
-
-	pref_checkbox_new_int(group, _("List directory view uses single click to enter"),
-			      options->view_dir_list_single_click_enter, &c_options->view_dir_list_single_click_enter);
-
 	tmp = pref_checkbox_new_int(group, _("Circular selection lists"),
 			      options->circular_selection_lists, &c_options->circular_selection_lists);
 	gtk_widget_set_tooltip_text(tmp, _("Traverse selection lists in a circular manner"));
 
-	with_rename = pref_checkbox_new_int(group, _("Use 'With Rename' as default for Copy/Move dialogs"),
-				options->with_rename, &c_options->with_rename);
-	gtk_widget_set_tooltip_text(with_rename,_("Change the default button for Copy/Move dialogs"));
-
 	hide_window_in_fullscreen = pref_checkbox_new_int(group, _("Hide window in fullscreen"),
 				options->hide_window_in_fullscreen, &c_options->hide_window_in_fullscreen);
 	gtk_widget_set_tooltip_text(hide_window_in_fullscreen, _("When alt-tabbing, prevent Geeqie window showing twice"));
-
-	hide_osd_in_fullscreen = pref_checkbox_new_int(group, _("Hide OSD in fullscreen"),
-				options->hide_osd_in_fullscreen, &c_options->hide_osd_in_fullscreen);
-	gtk_widget_set_tooltip_text(hide_osd_in_fullscreen, _("Hide Overlay Screen Display in fullscreen mode"));
 
 	pref_spin_new_int(group, _("Recent folder list maximum size"), nullptr,
 			  1, 50, 1, options->open_recent_list_maxsize, &c_options->open_recent_list_maxsize);
@@ -2552,9 +2249,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 	table = pref_table_new(group, 2, 1, FALSE, FALSE);
 	add_dnd_default_action_selection_menu(table, 0, 0, _("Drag`n drop default action:"), options->dnd_default_action, &c_options->dnd_default_action);
 
-	table = pref_table_new(group, 2, 1, FALSE, FALSE);
-	add_clipboard_selection_menu(table, 0, 0, _("Copy path clipboard selection:"), options->clipboard_selection, &c_options->clipboard_selection);
-
 	pref_spacer(group, PREF_PAD_GROUP);
 
 	group = pref_group_new(vbox, FALSE, _("Navigation"), GTK_ORIENTATION_VERTICAL);
@@ -2565,20 +2259,10 @@ static void config_tab_behavior(GtkWidget *notebook)
 			  1, 32, 1, options->keyboard_scroll_step, reinterpret_cast<int *>(&c_options->keyboard_scroll_step));
 	pref_checkbox_new_int(group, _("Mouse wheel scrolls image"),
 			      options->mousewheel_scrolls, &c_options->mousewheel_scrolls);
-	pref_checkbox_new_int(group, _("Navigation by left or middle click on image"),
-			      options->image_lm_click_nav, &c_options->image_lm_click_nav);
-	pref_checkbox_new_int(group, _("Open archive by left click on image"),
-			      options->image_l_click_archive, &c_options->image_l_click_archive);
 	pref_checkbox_new_int(group, _("Play video by left click on image"),
 			      options->image_l_click_video, &c_options->image_l_click_video);
 	table = pref_table_new(group, 2, 1, FALSE, FALSE);
 	add_video_menu(table, 0, 0, _("Play with:"), options->image_l_click_video_editor, &c_options->image_l_click_video_editor);
-
-	table = pref_table_new(group, 2, 1, FALSE, FALSE);
-	table = pref_table_new(group, 2, 1, FALSE, FALSE);
-	add_mouse_selection_menu(table, 0, 0, _("Mouse button Back:"), options->mouse_button_8, &c_options->mouse_button_8);
-	table = pref_table_new(group, 2, 1, FALSE, FALSE);
-	add_mouse_selection_menu(table, 0, 0, _("Mouse button Forward:"), options->mouse_button_9, &c_options->mouse_button_9);
 
 #ifdef DEBUG
 	pref_spacer(group, PREF_PAD_GROUP);
@@ -2910,15 +2594,8 @@ static void config_window_create(LayoutWindow *lw)
 	gtk_window_set_type_hint(GTK_WINDOW(configwindow), GDK_WINDOW_TYPE_HINT_DIALOG);
 	g_signal_connect(G_OBJECT(configwindow), "delete_event",
 			 G_CALLBACK(config_window_delete), NULL);
-	if (options->save_dialog_window_positions)
-		{
-		gtk_window_resize(GTK_WINDOW(configwindow), lw->options.preferences_window.rect.width, lw->options.preferences_window.rect.height);
-		gq_gtk_window_move(GTK_WINDOW(configwindow), lw->options.preferences_window.rect.x, lw->options.preferences_window.rect.y);
-		}
-	else
-		{
-		gtk_window_set_default_size(GTK_WINDOW(configwindow), CONFIG_WINDOW_DEF_WIDTH, CONFIG_WINDOW_DEF_HEIGHT);
-		}
+	gtk_window_resize(GTK_WINDOW(configwindow), lw->options.preferences_window.rect.width, lw->options.preferences_window.rect.height);
+	gq_gtk_window_move(GTK_WINDOW(configwindow), lw->options.preferences_window.rect.x, lw->options.preferences_window.rect.y);
 	gtk_window_set_resizable(GTK_WINDOW(configwindow), TRUE);
 	gtk_container_set_border_width(GTK_CONTAINER(configwindow), PREF_PAD_BORDER);
 

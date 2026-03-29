@@ -2684,14 +2684,10 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	gtk_window_set_geometry_hints(GTK_WINDOW(sd->window), nullptr, &geometry,
 				      static_cast<GdkWindowHints>(GDK_HINT_MIN_SIZE | GDK_HINT_BASE_SIZE));
 
-	if (lw && options->save_window_positions)
+	if (lw)
 		{
 		gtk_window_set_default_size(GTK_WINDOW(sd->window), lw->options.search_window.width, lw->options.search_window.height);
 		gq_gtk_window_move(GTK_WINDOW(sd->window), lw->options.search_window.x, lw->options.search_window.y);
-		}
-	else
-		{
-		gtk_window_set_default_size(GTK_WINDOW(sd->window), DEF_SEARCH_WIDTH, DEF_SEARCH_HEIGHT);
 		}
 
 	g_signal_connect(G_OBJECT(sd->window), "delete_event",

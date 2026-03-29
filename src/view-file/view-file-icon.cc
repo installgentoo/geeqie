@@ -1148,18 +1148,13 @@ gboolean vficon_press_cb(ViewFile *vf, GtkWidget *, GdkEventButton *bevent)
 	return FALSE;
 }
 
-gboolean vficon_release_cb(ViewFile *vf, GtkWidget *widget, GdkEventButton *bevent)
+gboolean vficon_release_cb(ViewFile *vf, GtkWidget *, GdkEventButton *bevent)
 {
 	GtkTreeIter iter;
 	FileData *fd = nullptr;
 	gboolean was_selected;
 
 	tip_schedule(vf);
-
-	if (defined_mouse_buttons(widget, bevent, vf->layout))
-		{
-		return TRUE;
-		}
 
 	if (static_cast<gint>(bevent->x) != 0 || static_cast<gint>(bevent->y) != 0)
 		{
