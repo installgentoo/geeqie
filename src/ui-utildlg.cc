@@ -45,12 +45,6 @@
 #include "ui-tabcomp.h"
 #include "window.h"
 
-namespace
-{
-
-constexpr gint max_buffer_size = 16384;
-} // namespace
-
 /*
  *-----------------------------------------------------------------------------
  * generic dialog

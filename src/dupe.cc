@@ -2756,90 +2756,6 @@ static gboolean dupe_files_add_queue_cb(gpointer data)
 	return FALSE;
 }
 
-static void dupe_files_add(DupeWindow *dw, void *, void *,
-			   FileData *fd, gboolean recurse)
-{
-	DupeItem *di = nullptr;
-
-	if (fd)
-		{
-		if (isfile(fd->path) && !g_file_test(fd->path, G_FILE_TEST_IS_SYMLINK))
-			{
-			di = dupe_item_new(fd);
-			}
-		else if (isdir(fd->path) && recurse)
-			{
-			GList *f;
-			GList *d;
-			if (filelist_read(fd, &f, &d))
-				{
-				GList *work;
-
-				f = filelist_filter(f, FALSE);
-				d = filelist_filter(d, TRUE);
-
-				work = f;
-				while (work)
-					{
-					dupe_files_add(dw, nullptr, nullptr, static_cast<FileData *>(work->data), TRUE);
-					work = work->next;
-					}
-				filelist_free(f);
-				work = d;
-				while (work)
-					{
-					dupe_files_add(dw, nullptr, nullptr, static_cast<FileData *>(work->data), TRUE);
-					work = work->next;
-					}
-				filelist_free(d);
-				}
-			}
-		}
-
-	if (!di) return;
-
-	dupe_item_read_cache(di);
-
-	/* Ensure images in the lists have unique FileDatas */
-	GList *work;
-	DupeItem *di_list;
-	work = g_list_first(dw->list);
-	while (work)
-		{
-		di_list = static_cast<DupeItem *>(work->data);
-		if (di_list->fd == di->fd)
-			{
-			return;
-			}
-
-		work = work->next;
-		}
-
-	if (dw->second_list)
-		{
-		work = g_list_first(dw->second_list);
-		while (work)
-			{
-			di_list = static_cast<DupeItem *>(work->data);
-			if (di_list->fd == di->fd)
-				{
-				return;
-				}
-
-			work = work->next;
-			}
-		}
-
-	if (dw->second_drop)
-		{
-		dupe_second_add(dw, di);
-		}
-	else
-		{
-		dw->list = g_list_prepend(dw->list, di);
-		}
-}
-
 static void dupe_init_list_cache(DupeWindow *dw)
 {
 	dw->list_cache = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -2937,20 +2853,6 @@ static void dupe_item_update(DupeWindow *dw, DupeItem *di)
 {
 	if ( (dw->match_mask & DUPE_MATCH_NAME) || (dw->match_mask & DUPE_MATCH_PATH || (dw->match_mask & DUPE_MATCH_NAME_CI)) )
 		{
-		/* only effects matches on name or path */
-/*
-		FileData *fd = file_data_ref(di->fd);
-		gint second;
-
-		second = di->second;
-		dupe_item_remove(dw, di);
-
-		dw->second_drop = second;
-		dupe_files_add(dw, NULL, NULL, fd, FALSE);
-		dw->second_drop = FALSE;
-
-		file_data_unref(fd);
-*/
 		dupe_check_start(dw);
 		}
 	else
@@ -2958,7 +2860,6 @@ static void dupe_item_update(DupeWindow *dw, DupeItem *di)
 		GtkListStore *store;
 		GtkTreeIter iter;
 		gint row;
-		/* update the listview(s) */
 
 		store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(dw->listview)));
 		row = dupe_listview_find_item(store, di, &iter);

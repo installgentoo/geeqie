@@ -440,12 +440,6 @@ gint get_cpu_cores()
     return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
-#if HAVE_GTK4
-void convert_gdkcolor_to_gdkrgba(gpointer data, GdkRGBA *gdk_rgba)
-{
-/* @FIXME GTK4 stub */
-}
-#else
 void convert_gdkcolor_to_gdkrgba(gpointer data, GdkRGBA *gdk_rgba)
 {
 	auto gdk_color = static_cast<GdkColor *>(data);
@@ -455,7 +449,6 @@ void convert_gdkcolor_to_gdkrgba(gpointer data, GdkRGBA *gdk_rgba)
 	gdk_rgba->blue = CLAMP((double)gdk_color->blue / 65535.0, 0.0, 1.0);
 	gdk_rgba->alpha = 1.0;
 }
-#endif
 
 void gq_gtk_entry_set_text(GtkEntry *entry, const gchar *text)
 {

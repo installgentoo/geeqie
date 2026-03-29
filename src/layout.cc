@@ -52,7 +52,6 @@
 #include "pixbuf-util.h"
 #include "preferences.h"
 #include "rcfile.h"
-#include "shortcuts.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
 #include "ui-misc.h"
@@ -68,19 +67,9 @@ namespace
 constexpr gint MAINWINDOW_DEF_WIDTH = 700;
 constexpr gint MAINWINDOW_DEF_HEIGHT = 500;
 
-constexpr gint MAIN_WINDOW_DIV_HPOS = MAINWINDOW_DEF_WIDTH / 2;
-constexpr gint MAIN_WINDOW_DIV_VPOS = MAINWINDOW_DEF_HEIGHT / 2;
-
-constexpr gint TOOLWINDOW_DEF_WIDTH = 260;
-constexpr gint TOOLWINDOW_DEF_HEIGHT = 450;
-
 constexpr gint PROGRESS_WIDTH = 150;
 
 constexpr gint ZOOM_LABEL_WIDTH = 120;
-
-constexpr gint CONFIG_WINDOW_DEF_WIDTH = 600;
-constexpr gint CONFIG_WINDOW_DEF_HEIGHT = 400;
-
 } // namespace
 
 GList *layout_window_list = nullptr;
@@ -261,7 +250,6 @@ static GtkWidget *layout_tool_setup(LayoutWindow *lw)
 	GtkWidget *menu_toolbar_box;
 	GtkWidget *scroll_window;
 	GtkWidget *tabcomp;
-	GtkWidget *toolbar;
 
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
@@ -275,9 +263,6 @@ static GtkWidget *layout_tool_setup(LayoutWindow *lw)
 			gq_gtk_box_pack_start(GTK_BOX(menu_toolbar_box), menu_bar, FALSE, FALSE, 0);
 			}
 
-		toolbar = layout_actions_toolbar(lw, TOOLBAR_MAIN);
-
-		gq_gtk_box_pack_start(GTK_BOX(menu_toolbar_box), toolbar, FALSE, FALSE, 0);
 		gq_gtk_container_add(GTK_WIDGET(scroll_window), menu_toolbar_box);
 		gq_gtk_box_pack_start(GTK_BOX(box), scroll_window, FALSE, FALSE, 0);
 
@@ -587,7 +572,7 @@ void layout_status_update_image(LayoutWindow *lw)
 	gint page_num;
 
 	if (!layout_valid(&lw) || !lw->image) return;
-	if (!lw->info_zoom || !lw->info_details) return; /*called from layout_style_set */
+	if (!lw->info_zoom || !lw->info_details) return;
 
 	if (!lw->image->image_fd)
 		{
@@ -683,8 +668,6 @@ static GtkWidget *layout_status_label(const gchar *text, GtkWidget *box, gboolea
 static void layout_status_setup(LayoutWindow *lw, GtkWidget *box, gboolean small_format)
 {
 	GtkWidget *hbox;
-	GtkWidget *toolbar;
-	GtkWidget *toolbar_frame;
 
 	if (lw->info_box) return;
 
@@ -740,15 +723,7 @@ static void layout_status_setup(LayoutWindow *lw, GtkWidget *box, gboolean small
 	lw->info_details = layout_status_label(nullptr, hbox, TRUE, 0, TRUE);
 	DEBUG_NAME(lw->info_details);
 	gtk_widget_set_tooltip_text(GTK_WIDGET(lw->info_details), _("(Image dimensions) Image size [page n of m]"));
-	toolbar = layout_actions_toolbar(lw, TOOLBAR_STATUS);
 
-	toolbar_frame = gtk_frame_new(nullptr);
-	DEBUG_NAME(toolbar_frame);
-	gq_gtk_frame_set_shadow_type(GTK_FRAME(toolbar_frame), GTK_SHADOW_IN);
-	gq_gtk_container_add(GTK_WIDGET(toolbar_frame), toolbar);
-	gtk_widget_show(toolbar_frame);
-	gtk_widget_show(toolbar);
-	gq_gtk_box_pack_end(GTK_BOX(hbox), toolbar_frame, FALSE, FALSE, 0);
 	lw->info_zoom = layout_zoom_button(lw, hbox, ZOOM_LABEL_WIDTH, TRUE);
 	gtk_widget_set_tooltip_text(GTK_WIDGET(lw->info_zoom), _("Select zoom and scroll mode"));
 	gtk_widget_show(lw->info_zoom);
@@ -1174,8 +1149,6 @@ void layout_views_set_sort_dir(LayoutWindow *lw, SortType method, gboolean ascen
 	lw->options.dir_view_list_sort.method = method;
 	lw->options.dir_view_list_sort.ascend = ascend;
 	lw->options.dir_view_list_sort.case_sensitive = case_sensitive;
-
-	layout_style_set(lw, -1, nullptr);
 }
 
 /*
@@ -1243,7 +1216,6 @@ static void layout_grid_setup(LayoutWindow *lw)
 	GtkWidget *files;
 
 	layout_actions_setup(lw);
-	create_toolbars(lw);
 
 	lw->group_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 	DEBUG_NAME(lw->group_box);
@@ -1290,78 +1262,6 @@ static void layout_grid_setup(LayoutWindow *lw)
 	gtk_paned_set_position(GTK_PANED(lw->h_pane), lw->options.main_window.hdivider_pos);
 
 	image_grab_focus(lw->image);
-}
-
-void layout_style_set(LayoutWindow *lw, gint style, const gchar *)
-{
-	FileData *dir_fd;
-
-	if (!layout_valid(&lw)) return;
-
-	if (style != -1)
-		{
-		return;
-		}
-
-	/* remember state */
-
-	layout_image_full_screen_stop(lw);
-
-	dir_fd = lw->dir_fd;
-	if (dir_fd) file_data_unregister_real_time_monitor(dir_fd);
-	lw->dir_fd = nullptr;
-
-	layout_geometry_get_dividers(lw, &lw->options.main_window.hdivider_pos, &lw->options.main_window.vdivider_pos);
-
-		{
-		if (lw->toolbar[TOOLBAR_STATUS]) gtk_container_remove(GTK_CONTAINER(gtk_widget_get_parent(lw->toolbar[TOOLBAR_STATUS])), lw->toolbar[TOOLBAR_STATUS]);
-
-		if (lw->menu_tool_bar) gtk_container_remove(GTK_CONTAINER(gtk_widget_get_parent(lw->menu_tool_bar)), lw->menu_tool_bar);
-		}
-
-	/* clear it all */
-
-	lw->h_pane = nullptr;
-	lw->v_pane = nullptr;
-
-	lw->path_entry = nullptr;
-	lw->dir_view = nullptr;
-	lw->vd = nullptr;
-
-	lw->file_view = nullptr;
-	lw->vf = nullptr;
-
-	lw->info_box = nullptr;
-	lw->info_progress_bar = nullptr;
-	lw->info_sort = nullptr;
-	lw->info_status = nullptr;
-	lw->info_details = nullptr;
-	lw->info_zoom = nullptr;
-
-	gtk_container_remove(GTK_CONTAINER(lw->main_box), lw->group_box);
-	lw->group_box = nullptr;
-
-	/* re-fill */
-
-	layout_grid_setup(lw);
-
-	layout_util_sync(lw);
-	layout_status_update_all(lw);
-
-	/* sync */
-
-	if (image_get_fd(lw->image))
-		{
-		layout_set_fd(lw, image_get_fd(lw->image));
-		}
-	else
-		{
-		layout_set_fd(lw, dir_fd);
-		}
-
-	/* clean up */
-
-	file_data_unref(dir_fd);
 }
 
 void layout_colors_update()
@@ -1420,35 +1320,6 @@ void layout_apply_options(LayoutWindow *lw, LayoutOptions *lop)
 	copy_layout_options(&lw->options, lop);
 
 	if (refresh_lists) layout_refresh(lw);
-}
-
-void layout_free(LayoutWindow *lw)
-{
-	gint i;
-	if (!lw) return;
-
-	layout_window_list = g_list_remove(layout_window_list, lw);
-	if (current_lw == lw) current_lw = nullptr;
-
-	g_object_unref(lw->menu_bar);
-
-	for (i = 0; i < TOOLBAR_COUNT; i++)
-		{
-		if (lw->toolbar[i]) g_object_unref(lw->toolbar[i]);
-		}
-
-	gq_gtk_widget_destroy(lw->window);
-
-	file_data_unregister_notify_func(layout_image_notify_cb, lw);
-
-	if (lw->dir_fd)
-		{
-		file_data_unregister_real_time_monitor(lw->dir_fd);
-		file_data_unref(lw->dir_fd);
-		}
-
-	free_layout_options_content(&lw->options);
-	g_free(lw);
 }
 
 LayoutWindow *layout_new(FileData *dir_fd, LayoutOptions *lop)
@@ -1625,10 +1496,6 @@ void layout_write_config(LayoutWindow *lw, GString *outstr, gint indent)
 
 	WRITE_SEPARATOR();
 	generic_dialog_windows_write_config(outstr, indent + 1);
-
-	WRITE_SEPARATOR();
-	layout_toolbar_write_config(lw, TOOLBAR_MAIN, outstr, indent + 1);
-	layout_toolbar_write_config(lw, TOOLBAR_STATUS, outstr, indent + 1);
 
 	WRITE_NL(); WRITE_STRING("</layout>");
 }

@@ -105,8 +105,7 @@ enum MetadataFormat {
 
 enum ToolbarType {
 	TOOLBAR_MAIN,
-	TOOLBAR_STATUS,
-	TOOLBAR_COUNT
+	TOOLBAR_STATUS
 };
 
 enum ScrollReset : guint {

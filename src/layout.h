@@ -70,8 +70,6 @@ struct LayoutWindow
 	GtkActionGroup *action_group_editors;
 	guint ui_editors_id;
 	GtkUIManager *ui_manager;
-	guint toolbar_merge_id[TOOLBAR_COUNT];
-	GList *toolbar_actions[TOOLBAR_COUNT];
 
 	GtkWidget *path_entry;
 
@@ -82,11 +80,8 @@ struct LayoutWindow
 	GtkWidget *tools;
 	GtkWidget *tools_pane;
 
-	GtkWidget *menu_tool_bar; /**< Combined menu and toolbar box */
 	GtkWidget *menu_bar; /**< referenced by lw, exist during whole lw lifetime */
 	/* toolbar */
-
-	GtkWidget *toolbar[TOOLBAR_COUNT]; /**< referenced by lw, exist during whole lw lifetime */
 
 	GtkWidget *back_button;
 
@@ -119,8 +114,6 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 LayoutWindow *layout_new_from_config(const gchar **attribute_names, const gchar **attribute_values, gboolean use_commandline);
 void layout_update_from_config(LayoutWindow *lw, const gchar **attribute_names, const gchar **attribute_values);
 LayoutWindow *layout_new_from_default();
-
-void layout_free(LayoutWindow *lw);
 
 gboolean layout_valid(LayoutWindow **lw);
 
@@ -176,8 +169,6 @@ void layout_views_set(LayoutWindow *lw);
 void layout_views_set_sort_dir(LayoutWindow *lw, SortType method, gboolean ascend, gboolean case_sensitive);
 
 void layout_status_update(LayoutWindow *lw, const gchar *text);
-
-void layout_style_set(LayoutWindow *lw, gint style, const gchar *order);
 
 void layout_menu_update_edit();
 void layout_styles_update();

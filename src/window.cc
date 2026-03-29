@@ -46,11 +46,8 @@ GtkWidget *window_new(const gchar *role, const gchar *icon, const gchar *icon_fi
 	gchar *title;
 	GtkWidget *window;
 
-#if HAVE_GTK4
-	window = gtk_window_new();
-#else
 	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-#endif
+
 	if (!window) return nullptr;
 
 	if (subtitle)

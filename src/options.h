@@ -84,46 +84,6 @@ struct ConfOptions
 
 	gboolean hide_window_in_fullscreen;
 
-	/**
-	 * @struct info_comment
-	 * info sidebar component height
-	 */
-	struct {
-		gint height;
-	} info_comment;
-
-	/**
-	 * @struct info_keywords
-	 * info sidebar component height
-	 */
-	struct {
-		gint height;
-	} info_keywords;
-
-	/**
-	 * @struct info_title
-	 * info sidebar component height
-	 */
-	struct {
-		gint height;
-	} info_title;
-
-	/**
-	 * @struct info_rating
-	 * info sidebar component height
-	 */
-	struct {
-		gint height;
-	} info_rating;
-
-	/**
-	 * @struct info_headline
-	 * info sidebar component height
-	 */
-	struct {
-		gint height;
-	} info_headline;
-
 	/* file ops */
 	struct {
 		gboolean confirm_delete;
@@ -199,13 +159,6 @@ struct ConfOptions
 	struct {
 		gboolean case_sensitive; /**< file sorting method (case) */
 	} file_sort;
-
-	/* slideshow */
-	struct {
-		gint delay;	/**< in tenths of a second */
-		gboolean random;
-		gboolean repeat;
-	} slideshow;
 
 	/* fullscreen */
 	struct {

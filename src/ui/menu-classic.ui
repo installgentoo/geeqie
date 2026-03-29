@@ -76,9 +76,6 @@
       </menu>
   </menubar>
 
-  <toolbar name="ToolBar"/>
-  <toolbar name="StatusBar"/>
-
   <accelerator action="PrevImageAlt1"/>
   <accelerator action="PrevImageAlt2"/>
   <accelerator action="NextImageAlt1"/>

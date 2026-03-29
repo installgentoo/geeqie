@@ -45,11 +45,7 @@ void gq_gtk_entry_set_text(GtkEntry *entry, const gchar *text);
 void gq_gtk_grid_attach_default(GtkGrid *grid, GtkWidget *child, guint left_attach, guint right_attach, guint top_attach, guint bottom_attach);
 void gq_gtk_grid_attach(GtkGrid *grid, GtkWidget *child, guint left_attach, guint right_attach, guint top_attach, guint bottom_attach, GtkAttachOptions, GtkAttachOptions, guint, guint);
 
-#if HAVE_GTK4
 void convert_gdkcolor_to_gdkrgba(gpointer data, GdkRGBA *gdk_rgba);
-#else
-void convert_gdkcolor_to_gdkrgba(gpointer data, GdkRGBA *gdk_rgba);
-#endif /* HAVE_GTK4 */
 
 void cell_renderer_height_override(GtkCellRenderer *renderer); /**< cell max with/height hack utility */
 void widget_set_cursor(GtkWidget *widget, gint icon);

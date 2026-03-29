@@ -14,26 +14,19 @@
 # These gq_* paths are used relative to /prefix/ e.g.
 #               prefix
 # gq_bindir -> /user/local / 'lib/geeqie'
-# gq_helpdir -> /user/local / 'share/doc/geeqie'
 
 # Override the default values set in meson.build
 option('gq_appdir', type : 'string', value : '', description : 'Location of application data')
 option('gq_bindir', type : 'string', value : '', description : 'Location of plugin scripts and executables')
-option('gq_helpdir', type : 'string', value : '', description : 'Location of documentation files')
-option('gq_htmldir', type : 'string', value : '', description : 'Location of html documentation')
 option('gq_localedir', type : 'string', value : '', description : 'Location where the catalogs will be installed')
 
-option('archive', type : 'feature', value : 'auto', description : 'archive files e.g. zip, gz')
 option('cms', type : 'feature', value : 'auto', description : 'color management system')
 option('doxygen', type : 'feature', value : 'auto', description : 'lua api help file')
 option('djvu', type : 'feature', value : 'auto', description : 'djvu')
 option('evince', type : 'feature', value : 'auto', description : 'print preview')
 option('execinfo', type : 'feature', value : 'auto', description : 'execinfo.h')
-option('exiv2', type : 'feature', value : 'auto', description : 'exiv2')
 option('extended_stacktrace', type : 'feature', value : 'auto', description : 'extended stacktrace')
 option('git', type : 'feature', value : 'auto', description : 'lua-api and changelog.html')
-option('gps-map', type : 'feature', value : 'auto', description : 'gps map')
-option('gtk4', type : 'feature', value : 'disabled', description : 'gtk4 - do not use')
 option('heif', type : 'feature', value : 'auto', description : 'heif')
 option('help_pdf', type : 'feature', value : 'auto', description : 'help in pdf')
 option('j2k', type : 'feature', value : 'auto', description : 'j2k')
@@ -41,11 +34,8 @@ option('jpeg', type : 'feature', value : 'auto', description : 'jpeg')
 option('jpegxl', type : 'feature', value : 'auto', description : 'jpegxl')
 option('libraw', type : 'feature', value : 'auto', description : 'libraw')
 option('lua', type : 'feature', value : 'auto', description : 'lua')
-option('pandoc', type : 'feature', value : 'auto', description : 'README.html')
 option('pdf', type : 'feature', value : 'auto', description : 'pdf')
-option('spell', type : 'feature', value : 'auto', description : 'spelling checks')
 option('tiff', type : 'feature', value : 'auto', description : 'tiff')
 option('unit_tests', type : 'feature', value : 'disabled', description : 'unit tests')
 option('videothumbnailer', type : 'feature', value : 'auto', description : 'video thumbnailer')
 option('webp', type : 'feature', value : 'auto', description : 'webp')
-option('yelp-build', type : 'feature', value : 'auto', description : 'help files')

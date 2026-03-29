@@ -541,7 +541,7 @@ gboolean copy_file(const gchar *s, const gchar *t)
 		std::unique_ptr<gchar, decltype(&g_free)> dirname{g_path_get_dirname(path), g_free};
 		std::unique_ptr<gchar, decltype(&g_free)> basename{g_path_get_basename(path), g_free};
 
-		if (std::strlen(basename.get()) < max_name_len) {
+		if (std::strlen(basename.get()) < size_t(max_name_len)) {
 			return g_strconcat(path, suffix, NULL);
 		}
 

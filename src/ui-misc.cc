@@ -327,19 +327,11 @@ static GtkWidget *real_pref_radiobutton_new(GtkWidget *parent_box, GtkWidget *si
 					    GCallback func, gpointer data)
 {
 	GtkWidget *button;
-#if HAVE_GTK4
-	GtkToggleButton *group;
-#else
 	GSList *group;
-#endif
 
 	if (sibling)
 		{
-#if HAVE_GTK4
-		group = sibling;
-#else
 		group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(sibling));
-#endif
 		}
 	else
 		{
@@ -348,21 +340,11 @@ static GtkWidget *real_pref_radiobutton_new(GtkWidget *parent_box, GtkWidget *si
 
 	if (mnemonic_text)
 		{
-#if HAVE_GTK4
-		button = gtk_toggle_button_new_with_mnemonic(text);
-		gtk_toggle_button_set_group(button, group);
-#else
 		button = gtk_radio_button_new_with_mnemonic(group, text);
-#endif
 		}
 	else
 		{
-#if HAVE_GTK4
-		button = gtk_toggle_button_new_with_label(text);
-		gtk_toggle_button_set_group(button, group);
-#else
 		button = gtk_radio_button_new_with_label(group, text);
-#endif
 		}
 
 	if (active) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), active);
@@ -741,18 +723,9 @@ static void date_selection_popup_sync(DateSelection *ds)
 	guint month;
 	guint year;
 
-#if HAVE_GTK4
-	GDateTime *date_selected;
-
-	date_selected = gtk_calendar_get_date(GTK_CALENDAR(ds->calendar));
-	g_date_time_get_ymd(date_selected, static_cast<guint>(&year), static_cast<guint>(&month), static_cast<guint>(&day));
-
-	g_date_time_unref(date_selected);
-#else
 	gtk_calendar_get_date(GTK_CALENDAR(ds->calendar), &year, &month, &day);
 	/* month is range 0 to 11 */
 	month = month + 1;
-#endif
 	date_selection_set(ds->box, day, month, year);
 }
 
@@ -817,12 +790,8 @@ static void date_selection_popup(DateSelection *ds)
 	gtk_widget_show(ds->calendar);
 
 	date = date_selection_get(ds->box);
-#if HAVE_GTK4
-	gtk_calendar_select_day(GTK_CALENDAR(ds->calendar), date);
-#else
 	gtk_calendar_select_month(GTK_CALENDAR(ds->calendar), g_date_time_get_month(date), g_date_time_get_year(date));
 	gtk_calendar_select_day(GTK_CALENDAR(ds->calendar), g_date_time_get_day_of_month(date));
-#endif
 	g_date_time_unref(date);
 
 	g_signal_connect(G_OBJECT(ds->calendar), "day_selected",

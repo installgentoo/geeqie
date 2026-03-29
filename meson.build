@@ -30,8 +30,6 @@
 # desktopdir    /usr/local/share/geeqie/applications    plugin desktop files
 # appdatadir    /usr/local/share/metainfo               org.geeqie.Geeqie.appdata.xml
 # icondir       /usr/local/share/pixmaps                geeqie.png icon
-# [gq_]helpdir  /usr/local/share/doc/geeqie         *   readme files etc.
-# [gq_]htmldir  /usr/local/share/doc/geeqie/html    *   help files
 # gq_localedir  /usr/locale/share/locale
 # mandir1       /usr/local/share/man/man1               man page
 # completionsdir /usr/local/share/bash-completion/completions bash command line completions
@@ -100,18 +98,6 @@ else
     gq_bindir = get_option('gq_bindir')
 endif
 
-if get_option('gq_helpdir') == ''
-    gq_helpdir = join_paths(get_option('datadir'), 'doc/geeqie')
-else
-    gq_helpdir = get_option('gq_helpdir')
-endif
-
-if get_option('gq_htmldir') == ''
-    gq_htmldir = join_paths(get_option('datadir'), 'doc/geeqie/html')
-else
-    gq_htmldir = get_option('gq_htmldir')
-endif
-
 if get_option('gq_localedir') == ''
     gq_localedir = join_paths(get_option('datadir'), 'locale')
 else
@@ -127,8 +113,6 @@ datadir = join_paths(prefix, get_option('datadir'))
 appdir = join_paths(prefix, gq_appdir)
 appdatadir = join_paths(datadir, 'metainfo')
 desktopdir = join_paths(datadir, meson.project_name(), 'applications')
-helpdir = join_paths(prefix, gq_helpdir)
-htmldir = join_paths(prefix, gq_htmldir)
 icondir = join_paths(datadir, 'pixmaps')
 mandir1 = join_paths(datadir, 'man', 'man1')
 completionsdir = join_paths(datadir, 'bash-completion', 'completions')
@@ -136,9 +120,6 @@ podir = join_paths(meson.project_source_root(), 'po')
 scriptsdir = join_paths(meson.project_source_root(), 'scripts')
 
 summary({'gq_appdir': gq_appdir,
-        'gq_bindir': gq_helpdir,
-        'gq_helpdir': gq_helpdir,
-        'gq_htmldir': gq_htmldir,
         'gq_localedir': gq_localedir,
         }, section: 'Directories')
 
@@ -146,14 +127,7 @@ summary({'gq_appdir': gq_appdir,
 conf_data = configuration_data()
 conf_data.set('DEBUG', debug)
 
-conf_data.set('HAVE_GTK4', 0)
-option = get_option('gtk4')
-if option.enabled()
-    gtk_dep = dependency('gtk4', required: true)
-    conf_data.set('HAVE_GTK4', 1)
-else
-    gtk_dep = dependency('gtk+-3.0', version : '>=3.24', required: true)
-endif
+gtk_dep = dependency('gtk+-3.0', version : '>=3.24', required: true)
 glib_dep = dependency('glib-2.0', version : '>=2.52', required: true)
 
 # Required only when backward-cpp is used
@@ -206,22 +180,6 @@ option = get_option('unit_tests')
 if not option.disabled()
     conf_data.set('ENABLE_UNIT_TESTS', 1)
     # Summary is handled below, where the test() itself is defined.
-endif
-
-conf_data.set('HAVE_ARCHIVE', 0)
-libarchive_dep = []
-req_version = '>=3.4.0'
-option = get_option('archive')
-if not option.disabled()
-    libarchive_dep = dependency('libarchive', version : req_version, required : get_option('archive'))
-    if libarchive_dep.found()
-        conf_data.set('HAVE_ARCHIVE', 1)
-        summary({'archive' : ['archive files e.g. .zip supported:', true]}, section : 'Configuration', bool_yn : true)
-    else
-        summary({'archive' : ['libarchive ' + req_version + ' not found - archive files e.g. .zip supported::', false]}, section : 'Configuration', bool_yn : true)
-    endif
-else
-    summary({'archive' : ['disabled - archive files e.g. .zip supported:', false]}, section : 'Configuration', bool_yn : true)
 endif
 
 conf_data.set('HAVE_LCMS', 0)
@@ -293,60 +251,12 @@ endif
 conf_data.set('HAVE_EXIV2', 0)
 exiv2_dep = []
 req_version = '>=0.18'
-option = get_option('exiv2')
-if not option.disabled()
-    exiv2_dep = dependency('exiv2', version : req_version, required : get_option('exiv2'))
-    if exiv2_dep.found()
-        conf_data.set('HAVE_EXIV2', 1)
-        summary({'exiv2' : ['image metadata processed by exiv2:', true]}, section : 'Configuration', bool_yn : true)
-    else
-        summary({'exiv2' : ['exiv2 ' + req_version + ' not found - image data not processed by exiv2:', false]}, section : 'Configuration', bool_yn : true)
-    endif
+exiv2_dep = dependency('exiv2', version : req_version)
+if exiv2_dep.found()
+	conf_data.set('HAVE_EXIV2', 1)
+	summary({'exiv2' : ['image metadata processed by exiv2:', true]}, section : 'Configuration', bool_yn : true)
 else
-    summary({'exiv2' : ['disabled - image data processed by exiv2:', false]}, section : 'Configuration', bool_yn : true)
-endif
-
-conf_data.set('HAVE_CLUTTER', 0)
-conf_data.set('HAVE_LIBCHAMPLAIN', 0)
-conf_data.set('HAVE_LIBCHAMPLAIN_GTK', 0)
-champlain_dep = []
-champlain_gtk_dep = []
-clutter_dep = []
-clutter_gtk_dep = []
-req_version_champlain = '>=0.12'
-req_version_champlain_gtk = '>=0.12'
-req_version_clutter = '>=1.0'
-req_version_clutter_gtk = '>=1.0'
-option = get_option('gps-map')
-if not option.disabled()
-    champlain_dep = dependency('champlain-0.12', version : req_version_champlain, required : get_option('gps-map'))
-    champlain_gtk_dep = dependency('champlain-gtk-0.12', version : req_version_champlain_gtk, required : get_option('gps-map'))
-    if champlain_dep.found() and champlain_gtk_dep.found()
-        clutter_dep = dependency('clutter-1.0', version : req_version_clutter, required : get_option('gps-map'))
-        clutter_gtk_dep = dependency('clutter-gtk-1.0', version : req_version_clutter_gtk, required : get_option('gps-map'))
-        if clutter_dep.found() and clutter_gtk_dep.found()
-            conf_data.set('HAVE_CLUTTER', 1)
-            conf_data.set('HAVE_LIBCHAMPLAIN', 1)
-            conf_data.set('HAVE_LIBCHAMPLAIN_GTK', 1)
-            summary({'gps-map' : ['GPS map displayed', true]}, section : 'Configuration', bool_yn : true)
-        else
-            if not clutter_dep.found()
-                summary({'gps-map-clutter' : ['clutter-1.0 ' + req_version_clutter + ' not found - GPS map displayed:', false]}, section : 'Configuration', bool_yn : true)
-            endif
-            if not clutter_gtk_dep.found()
-                summary({'gps-map-clutter-gtk' : ['clutter-gtk-1.0 ' + req_version_clutter_gtk + ' not found - GPS map displayed:', false]}, section : 'Configuration', bool_yn : true)
-            endif
-        endif
-    else
-        if not champlain_dep.found()
-            summary({'gps-map-champlain' : ['champlain-0.12 ' + req_version_champlain + ' not found - GPS map displayed:', false]}, section : 'Configuration', bool_yn : true)
-        endif
-        if not champlain_gtk_dep.found()
-            summary({'gps-map-champlain-gtk' : ['champlain-gtk-0.12 ' + req_version_champlain_gtk + ' not found - GPS map displayed:', false]}, section : 'Configuration', bool_yn : true)
-        endif
-    endif
-else
-    summary({'gps-map' : ['disabled - GPS map displayed:', false]}, section : 'Configuration', bool_yn : true)
+	summary({'exiv2' : ['exiv2 ' + req_version + ' not found - image data not processed by exiv2:', false]}, section : 'Configuration', bool_yn : true)
 endif
 
 conf_data.set('HAVE_HEIF', 0)
@@ -448,28 +358,6 @@ else
     summary({'lua' : ['disabled - lua supported:', false]}, section : 'Configuration', bool_yn : true)
 endif
 
-# Install standard documents
-option = get_option('pandoc')
-if not option.disabled()
-    pandoc = find_program('pandoc', required : false)
-    if pandoc.found()
-        readme_html = custom_target(
-            'README.html',
-            input: 'README.md',
-            output: 'README.html',
-            command: [pandoc, '@INPUT@', '-o', '@OUTPUT@'],
-            install: true,
-            install_dir: helpdir)
-
-        summary({'README' : ['README.html created:', true]}, section : 'Documentation', bool_yn : true)
-    else
-        summary({'README' : ['pandoc not found - README.html created:', false]}, section : 'Documentation', bool_yn : true)
-    endif
-else
-    summary({'pandoc' : ['disabled - README.html created:', false]}, section : 'Documentation', bool_yn : true)
-endif
-install_data('README.md', 'COPYING', 'TODO', install_dir : helpdir)
-
 conf_data.set('HAVE_PDF', 0)
 poppler_glib_dep = []
 req_version = '>=0.62'
@@ -484,22 +372,6 @@ if not option.disabled()
     endif
 else
     summary({'pdf' : ['disabled - pdf files supported:', false]}, section : 'Configuration', bool_yn : true)
-endif
-
-conf_data.set('HAVE_SPELL', 0)
-gspell_dep = []
-req_version = '>=1.6'
-option = get_option('spell')
-if not option.disabled()
-    gspell_dep = dependency('gspell-1', version : req_version, required: get_option('spell'))
-    if gspell_dep.found()
-        conf_data.set('HAVE_SPELL', 1)
-        summary({'spell' : ['spelling checks enabled', true]}, section : 'Configuration', bool_yn : true)
-    else
-        summary({'spell' : ['gspell-1 ' + req_version + ' not found - spelling checks enabled', false]}, section : 'Configuration', bool_yn : true)
-    endif
-else
-    summary({'spell' : ['disabled - spelling checks enabled', false]}, section : 'Configuration', bool_yn : true)
 endif
 
 conf_data.set('HAVE_TIFF', 0)
@@ -577,27 +449,9 @@ else
     summary({'webp' : ['disabled - webp files supported:', false]}, section : 'Configuration', bool_yn : true)
 endif
 
-# Check for nl_langinfo and _NL_TIME_FIRST_WEEKDAY
-conf_data.set('HAVE__NL_TIME_FIRST_WEEKDAY', 0)
-code = '''#include <langinfo.h>
-#include<stdio.h>
-int main (int argc, char ** argv) {
-    char *c;
-    c =  nl_langinfo(_NL_TIME_FIRST_WEEKDAY);
-    return 0;
-}'''
-if cc.links(code, name : 'nl_langinfo and _NL_TIME_FIRST_WEEKDAY')
-    conf_data.set('HAVE__NL_TIME_FIRST_WEEKDAY', 1)
-    summary({'nl_langinfo' : ['first weekday depends on locale:', true]}, section : 'Documentation', bool_yn : true)
-else
-    summary({'nl_langinfo' : ['nl_langinfo not found - first weekday depends on locale:', false, 'first weekday defaults to Monday']}, section : 'Documentation', bool_yn : true)
-endif
-
 conf_data.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 conf_data.set_quoted('GQ_APPDIR', gq_appdir)
 conf_data.set_quoted('GQ_BINDIR', gq_bindir)
-conf_data.set_quoted('GQ_HELPDIR', gq_helpdir)
-conf_data.set_quoted('GQ_HTMLDIR', gq_htmldir)
 conf_data.set_quoted('GQ_LOCALEDIR', gq_localedir)
 
 conf_data.set_quoted('PACKAGE', meson.project_name())
@@ -637,28 +491,8 @@ endif
 # Generate the executable
 subdir('src')
 
-# Generate the help files
-subdir('doc')
-
 # Generate the command line auto-complete file
 subdir('auto-complete')
-
-# Install other project files
-if running_from_git
-    cmd = [find_program('gen_changelog.sh'), meson.current_source_dir(), meson.current_build_dir()]
-    custom_target(
-        'ChangeLog',
-        input: 'ChangeLog.gqview',
-        output: ['ChangeLog', 'ChangeLog.html'],
-        command: cmd,
-        install: true,
-        install_dir: helpdir)
-    meson.add_dist_script(cmd)
-    summary({'ChangeLog' : ['ChangeLog, ChangeLog.html created:', true]}, section : 'Documentation', bool_yn : true)
-elif fs.exists('ChangeLog.html')
-    install_data('ChangeLog', 'ChangeLog.html', install_dir: helpdir)
-    summary({'ChangeLog' : ['ChangeLog, ChangeLog.html installed from dist:', true]}, section : 'Documentation', bool_yn : true)
-endif
 
 install_data('geeqie.png', install_dir : icondir)
 install_data('geeqie.1', install_dir : mandir1)
@@ -791,23 +625,6 @@ if tmp_comments_check_sh.found()
     summary({'Temporary Comments' : ['Test runs:', true]}, section : 'Testing', bool_yn : true)
 else
     summary({'Temporary Comments' : ['Test runs:', false]}, section : 'Testing', bool_yn : true)
-endif
-
-# GTK4 migration regression checks
-gtk4_migration_check_sh = find_program('gtk4-migration-regression-check.sh', dirs : scriptsdir, required : true)
-if gtk4_migration_check_sh.found()
-    compat_cc = join_paths(meson.project_source_root(), 'src', 'compat.cc')
-    compat_h = join_paths(meson.project_source_root(), 'src', 'compat.h')
-    foreach source_file : code_sources
-        source_file_name = fs.name(source_file)
-        if (source_file_name != 'debug.h')
-            test('GTK4 migration_ ' + source_file_name, gtk4_migration_check_sh, args : [source_file, compat_cc, compat_h], timeout : 100, suite : 'analysis')
-        endif
-    endforeach
-
-    summary({'GTK4 migration' : ['Test runs:', true]}, section : 'Testing', bool_yn : true)
-else
-    summary({'GTK4 migration' : ['Test runs:', false]}, section : 'Testing', bool_yn : true)
 endif
 
 # Untranslated text checks

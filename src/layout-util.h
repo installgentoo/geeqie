@@ -45,19 +45,8 @@ void layout_copy_path_update_all();
 void layout_actions_setup(LayoutWindow *lw);
 void layout_actions_add_window(LayoutWindow *lw, GtkWidget *window);
 GtkWidget *layout_actions_menu_bar(LayoutWindow *lw);
-void layout_toolbar_add_from_config(LayoutWindow *lw, ToolbarType type, const gchar **attribute_names, const gchar **attribute_values);
 
-GtkWidget *layout_actions_toolbar(LayoutWindow *lw, ToolbarType type);
-
-void layout_toolbar_write_config(LayoutWindow *lw, ToolbarType type, GString *outstr, gint indent);
-void layout_toolbar_clear(LayoutWindow *lw, ToolbarType type);
-void layout_toolbar_add(LayoutWindow *lw, ToolbarType type, const gchar *action);
-void layout_toolbar_add_default(LayoutWindow *lw, ToolbarType type);
 void layout_keyboard_init(LayoutWindow *lw, GtkWidget *window);
-
-GtkWidget *layout_actions_menu_tool_bar(LayoutWindow *lw);
-
-void create_toolbars(LayoutWindow *lw);
 
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

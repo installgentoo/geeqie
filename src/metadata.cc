@@ -65,35 +65,6 @@ struct MetadataCacheEntry {
 	GList *values;
 };
 
-/* If contents change, keep GuideOptionsMetadata.xml up to date */
-/**
- *  @brief Tags that will be written to all files in a group - selected by: options->metadata.sync_grouped_files, Preferences/Metadata/Write The Same Description Tags To All Grouped Sidecars
- */
-constexpr std::array<const gchar *, 22> group_keys{
-	"Xmp.dc.title",
-	"Xmp.photoshop.Urgency",
-	"Xmp.photoshop.Category",
-	"Xmp.photoshop.SupplementalCategory",
-	"Xmp.dc.subject",
-	"Xmp.iptc.Location",
-	"Xmp.photoshop.Instruction",
-	"Xmp.photoshop.DateCreated",
-	"Xmp.dc.creator",
-	"Xmp.photoshop.AuthorsPosition",
-	"Xmp.photoshop.City",
-	"Xmp.photoshop.State",
-	"Xmp.iptc.CountryCode",
-	"Xmp.photoshop.Country",
-	"Xmp.photoshop.TransmissionReference",
-	"Xmp.photoshop.Headline",
-	"Xmp.photoshop.Credit",
-	"Xmp.photoshop.Source",
-	"Xmp.dc.rights",
-	"Xmp.dc.description",
-	"Xmp.photoshop.CaptionWriter",
-	"Xmp.xmp.Rating",
-};
-
 gint metadata_cache_entry_compare_key(const MetadataCacheEntry *entry, const gchar *key)
 {
 	return strcmp(entry->key, key);

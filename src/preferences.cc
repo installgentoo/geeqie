@@ -68,7 +68,6 @@
 #include "osd.h"
 #include "pixbuf-util.h"
 #include "rcfile.h"
-#include "toolbar.h"
 #include "trash.h"
 #include "typedefs.h"
 #include "ui-fileops.h"
@@ -349,9 +348,6 @@ static void config_window_apply()
 	options->dnd_icon_size = c_options->dnd_icon_size;
 	options->dnd_default_action = c_options->dnd_default_action;
 
-	options->info_title.height = c_options->info_title.height;
-	options->info_comment.height = c_options->info_comment.height;
-
 	options->hide_window_in_fullscreen = c_options->hide_window_in_fullscreen;
 
 	options->external_preview.enable = c_options->external_preview.enable;
@@ -392,9 +388,6 @@ static void config_window_apply()
 		}
 
 	if (accel_store) gtk_tree_model_foreach(GTK_TREE_MODEL(accel_store), accel_apply_cb, nullptr);
-
-	toolbar_apply(TOOLBAR_MAIN);
-	toolbar_apply(TOOLBAR_STATUS);
 }
 
 /*
@@ -2404,38 +2397,6 @@ static void config_tab_accelerators(GtkWidget *notebook)
 	gtk_widget_show(button);
 }
 
-/* toolbar main tab */
-static void config_tab_toolbar_main(GtkWidget *notebook)
-{
-	GtkWidget *vbox;
-	GtkWidget *toolbardata;
-	LayoutWindow *lw;
-
-	lw = static_cast<LayoutWindow *>(layout_window_list->data);
-
-	vbox = scrolled_notebook_page(notebook, _("Toolbar Main"));
-
-	toolbardata = toolbar_select_new(lw, TOOLBAR_MAIN);
-	gq_gtk_box_pack_start(GTK_BOX(vbox), toolbardata, TRUE, TRUE, 0);
-	gtk_widget_show(vbox);
-}
-
-/* toolbar status tab */
-static void config_tab_toolbar_status(GtkWidget *notebook)
-{
-	GtkWidget *vbox;
-	GtkWidget *toolbardata;
-	LayoutWindow *lw;
-
-	lw = static_cast<LayoutWindow *>(layout_window_list->data);
-
-	vbox = scrolled_notebook_page(notebook, _("Toolbar Status"));
-
-	toolbardata = toolbar_select_new(lw, TOOLBAR_STATUS);
-	gq_gtk_box_pack_start(GTK_BOX(vbox), toolbardata, TRUE, TRUE, 0);
-	gtk_widget_show(vbox);
-}
-
 /* advanced tab */
 static void config_tab_advanced(GtkWidget *notebook)
 {
@@ -2569,8 +2530,6 @@ static void config_window_create(LayoutWindow *lw)
 	config_tab_files(notebook);
 	config_tab_color(notebook);
 	config_tab_behavior(notebook);
-	config_tab_toolbar_main(notebook);
-	config_tab_toolbar_status(notebook);
 	config_tab_advanced(notebook);
 
 	gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), lw->options.preferences_window.page_number);

@@ -970,9 +970,6 @@ static GdkRGBA *vd_color_shifted(GtkWidget *widget)
 	static GdkRGBA color;
 	static GtkWidget *done = nullptr;
 
-#if HAVE_GTK4
-/* @FIXME GTK4 no background color */
-#else
 	if (done != widget)
 		{
 		GtkStyleContext *style_context;
@@ -983,7 +980,6 @@ static GdkRGBA *vd_color_shifted(GtkWidget *widget)
 		shift_color(&color, -1, 0);
 		done = widget;
 		}
-#endif
 
 	return &color;
 }
