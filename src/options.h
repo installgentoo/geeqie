@@ -139,12 +139,6 @@ struct ConfOptions
 	struct {
 		gboolean exif_rotate_enable;
 		ScrollReset scroll_reset_method;
-		gboolean fit_window_to_image;
-		gboolean limit_window_size;
-		gint max_window_size;
-		gboolean limit_autofit_size;
-		gint max_autofit_size;
-		gint max_enlargement_size;
 
 		gint tile_cache_max;	/**< in megabytes */
 		gint image_cache_max;   /**< in megabytes */
@@ -217,7 +211,6 @@ struct ConfOptions
 	struct {
 		gint screen;
 		gboolean clean_flip;
-		gboolean disable_saver;
 		gboolean above;
 	} fullscreen;
 

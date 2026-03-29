@@ -88,7 +88,6 @@ ConfOptions *init_options(ConfOptions *options)
 
 	options->fullscreen.above = FALSE;
 	options->fullscreen.clean_flip = FALSE;
-	options->fullscreen.disable_saver = TRUE;
 	options->fullscreen.screen = -1;
 
 	options->hide_window_in_fullscreen = TRUE;
@@ -108,12 +107,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->image.alpha_color_2.blue = static_cast<gdouble>(0x006666) / 65535;
 	options->image.enable_read_ahead = TRUE;
 	options->image.exif_rotate_enable = TRUE;
-	options->image.fit_window_to_image = FALSE;
-	options->image.limit_autofit_size = FALSE;
-	options->image.limit_window_size = TRUE;
-	options->image.max_autofit_size = 100;
-	options->image.max_enlargement_size = 900;
-	options->image.max_window_size = 90;
 	options->image.scroll_reset_method = ScrollReset::NOCHANGE;
 	options->image.tile_cache_max = 10;
 	options->image.image_cache_max = 128; /* 4 x 10MPix */

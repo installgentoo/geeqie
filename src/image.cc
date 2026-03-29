@@ -883,27 +883,6 @@ static gboolean image_scroll_cb(GtkWidget *, GdkEventScroll *event, gpointer dat
  *-------------------------------------------------------------------
  */
 
-void image_attach_window(ImageWindow *imd, GtkWidget *window,
-			 const gchar *title, const gchar *title_right, gboolean show_zoom)
-{
-	LayoutWindow *lw;
-
-	imd->top_window = window;
-	g_free(imd->title);
-	imd->title = g_strdup(title);
-	g_free(imd->title_right);
-	imd->title_right = g_strdup(title_right);
-	imd->title_show_zoom = show_zoom;
-
-	lw = layout_find_by_image(imd);
-
-	if (!options->image.fit_window_to_image || !lw) window = nullptr;
-
-	pixbuf_renderer_set_parent(PIXBUF_RENDERER(imd->pr), GTK_WINDOW(window));
-
-	image_update_title(imd);
-}
-
 void image_set_update_func(ImageWindow *imd,
 			   void (*func)(ImageWindow *imd, gpointer data),
 			   gpointer data)
@@ -1419,16 +1398,6 @@ void image_auto_refresh_enable(ImageWindow *imd, gboolean enable)
 	imd->auto_refresh = enable;
 }
 
-/**
- * @brief Allow top window to be resized ?
- */
-void image_top_window_set_sync(ImageWindow *imd, gboolean allow_sync)
-{
-	imd->top_window_sync = allow_sync;
-
-	g_object_set(G_OBJECT(imd->pr), "window_fit", allow_sync, NULL);
-}
-
 void image_background_set_color(ImageWindow *imd, GdkRGBA *color)
 {
 	pixbuf_renderer_set_color(PIXBUF_RENDERER(imd->pr), color);
@@ -1590,19 +1559,9 @@ static void image_options_set(ImageWindow *imd)
 {
 	g_object_set(G_OBJECT(imd->pr), "zoom_quality", options->image.zoom_quality,
 					"zoom_2pass", options->image.zoom_2pass,
-					"zoom_expand", options->image.zoom_to_fit_allow_expand,
 					"scroll_reset", options->image.scroll_reset_method,
 					"cache_display", options->image.tile_cache_max,
-					"window_fit", (imd->top_window_sync && options->image.fit_window_to_image),
-					"window_limit", options->image.limit_window_size,
-					"window_limit_value", options->image.max_window_size,
-					"autofit_limit", options->image.limit_autofit_size,
-					"autofit_limit_value", options->image.max_autofit_size,
-					"enlargement_limit_value", options->image.max_enlargement_size,
-
 					NULL);
-
-	pixbuf_renderer_set_parent(PIXBUF_RENDERER(imd->pr), GTK_WINDOW(imd->top_window));
 }
 
 /**

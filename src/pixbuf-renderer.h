@@ -147,21 +147,10 @@ struct PixbufRenderer
 
 	GdkInterpType zoom_quality;
 	gboolean zoom_2pass;
-	gboolean zoom_expand;
 
 	ScrollReset scroll_reset;
 
 	gboolean has_frame;
-
-	GtkWidget *parent_window;	/**< resize parent_window when image dimensions change */
-
-	gboolean window_fit;
-	gboolean window_limit;
-	gint window_limit_size;
-
-	gboolean autofit_limit;
-	gint autofit_limit_size;
-	gint enlargement_limit_size;
 
 	GdkRGBA color;
 
@@ -226,8 +215,6 @@ struct PixbufRendererClass
 GType pixbuf_renderer_get_type();
 
 PixbufRenderer *pixbuf_renderer_new();
-
-void pixbuf_renderer_set_parent(PixbufRenderer *pr, GtkWindow *window);
 
 void pixbuf_renderer_set_pixbuf(PixbufRenderer *pr, GdkPixbuf *pixbuf, gdouble zoom);
 

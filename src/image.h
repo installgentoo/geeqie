@@ -59,7 +59,6 @@ struct ImageWindow
 	gint has_frame;  /**< not boolean, see image_new() */
 
 	/* top level (not necessarily parent) window */
-	gboolean top_window_sync;	/**< resize top_window when image dimensions change */
 	GtkWidget *top_window;	/**< window that gets title, and window to resize when 'fitting' */
 	gchar *title;		/**< window title to display left of file name */
 	gchar *title_right;	/**< window title to display right of file name */
@@ -128,8 +127,6 @@ void image_set_frame(ImageWindow *imd, gboolean frame);
 ImageWindow *image_new(gboolean frame);
 
 /* additional setup */
-void image_attach_window(ImageWindow *imd, GtkWidget *window,
-			 const gchar *title, const gchar *title_right, gboolean show_zoom);
 void image_set_update_func(ImageWindow *imd,
 			   void (*func)(ImageWindow *imd, gpointer data),
 			   gpointer data);
@@ -198,8 +195,6 @@ gdouble image_zoom_get_default(ImageWindow *imd);
 void image_prebuffer_set(ImageWindow *imd, FileData *fd);
 
 void image_auto_refresh_enable(ImageWindow *imd, gboolean enable);
-
-void image_top_window_set_sync(ImageWindow *imd, gboolean allow_sync);
 
 /* background of image */
 void image_background_set_color(ImageWindow *imd, GdkRGBA *color);

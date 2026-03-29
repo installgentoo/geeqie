@@ -1358,7 +1358,6 @@ void layout_style_set(LayoutWindow *lw, gint style, const gchar *)
 		{
 		layout_set_fd(lw, dir_fd);
 		}
-	image_top_window_set_sync(lw->image, FALSE);
 
 	/* clean up */
 
@@ -1513,7 +1512,6 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	gtk_widget_show(lw->main_box);
 
 	layout_grid_setup(lw);
-	image_top_window_set_sync(lw->image, FALSE);
 
 	layout_util_sync(lw);
 	layout_status_update_all(lw);

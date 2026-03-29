@@ -438,12 +438,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_UINT(*options, image.zoom_quality);
 	WRITE_NL(); WRITE_INT(*options, image.zoom_increment);
 	WRITE_NL(); WRITE_UINT(*options, image.zoom_style);
-	WRITE_NL(); WRITE_BOOL(*options, image.fit_window_to_image);
-	WRITE_NL(); WRITE_BOOL(*options, image.limit_window_size);
-	WRITE_NL(); WRITE_INT(*options, image.max_window_size);
-	WRITE_NL(); WRITE_BOOL(*options, image.limit_autofit_size);
-	WRITE_NL(); WRITE_INT(*options, image.max_autofit_size);
-	WRITE_NL(); WRITE_INT(*options, image.max_enlargement_size);
 	WRITE_NL(); WRITE_UINT(*options, image.scroll_reset_method);
 	WRITE_NL(); WRITE_INT(*options, image.tile_cache_max);
 	WRITE_NL(); WRITE_INT(*options, image.image_cache_max);
@@ -475,7 +469,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	/* Fullscreen Options */
 	WRITE_NL(); WRITE_INT(*options, fullscreen.screen);
 	WRITE_NL(); WRITE_BOOL(*options, fullscreen.clean_flip);
-	WRITE_NL(); WRITE_BOOL(*options, fullscreen.disable_saver);
 	WRITE_NL(); WRITE_BOOL(*options, fullscreen.above);
 
 	WRITE_SEPARATOR();
@@ -824,12 +817,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_UINT_ENUM_CLAMP(*options, image.zoom_style, 0, ZOOM_ARITHMETIC)) continue;
 		if (READ_BOOL(*options, image.zoom_2pass)) continue;
 		if (READ_BOOL(*options, image.zoom_to_fit_allow_expand)) continue;
-		if (READ_BOOL(*options, image.fit_window_to_image)) continue;
-		if (READ_BOOL(*options, image.limit_window_size)) continue;
-		if (READ_INT(*options, image.max_window_size)) continue;
-		if (READ_BOOL(*options, image.limit_autofit_size)) continue;
-		if (READ_INT(*options, image.max_autofit_size)) continue;
-		if (READ_INT(*options, image.max_enlargement_size)) continue;
 		if (READ_UINT_ENUM_CLAMP(*options, image.scroll_reset_method, 0, ScrollReset::COUNT - 1)) continue;
 		if (READ_INT(*options, image.tile_cache_max)) continue;
 		if (READ_INT(*options, image.image_cache_max)) continue;
@@ -873,7 +860,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		/* Fullscreen options */
 		if (READ_INT(*options, fullscreen.screen)) continue;
 		if (READ_BOOL(*options, fullscreen.clean_flip)) continue;
-		if (READ_BOOL(*options, fullscreen.disable_saver)) continue;
 		if (READ_BOOL(*options, fullscreen.above)) continue;
 
 		/* Image overlay */

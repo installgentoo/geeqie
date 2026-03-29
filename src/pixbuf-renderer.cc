@@ -91,19 +91,12 @@ enum {
 	PROP_ZOOM_MAX,
 	PROP_ZOOM_QUALITY,
 	PROP_ZOOM_2PASS,
-	PROP_ZOOM_EXPAND,
 	PROP_SCROLL_RESET,
 	PROP_DELAY_FLIP,
 	PROP_LOADING,
 	PROP_COMPLETE,
 	PROP_CACHE_SIZE_DISPLAY,
-	PROP_CACHE_SIZE_TILES,
-	PROP_WINDOW_FIT,
-	PROP_WINDOW_LIMIT,
-	PROP_WINDOW_LIMIT_VALUE,
-	PROP_AUTOFIT_LIMIT,
-	PROP_AUTOFIT_LIMIT_VALUE,
-	PROP_ENLARGEMENT_LIMIT_VALUE
+	PROP_CACHE_SIZE_TILES
 };
 
 enum PrZoomFlags {
@@ -225,13 +218,6 @@ static void pixbuf_renderer_class_init(PixbufRendererClass *renderer_class)
 							     static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)));
 
 	g_object_class_install_property(gobject_class,
-					PROP_ZOOM_EXPAND,
-					g_param_spec_boolean("zoom_expand",
-							     "Expand image in autozoom.",
-							     nullptr,
-							     FALSE,
-							     static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)));
-	g_object_class_install_property(gobject_class,
 	                                PROP_SCROLL_RESET,
 	                                g_param_spec_uint("scroll_reset",
 	                                                  "New image scroll reset",
@@ -284,61 +270,6 @@ static void pixbuf_renderer_class_init(PixbufRendererClass *renderer_class)
 							  256,
 							  PR_CACHE_SIZE_DEFAULT,
 							  static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)));
-
-	g_object_class_install_property(gobject_class,
-					PROP_WINDOW_FIT,
-					g_param_spec_boolean("window_fit",
-							     "Fit window to image size",
-							     nullptr,
-							     FALSE,
-							     static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)));
-
-	g_object_class_install_property(gobject_class,
-					PROP_WINDOW_LIMIT,
-					g_param_spec_boolean("window_limit",
-							     "Limit size of parent window",
-							     nullptr,
-							     FALSE,
-							     static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)));
-
-	g_object_class_install_property(gobject_class,
-					PROP_WINDOW_LIMIT_VALUE,
-					g_param_spec_uint("window_limit_value",
-							  "Size limit of parent window",
-							  nullptr,
-							  10,
-							  150,
-							  100,
-							  static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)));
-
-	g_object_class_install_property(gobject_class,
-					PROP_AUTOFIT_LIMIT,
-					g_param_spec_boolean("autofit_limit",
-							     "Limit size of image when autofitting",
-							     nullptr,
-							     FALSE,
-							     static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)));
-
-	g_object_class_install_property(gobject_class,
-					PROP_AUTOFIT_LIMIT_VALUE,
-					g_param_spec_uint("autofit_limit_value",
-							  "Size limit of image when autofitting",
-							  nullptr,
-							  10,
-							  150,
-							  100,
-							  static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)));
-
-	g_object_class_install_property(gobject_class,
-					PROP_ENLARGEMENT_LIMIT_VALUE,
-					g_param_spec_uint("enlargement_limit_value",
-							  "Size increase limit of image when autofitting",
-							  nullptr,
-							  100,
-							  999,
-							  500,
-							  static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)));
-
 
 	signals[SIGNAL_ZOOM] =
 		g_signal_new("zoom",
@@ -493,9 +424,6 @@ static void pixbuf_renderer_set_property(GObject *object, guint prop_id,
 		case PROP_ZOOM_2PASS:
 			pr->zoom_2pass = g_value_get_boolean(value);
 			break;
-		case PROP_ZOOM_EXPAND:
-			pr->zoom_expand = g_value_get_boolean(value);
-			break;
 		case PROP_SCROLL_RESET:
 			pr->scroll_reset = static_cast<ScrollReset>(g_value_get_uint(value));
 			break;
@@ -512,24 +440,6 @@ static void pixbuf_renderer_set_property(GObject *object, guint prop_id,
 			break;
 		case PROP_CACHE_SIZE_TILES:
 			pr->source_tiles_cache_size = g_value_get_uint(value);
-			break;
-		case PROP_WINDOW_FIT:
-			pr->window_fit = g_value_get_boolean(value);
-			break;
-		case PROP_WINDOW_LIMIT:
-			pr->window_limit = g_value_get_boolean(value);
-			break;
-		case PROP_WINDOW_LIMIT_VALUE:
-			pr->window_limit_size = g_value_get_uint(value);
-			break;
-		case PROP_AUTOFIT_LIMIT:
-			pr->autofit_limit = g_value_get_boolean(value);
-			break;
-		case PROP_AUTOFIT_LIMIT_VALUE:
-			pr->autofit_limit_size = g_value_get_uint(value);
-			break;
-		case PROP_ENLARGEMENT_LIMIT_VALUE:
-			pr->enlargement_limit_size = g_value_get_uint(value);
 			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -558,9 +468,6 @@ static void pixbuf_renderer_get_property(GObject *object, guint prop_id,
 		case PROP_ZOOM_2PASS:
 			g_value_set_boolean(value, pr->zoom_2pass);
 			break;
-		case PROP_ZOOM_EXPAND:
-			g_value_set_boolean(value, pr->zoom_expand);
-			break;
 		case PROP_SCROLL_RESET:
 			g_value_set_uint(value, pr->scroll_reset);
 			break;
@@ -578,98 +485,11 @@ static void pixbuf_renderer_get_property(GObject *object, guint prop_id,
 		case PROP_CACHE_SIZE_TILES:
 			g_value_set_uint(value, pr->source_tiles_cache_size);
 			break;
-		case PROP_WINDOW_FIT:
-			g_value_set_boolean(value, pr->window_fit);
-			break;
-		case PROP_WINDOW_LIMIT:
-			g_value_set_boolean(value, pr->window_limit);
-			break;
-		case PROP_WINDOW_LIMIT_VALUE:
-			g_value_set_uint(value, pr->window_limit_size);
-			break;
-		case PROP_AUTOFIT_LIMIT:
-			g_value_set_boolean(value, pr->autofit_limit);
-			break;
-		case PROP_AUTOFIT_LIMIT_VALUE:
-			g_value_set_uint(value, pr->autofit_limit_size);
-			break;
-		case PROP_ENLARGEMENT_LIMIT_VALUE:
-			g_value_set_uint(value, pr->enlargement_limit_size);
-			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
 			break;
 		}
 }
-
-
-/*
- *-------------------------------------------------------------------
- * misc utilities
- *-------------------------------------------------------------------
- */
-
-static gboolean pr_parent_window_sizable(PixbufRenderer *pr)
-{
-	GdkWindowState state;
-
-	if (!pr->parent_window) return FALSE;
-	if (!pr->window_fit) return FALSE;
-	if (!gtk_widget_get_window(GTK_WIDGET(pr))) return FALSE;
-
-	if (!gtk_widget_get_window(pr->parent_window)) return FALSE;
-	state = gdk_window_get_state(gtk_widget_get_window(pr->parent_window));
-	if (state & GDK_WINDOW_STATE_MAXIMIZED) return FALSE;
-
-	return TRUE;
-}
-
-static gboolean pr_parent_window_resize(PixbufRenderer *pr, gint w, gint h)
-{
-	GtkWidget *widget;
-	GtkWidget *parent;
-	gint ww;
-	gint wh;
-	GtkAllocation widget_allocation;
-	GtkAllocation parent_allocation;
-
-	if (!pr_parent_window_sizable(pr)) return FALSE;
-
-	if (pr->window_limit)
-		{
-		gint sw = gdk_screen_width() * pr->window_limit_size / 100;
-		gint sh = gdk_screen_height() * pr->window_limit_size / 100;
-
-		if (w > sw) w = sw;
-		if (h > sh) h = sh;
-		}
-
-	widget = GTK_WIDGET(pr);
-	parent = GTK_WIDGET(pr->parent_window);
-
-	gtk_widget_get_allocation(widget, &widget_allocation);
-	gtk_widget_get_allocation(parent, &parent_allocation);
-
-	w += (parent_allocation.width - widget_allocation.width);
-	h += (parent_allocation.height - widget_allocation.height);
-
-	ww = gdk_window_get_width(gtk_widget_get_window(parent));
-	wh = gdk_window_get_height(gtk_widget_get_window(parent));
-	if (w == ww && h == wh) return FALSE;
-
-	gdk_window_resize(gtk_widget_get_window(parent), w, h);
-
-	return TRUE;
-}
-
-void pixbuf_renderer_set_parent(PixbufRenderer *pr, GtkWindow *window)
-{
-	g_return_if_fail(IS_PIXBUF_RENDERER(pr));
-	g_return_if_fail(window == nullptr || GTK_IS_WINDOW(window));
-
-	pr->parent_window = GTK_WIDGET(window);
-}
-
 
 /*
  *-------------------------------------------------------------------
@@ -1593,7 +1413,6 @@ static gboolean pr_zoom_clamp(PixbufRenderer *pr, gdouble zoom,
 	gint h;
 	gdouble scale;
 	gboolean force = !!(flags & PR_ZOOM_FORCE);
-	gboolean new_z = !!(flags & PR_ZOOM_NEW);
 
 	zoom = CLAMP(zoom, pr->zoom_min, pr->zoom_max);
 
@@ -1610,28 +1429,11 @@ static gboolean pr_zoom_clamp(PixbufRenderer *pr, gdouble zoom,
 		{
 		gint max_w;
 		gint max_h;
-		gboolean sizeable;
 
-		sizeable = (new_z && pr_parent_window_sizable(pr));
+		max_w = pr->viewport_width;
+		max_h = pr->viewport_height;
 
-		if (sizeable)
-			{
-			max_w = gdk_screen_width();
-			max_h = gdk_screen_height();
-
-			if (pr->window_limit)
-				{
-				max_w = max_w * pr->window_limit_size / 100;
-				max_h = max_h * pr->window_limit_size / 100;
-				}
-			}
-		else
-			{
-			max_w = pr->viewport_width;
-			max_h = pr->viewport_height;
-			}
-
-		if ((pr->zoom_expand && !sizeable) || w > max_w || h > max_h)
+		if (w > max_w || h > max_h)
 			{
 			if (static_cast<gdouble>(max_w) / w > static_cast<gdouble>(max_h) / h)
 				{
@@ -1646,25 +1448,6 @@ static gboolean pr_zoom_clamp(PixbufRenderer *pr, gdouble zoom,
 				w = max_w;
 				h = h * scale + 0.5;
 				if (h > max_h) h = max_h;
-				}
-
-			if (pr->autofit_limit)
-				{
-				gdouble factor = static_cast<gdouble>(pr->autofit_limit_size) / 100;
-				w = w * factor + 0.5;
-				h = h * factor + 0.5;
-				scale = scale * factor;
-				}
-
-			if (pr->zoom_expand)
-				{
-				gdouble factor = static_cast<gdouble>(pr->enlargement_limit_size) / 100;
-				if (scale > factor)
-					{
-					w = w * factor / scale;
-					h = h * factor / scale;
-					scale = factor;
-					}
 				}
 
 			if (w < 1) w = 1;
@@ -1729,7 +1512,6 @@ static void pr_zoom_sync(PixbufRenderer *pr, gdouble zoom,
 	if (!pr_zoom_clamp(pr, zoom, clamp_flags)) return;
 
 	(void) pr_size_clamp(pr);
-	(void) pr_parent_window_resize(pr, pr->width, pr->height);
 
 	if (force && new_z)
 		{

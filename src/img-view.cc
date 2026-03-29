@@ -678,10 +678,7 @@ static ViewWindow *real_view_window_new(FileData *fd, GList *list, void *, void 
 
 	image_background_set_color_from_options(vw->imd, FALSE);
 
-	image_attach_window(vw->imd, vw->window, nullptr, GQ_APPNAME, TRUE);
-
 	image_auto_refresh_enable(vw->imd, TRUE);
-	image_top_window_set_sync(vw->imd, TRUE);
 
 	gq_gtk_container_add(GTK_WIDGET(vw->window), vw->imd->widget);
 	gtk_widget_show(vw->imd->widget);
@@ -720,15 +717,6 @@ static ViewWindow *real_view_window_new(FileData *fd, GList *list, void *, void 
 
 	/* Wait until image is loaded otherwise size is not defined */
 	image_load_dimensions(fd, &w, &h);
-
-	if (options->image.limit_window_size)
-		{
-		gint mw = gdk_screen_width() * options->image.max_window_size / 100;
-		gint mh = gdk_screen_height() * options->image.max_window_size / 100;
-
-		if (w > mw) w = mw;
-		if (h > mh) h = mh;
-		}
 
 	gtk_window_set_default_size(GTK_WINDOW(vw->window), w, h);
 	req_size.x = req_size.y = 0;

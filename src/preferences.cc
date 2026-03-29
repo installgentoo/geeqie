@@ -262,13 +262,6 @@ static void config_window_apply()
 	options->hide_window_decorations = c_options->hide_window_decorations;
 	options->image.scroll_reset_method = c_options->image.scroll_reset_method;
 	options->image.zoom_2pass = c_options->image.zoom_2pass;
-	options->image.fit_window_to_image = c_options->image.fit_window_to_image;
-	options->image.limit_window_size = c_options->image.limit_window_size;
-	options->image.zoom_to_fit_allow_expand = c_options->image.zoom_to_fit_allow_expand;
-	options->image.max_window_size = c_options->image.max_window_size;
-	options->image.limit_autofit_size = c_options->image.limit_autofit_size;
-	options->image.max_autofit_size = c_options->image.max_autofit_size;
-	options->image.max_enlargement_size = c_options->image.max_enlargement_size;
 	options->image.tile_size = c_options->image.tile_size;
 	options->progressive_key_scrolling = c_options->progressive_key_scrolling;
 	options->keyboard_scroll_step = c_options->keyboard_scroll_step;
@@ -329,7 +322,6 @@ static void config_window_apply()
 
 	options->fullscreen.screen = c_options->fullscreen.screen;
 	options->fullscreen.clean_flip = c_options->fullscreen.clean_flip;
-	options->fullscreen.disable_saver = c_options->fullscreen.disable_saver;
 	options->fullscreen.above = c_options->fullscreen.above;
 	if (c_options->image_overlay.template_string)
 		set_image_overlay_template_string(&options->image_overlay.template_string,
@@ -1524,8 +1516,6 @@ static void config_tab_image(GtkWidget *notebook)
 	GtkWidget *hbox;
 	GtkWidget *vbox;
 	GtkWidget *group;
-	GtkWidget *ct_button;
-	GtkWidget *enlargement_button;
 	GtkWidget *table;
 	GtkWidget *spin;
 
@@ -1548,26 +1538,6 @@ static void config_tab_image(GtkWidget *notebook)
 	c_options->image.zoom_style = options->image.zoom_style;
 	table = pref_table_new(group, 2, 1, FALSE, FALSE);
 	add_zoom_style_selection_menu(table, 0, 0, _("Zoom style:"), options->image.zoom_style, &c_options->image.zoom_style);
-
-	group = pref_group_new(vbox, FALSE, _("Fit image to window"), GTK_ORIENTATION_VERTICAL);
-
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	enlargement_button = pref_checkbox_new_int(hbox, _("Allow enlargement of image (max. size in %)"),
-			      options->image.zoom_to_fit_allow_expand, &c_options->image.zoom_to_fit_allow_expand);
-	spin = pref_spin_new_int(hbox, nullptr, nullptr,
-				 100, 999, 1,
-				 options->image.max_enlargement_size, &c_options->image.max_enlargement_size);
-	pref_checkbox_link_sensitivity(enlargement_button, spin);
-	gtk_widget_set_tooltip_text(GTK_WIDGET(hbox), _("Enable this to allow Geeqie to increase the image size for images that are smaller than the current view area when the zoom is set to 'Fit image to window'. This value sets the maximum expansion permitted in percent i.e. 100% is full-size."));
-
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	ct_button = pref_checkbox_new_int(hbox, _("Virtual window size (%% of actual window):"),
-					  options->image.limit_autofit_size, &c_options->image.limit_autofit_size);
-	spin = pref_spin_new_int(hbox, nullptr, nullptr,
-				 10, 150, 1,
-				 options->image.max_autofit_size, &c_options->image.max_autofit_size);
-	pref_checkbox_link_sensitivity(ct_button, spin);
-	gtk_widget_set_tooltip_text(GTK_WIDGET(hbox), _("This value will set the virtual size of the window when 'Fit image to window' is set. Instead of using the actual size of the window, the specified percentage of the window will be used. It allows one to keep a border around the image (values lower than 100%) or to auto zoom the image (values greater than 100%). It affects fullscreen mode too."));
 
 	group = pref_group_new(vbox, FALSE, _("Tile size"), GTK_ORIENTATION_VERTICAL);
 
@@ -1605,8 +1575,6 @@ static void config_tab_windows(GtkWidget *notebook)
 	GtkWidget *hbox;
 	GtkWidget *vbox;
 	GtkWidget *group;
-	GtkWidget *ct_button;
-	GtkWidget *spin;
 	GtkWidget *widget;
 
 	vbox = scrolled_notebook_page(notebook, _("Windows"));
@@ -1616,19 +1584,6 @@ static void config_tab_windows(GtkWidget *notebook)
 	widget = pref_checkbox_new_int(group, _("Hide window decorations"),
 			      options->hide_window_decorations, &c_options->hide_window_decorations);
 	gtk_widget_set_tooltip_text(widget, _("Remove borders and title bar from windows. A restart of Geeqie is required for this feature to take effect on the main layout window"));
-
-	group = pref_group_new(vbox, FALSE, _("Size"), GTK_ORIENTATION_VERTICAL);
-
-	pref_checkbox_new_int(group, _("Fit window to image when tools are hidden/floating"),
-			      options->image.fit_window_to_image, &c_options->image.fit_window_to_image);
-
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	ct_button = pref_checkbox_new_int(hbox, _("Limit size when auto-sizing window (%):"),
-					  options->image.limit_window_size, &c_options->image.limit_window_size);
-	spin = pref_spin_new_int(hbox, nullptr, nullptr,
-				 10, 150, 1,
-				 options->image.max_window_size, &c_options->image.max_window_size);
-	pref_checkbox_link_sensitivity(ct_button, spin);
 
 	group = pref_group_new(vbox, FALSE, _("Full screen"), GTK_ORIENTATION_VERTICAL);
 
@@ -1640,8 +1595,6 @@ static void config_tab_windows(GtkWidget *notebook)
 
 	pref_checkbox_new_int(group, _("Smooth image flip"),
 			      options->fullscreen.clean_flip, &c_options->fullscreen.clean_flip);
-	pref_checkbox_new_int(group, _("Disable screen saver"),
-			      options->fullscreen.disable_saver, &c_options->fullscreen.disable_saver);
 }
 
 static void config_tab_osd(GtkWidget *notebook)
