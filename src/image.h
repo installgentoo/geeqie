@@ -183,7 +183,6 @@ void image_set_scroll_center(ImageWindow *imd, gdouble x, gdouble y);
 void image_set_desaturate(ImageWindow *imd, gboolean desaturate);
 gboolean image_get_desaturate(ImageWindow *imd);
 void image_set_overunderexposed(ImageWindow *imd, gboolean overunderexposed);
-void image_set_ignore_alpha(ImageWindow *imd, gboolean ignore_alpha);
 
 /* zoom */
 void image_zoom_adjust(ImageWindow *imd, gdouble increment);

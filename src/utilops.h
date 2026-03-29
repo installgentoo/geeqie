@@ -31,11 +31,6 @@ class FileData;
 struct FileDialog;
 struct GenericDialog;
 
-enum class ClipboardAction {
-	COPY,
-	CUT,
-};
-
 void file_maint_renamed(FileData *fd);
 void file_maint_moved(FileData *fd, GList *ignore_list);
 void file_maint_copied(FileData *fd);
@@ -78,8 +73,8 @@ void file_util_start_filter_from_filelist(const gchar *key, GList *list, const g
 
 void file_util_delete_dir(FileData *source_fd, GtkWidget *parent);
 
-void file_util_copy_path_to_clipboard(FileData *fd, gboolean quoted, ClipboardAction action);
-void file_util_path_list_to_clipboard(GList *list, gboolean quoted, ClipboardAction action);
+void file_util_copy_path_to_clipboard(FileData *fd, gboolean quoted);
+void file_util_path_list_to_clipboard(GList *list, gboolean quoted);
 
 gchar *new_folder(GtkWindow *window, gchar *path);
 #endif

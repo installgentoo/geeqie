@@ -386,15 +386,6 @@ static void vf_pop_menu_delete_cb(GtkWidget *, gpointer data)
 {
 	auto vf = static_cast<ViewFile *>(data);
 
-	options->file_ops.safe_delete_enable = FALSE;
-	file_util_delete(nullptr, vf_pop_menu_file_list(vf), vf->listview);
-}
-
-static void vf_pop_menu_move_to_trash_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-
-	options->file_ops.safe_delete_enable = TRUE;
 	file_util_delete(nullptr, vf_pop_menu_file_list(vf), vf->listview);
 }
 
@@ -402,21 +393,7 @@ static void vf_pop_menu_copy_path_cb(GtkWidget *, gpointer data)
 {
 	auto vf = static_cast<ViewFile *>(data);
 
-	file_util_path_list_to_clipboard(vf_pop_menu_file_list(vf), TRUE, ClipboardAction::COPY);
-}
-
-static void vf_pop_menu_copy_path_unquoted_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-
-	file_util_path_list_to_clipboard(vf_pop_menu_file_list(vf), FALSE, ClipboardAction::COPY);
-}
-
-static void vf_pop_menu_cut_path_cb(GtkWidget *, gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-
-	file_util_path_list_to_clipboard(vf_pop_menu_file_list(vf), FALSE, ClipboardAction::CUT);
+	file_util_path_list_to_clipboard(vf_pop_menu_file_list(vf), TRUE);
 }
 
 static void vf_pop_menu_duplicates_cb(GtkWidget *, gpointer data)
@@ -541,22 +518,13 @@ GtkWidget *vf_pop_menu(ViewFile *vf)
 				G_CALLBACK(vf_pop_menu_rename_cb), vf);
 	menu_item_add_sensitive(menu, _("_Copy to clipboard"), active,
 				G_CALLBACK(vf_pop_menu_copy_path_cb), vf);
-	menu_item_add_sensitive(menu, _("_Copy to clipboard (unquoted)"), active,
-				G_CALLBACK(vf_pop_menu_copy_path_unquoted_cb), vf);
-	menu_item_add_sensitive(menu, _("_Cut to clipboard"), active,
-				G_CALLBACK(vf_pop_menu_cut_path_cb), vf);
 	menu_item_add_divider(menu);
-	menu_item_add_icon_sensitive(menu,
-				options->file_ops.confirm_move_to_trash ? _("Move selection to Trash...") :
-					_("Move selection to Trash"), GQ_ICON_DELETE, active,
-				G_CALLBACK(vf_pop_menu_move_to_trash_cb), vf);
 	menu_item_add_icon_sensitive(menu,
 				options->file_ops.confirm_delete ? _("_Delete selection...") :
 					_("_Delete selection"), GQ_ICON_DELETE_SHRED, active,
 				G_CALLBACK(vf_pop_menu_delete_cb), vf);
 	menu_item_add_divider(menu);
 
-	menu_item_add_divider(menu);
 	menu_item_add_icon_sensitive(menu, _("_Find duplicates..."), GQ_ICON_FIND, active,
 				G_CALLBACK(vf_pop_menu_duplicates_cb), vf);
 	menu_item_add_divider(menu);

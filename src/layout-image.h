@@ -59,7 +59,6 @@ void layout_image_zoom_set_fill_geometry(LayoutWindow *lw, gboolean vertical);
 void layout_image_set_desaturate(LayoutWindow *lw, gboolean desaturate);
 gboolean layout_image_get_desaturate(LayoutWindow *lw);
 void layout_image_set_overunderexposed(LayoutWindow *lw, gboolean overunderexposed);
-void layout_image_set_ignore_alpha(LayoutWindow *lw, gboolean ignore_alpha);
 
 void layout_image_next(LayoutWindow *lw);
 void layout_image_prev(LayoutWindow *lw);

@@ -441,11 +441,6 @@ void image_set_overunderexposed(ImageWindow *imd, gboolean overunderexposed)
 	pixbuf_renderer_set_orientation(PIXBUF_RENDERER(imd->pr), imd->orientation);
 }
 
-void image_set_ignore_alpha(ImageWindow *imd, gboolean ignore_alpha)
-{
-   pixbuf_renderer_set_ignore_alpha(PIXBUF_RENDERER(imd->pr), ignore_alpha);
-}
-
 /*
  *-------------------------------------------------------------------
  * read ahead (prebuffer)
@@ -926,7 +921,7 @@ void image_attach_window(ImageWindow *imd, GtkWidget *window,
 
 	lw = layout_find_by_image(imd);
 
-	if (!options->image.fit_window_to_image || !lw || (!lw->options.tools_float && !lw->options.tools_hidden)) window = nullptr;
+	if (!options->image.fit_window_to_image || !lw) window = nullptr;
 
 	pixbuf_renderer_set_parent(PIXBUF_RENDERER(imd->pr), GTK_WINDOW(window));
 

@@ -417,7 +417,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_BOOL(*options, save_dialog_window_positions);
 	WRITE_NL(); WRITE_BOOL(*options, hide_window_decorations);
 	WRITE_NL(); WRITE_BOOL(*options, show_window_ids);
-	WRITE_NL(); WRITE_BOOL(*options, expand_menu_toolbar);
 
 	WRITE_NL(); WRITE_UINT(*options, log_window_lines);
 	WRITE_NL(); WRITE_BOOL(*options, log_window.timer_data);
@@ -435,14 +434,9 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_BOOL(*options, hide_window_in_fullscreen);
 	WRITE_NL(); WRITE_BOOL(*options, hide_osd_in_fullscreen);
 
-	WRITE_NL(); WRITE_BOOL(*options, selectable_bars.menu_bar);
-	WRITE_NL(); WRITE_BOOL(*options, selectable_bars.status_bar);
-	WRITE_NL(); WRITE_BOOL(*options, selectable_bars.tool_bar);
-
 	/* File operations Options */
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.enable_in_place_rename);
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.confirm_delete);
-	WRITE_NL(); WRITE_BOOL(*options, file_ops.confirm_move_to_trash);
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.enable_delete_key);
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.use_system_trash);
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.safe_delete_enable);
@@ -852,7 +846,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_BOOL(*options, save_dialog_window_positions)) continue;
 		if (READ_BOOL(*options, hide_window_decorations)) continue;
 		if (READ_BOOL(*options, show_window_ids)) continue;
-		if (READ_BOOL(*options, expand_menu_toolbar)) continue;
 
 		if (READ_INT(*options, log_window_lines)) continue;
 		if (READ_BOOL(*options, log_window.timer_data)) continue;
@@ -868,10 +861,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_BOOL(*options, collections_on_top)) continue;
 		if (READ_BOOL(*options, hide_window_in_fullscreen)) continue;
 		if (READ_BOOL(*options, hide_osd_in_fullscreen)) continue;
-
-		if (READ_BOOL(*options, selectable_bars.menu_bar)) continue;
-		if (READ_BOOL(*options, selectable_bars.status_bar)) continue;
-		if (READ_BOOL(*options, selectable_bars.tool_bar)) continue;
 
 		/* Properties dialog options */
 		if (READ_CHAR(*options, properties.tabs_order)) continue;
@@ -923,7 +912,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		/* File operations *options */
 		if (READ_BOOL(*options, file_ops.enable_in_place_rename)) continue;
 		if (READ_BOOL(*options, file_ops.confirm_delete)) continue;
-		if (READ_BOOL(*options, file_ops.confirm_move_to_trash)) continue;
 		if (READ_BOOL(*options, file_ops.enable_delete_key)) continue;
 		if (READ_BOOL(*options, file_ops.use_system_trash)) continue;
 		if (READ_BOOL(*options, file_ops.safe_delete_enable)) continue;

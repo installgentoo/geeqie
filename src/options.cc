@@ -83,7 +83,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->show_window_ids = FALSE;
 
 	options->file_ops.confirm_delete = TRUE;
-	options->file_ops.confirm_move_to_trash = TRUE;
 	options->file_ops.enable_delete_key = TRUE;
 	options->file_ops.use_system_trash = TRUE;
 	options->file_ops.enable_in_place_rename = TRUE;
@@ -166,7 +165,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->keyboard_scroll_step = 1;
 
 	options->show_icon_names = TRUE;
-	options->expand_menu_toolbar = FALSE;
 
 	options->thumbnails.cache_into_dirs = FALSE;
 	options->thumbnails.enable_caching = TRUE;
@@ -267,7 +265,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 {
 	memset(options, 0, sizeof(LayoutOptions));
 
-	options->dir_view_type = DIRVIEW_LIST;
 	options->dir_view_list_sort.ascend = TRUE;
 	options->dir_view_list_sort.case_sensitive = TRUE;
 	options->dir_view_list_sort.method = SORT_NAME;
@@ -289,10 +286,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->show_directory_date = FALSE;
 	options->show_file_filter = FALSE;
 	options->style = 0;
-	options->show_info_pixel = FALSE;
-	options->selectable_toolbars_hidden = FALSE;
-	options->tools_float = FALSE;
-	options->tools_hidden = FALSE;
 	options->image_overlay.state = OSD_SHOW_NOTHING;
 	options->animate = TRUE;
 	options->log_window = {0, 0, 520, 400};

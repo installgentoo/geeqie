@@ -80,25 +80,6 @@ static void layout_util_sync_views(LayoutWindow *lw);
  *-----------------------------------------------------------------------------
  */
 
-static guint tree_key_overrides[] = {
-	GDK_KEY_Page_Up,	GDK_KEY_KP_Page_Up,
-	GDK_KEY_Page_Down,	GDK_KEY_KP_Page_Down,
-	GDK_KEY_Home,	GDK_KEY_KP_Home,
-	GDK_KEY_End,	GDK_KEY_KP_End
-};
-
-static gboolean layout_key_match(guint keyval)
-{
-	guint i;
-
-	for (i = 0; i < sizeof(tree_key_overrides) / sizeof(guint); i++)
-		{
-		if (keyval == tree_key_overrides[i]) return TRUE;
-		}
-
-	return FALSE;
-}
-
 void keyboard_scroll_calc(gint &x, gint &y, const GdkEventKey *event)
 {
 	static gint delta = 0;
@@ -174,13 +155,6 @@ gboolean layout_key_press_cb(GtkWidget *widget, GdkEventKey *event, gpointer dat
 			{
 			return TRUE;
 			}
-		}
-
-	if (lw->vd && lw->options.dir_view_type == DIRVIEW_TREE && gtk_widget_has_focus(lw->vd->view) &&
-	    !layout_key_match(event->keyval) &&
-	    gtk_widget_event(lw->vd->view, reinterpret_cast<GdkEvent *>(event)))
-		{
-		return TRUE;
 		}
 
 	focused = gtk_container_get_focus_child(GTK_CONTAINER(lw->image->widget));
@@ -297,32 +271,7 @@ static void layout_menu_copy_path_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	file_util_path_list_to_clipboard(layout_selection_list(lw), TRUE, ClipboardAction::COPY);
-}
-
-static void layout_menu_copy_path_unquoted_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	file_util_path_list_to_clipboard(layout_selection_list(lw), FALSE, ClipboardAction::COPY);
-}
-
-static void layout_menu_copy_image_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	ImageWindow *imd = lw->image;
-
-	GdkPixbuf *pixbuf;
-	pixbuf = image_get_pixbuf(imd);
-	if (!pixbuf) return;
-	gtk_clipboard_set_image(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), pixbuf);
-}
-
-static void layout_menu_cut_path_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	file_util_path_list_to_clipboard(layout_selection_list(lw), FALSE, ClipboardAction::CUT);
+	file_util_path_list_to_clipboard(layout_selection_list(lw), TRUE);
 }
 
 static void layout_menu_move_cb(GtkAction *, gpointer data)
@@ -343,27 +292,7 @@ static void layout_menu_delete_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	options->file_ops.safe_delete_enable = FALSE;
 	file_util_delete(nullptr, layout_selection_list(lw), layout_window(lw));
-}
-
-static void layout_menu_move_to_trash_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	options->file_ops.safe_delete_enable = TRUE;
-	file_util_delete(nullptr, layout_selection_list(lw), layout_window(lw));
-}
-
-static void layout_menu_move_to_trash_key_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (options->file_ops.enable_delete_key)
-		{
-		options->file_ops.safe_delete_enable = TRUE;
-		file_util_delete(nullptr, layout_selection_list(lw), layout_window(lw));
-		}
 }
 
 static void layout_menu_exit_cb(GtkAction *, gpointer)
@@ -376,15 +305,6 @@ static void layout_menu_alter_desaturate_cb(GtkToggleAction *action, gpointer da
 	auto lw = static_cast<LayoutWindow *>(data);
 
 	layout_image_set_desaturate(lw, gq_gtk_toggle_action_get_active(action));
-}
-
-static void layout_menu_alter_ignore_alpha_cb(GtkToggleAction *action, gpointer data)
-{
-   auto lw = static_cast<LayoutWindow *>(data);
-
-	if (lw->options.ignore_alpha == gq_gtk_toggle_action_get_active(action)) return;
-
-   layout_image_set_ignore_alpha(lw, gq_gtk_toggle_action_get_active(action));
 }
 
 static void layout_menu_exif_rotate_cb(GtkToggleAction *action, gpointer data)
@@ -416,14 +336,6 @@ static void layout_menu_editors_cb(GtkAction *, gpointer data)
 
 	layout_exit_fullscreen(lw);
 	show_editor_list_window();
-}
-
-static void layout_menu_layout_config_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	layout_show_config_window(lw);
 }
 
 static void layout_menu_remove_thumb_cb(GtkAction *, gpointer data)
@@ -468,77 +380,6 @@ static void layout_menu_zoom_fit_cb(GtkAction *, gpointer data)
 	auto lw = static_cast<LayoutWindow *>(data);
 
 	layout_image_zoom_set(lw, 0.0);
-}
-
-static void layout_menu_zoom_fit_hor_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set_fill_geometry(lw, FALSE);
-}
-
-static void layout_menu_zoom_fit_vert_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set_fill_geometry(lw, TRUE);
-}
-
-static void layout_menu_zoom_2_1_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, 2.0);
-}
-
-static void layout_menu_zoom_3_1_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, 3.0);
-}
-static void layout_menu_zoom_4_1_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, 4.0);
-}
-
-static void layout_menu_zoom_1_2_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, -2.0);
-}
-
-static void layout_menu_zoom_1_3_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, -3.0);
-}
-
-static void layout_menu_zoom_1_4_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_image_zoom_set(lw, -4.0);
-}
-
-static void layout_menu_view_dir_as_cb(GtkToggleAction *action,  gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-
-	if (gq_gtk_toggle_action_get_active(action))
-		{
-		layout_views_set(lw, DIRVIEW_TREE);
-		}
-	else
-		{
-		layout_views_set(lw, DIRVIEW_LIST);
-		}
 }
 
 struct OpenWithData
@@ -690,44 +531,6 @@ static void layout_menu_refresh_cb(GtkAction *, gpointer data)
 	layout_refresh(lw);
 }
 
-static void layout_menu_float_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (lw->options.tools_float == gq_gtk_toggle_action_get_active(action)) return;
-
-	layout_exit_fullscreen(lw);
-	layout_tools_float_toggle(lw);
-}
-
-static void layout_menu_hide_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_exit_fullscreen(lw);
-	layout_tools_hide_toggle(lw);
-}
-
-static void layout_menu_selectable_toolbars_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (lw->options.selectable_toolbars_hidden == gq_gtk_toggle_action_get_active(action)) return;
-
-	layout_exit_fullscreen(lw);
-	layout_selectable_toolbars_toggle(lw);
-}
-
-static void layout_menu_info_pixel_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (lw->options.show_info_pixel == gq_gtk_toggle_action_get_active(action)) return;
-
-	layout_exit_fullscreen(lw);
-	layout_info_pixel_set(lw, !lw->options.show_info_pixel);
-}
-
 static void layout_menu_about_cb(GtkAction *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -851,22 +654,6 @@ static void layout_menu_page_previous_cb(GtkAction *, gpointer data)
 		{
 		file_data_dec_page_num(fd);
 		}
-}
-
-static void layout_menu_image_forward_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	/* Obtain next image */
-	layout_set_path(lw, image_chain_forward());
-}
-
-static void layout_menu_image_back_cb(GtkAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	/* Obtain previous image */
-	layout_set_path(lw, image_chain_back());
 }
 
 static void layout_menu_image_last_cb(GtkAction *, gpointer data)
@@ -1038,17 +825,10 @@ static GtkActionEntry menu_entries[] = {
   { "Back",                  GQ_ICON_GO_PREV,                   N_("_Back"),                                            nullptr,               N_("Back in folder history"),                          CB(layout_menu_back_cb) },
   { "ColorMenu",             nullptr,                           N_("_Color Management"),                                nullptr,               nullptr,                                               nullptr },
   { "Copy",                  GQ_ICON_COPY,                      N_("_Copy..."),                                         "<control>C",          N_("Copy..."),                                         CB(layout_menu_copy_cb) },
-  { "CopyImage",             nullptr,                           N_("_Copy image to clipboard"),                         nullptr,               N_("Copy image to clipboard"),                         CB(layout_menu_copy_image_cb) },
   { "CopyPath",              nullptr,                           N_("_Copy to clipboard"),                               nullptr,               N_("Copy to clipboard"),                               CB(layout_menu_copy_path_cb) },
-  { "CopyPathUnquoted",      nullptr,                           N_("_Copy to clipboard (unquoted)"),                    nullptr,               N_("Copy to clipboard (unquoted)"),                    CB(layout_menu_copy_path_unquoted_cb) },
-  { "CutPath",               nullptr,                           N_("_Cut to clipboard"),                                "<control>X",          N_("Cut to clipboard"),                                CB(layout_menu_cut_path_cb) },
-  { "DeleteAlt1",            GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "Delete",              N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_key_cb) },
-  { "DeleteAlt2",            GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "KP_Delete",           N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_key_cb) },
-  { "Delete",                GQ_ICON_USER_TRASH,                N_("Move selection to Trash..."),                       "<control>D",          N_("Move selection to Trash..."),                      CB(layout_menu_move_to_trash_cb) },
   { "EditMenu",              nullptr,                           N_("_Edit"),                                            nullptr,               nullptr,                                               nullptr },
   { "EscapeAlt1",            GQ_ICON_LEAVE_FULLSCREEN,          N_("_Leave full screen"),                               "Q",                   N_("Leave full screen"),                               CB(layout_menu_escape_cb) },                           
   { "Escape",                GQ_ICON_LEAVE_FULLSCREEN,          N_("_Leave full screen"),                              "Escape",               N_("Leave full screen"),                               CB(layout_menu_escape_cb) },                           
-  { "FileDirMenu",           nullptr,                           N_("_Files and Folders"),                               nullptr,               nullptr,                                               nullptr },
   { "FileMenu",              nullptr,                           N_("_File"),                                            nullptr,               nullptr,                                               nullptr },
   { "FindDupes",             GQ_ICON_FIND,                      N_("_Find duplicates..."),                              "D",                   N_("Find duplicates..."),                              CB(layout_menu_dupes_cb) },
   { "FirstImage",            GQ_ICON_GO_TOP,                    N_("_First Image"),                                     "Home",                N_("First Image"),                                     CB(layout_menu_image_first_cb) },
@@ -1058,14 +838,10 @@ static GtkActionEntry menu_entries[] = {
   { "FullScreenAlt2",        GQ_ICON_FULLSCREEN,                N_("F_ull screen"),                                     "F11",                 N_("Full screen"),                                     CB(layout_menu_fullscreen_cb) },
   { "FullScreen",            GQ_ICON_FULLSCREEN,                N_("F_ull screen"),                                     "F",                   N_("Full screen"),                                     CB(layout_menu_fullscreen_cb) },
   { "HelpMenu",              nullptr,                           N_("_Help"),                                            nullptr,               nullptr,                                               nullptr },
-  { "HideTools",             PIXBUF_INLINE_ICON_HIDETOOLS,      N_("_Hide file list"),                                  "<control>H",          N_("Hide file list"),                                  CB(layout_menu_hide_cb) },
   { "Home",                  GQ_ICON_HOME,                      N_("_Home"),                                            nullptr,               N_("Home"),                                            CB(layout_menu_home_cb) },
-  { "ImageBack",             GQ_ICON_GO_FIRST,                  N_("Image Back"),                                       nullptr,               N_("Back in image history"),                           CB(layout_menu_image_back_cb) },
-  { "ImageForward",          GQ_ICON_GO_LAST,                   N_("Image Forward"),                                    nullptr,               N_("Forward in image history"),                        CB(layout_menu_image_forward_cb) },
   { "ImageOverlayCycle",     nullptr,                           N_("_Cycle through overlay modes"),                     "I",                   N_("Cycle through Overlay modes"),                     CB(layout_menu_overlay_toggle_cb) },                   
   { "LastImage",             GQ_ICON_GO_BOTTOM,                 N_("_Last Image"),                                      "End",                 N_("Last Image"),                                      CB(layout_menu_image_last_cb) },
   { "LastPage",              GQ_ICON_NEXT_PAGE,                 N_("_Last Page"),                                       "<control>End",        N_("Last Page of multi-page image"),                   CB(layout_menu_page_last_cb) },
-  { "LayoutConfig",          GQ_ICON_PREFERENCES,               N_("_Configure this window..."),                        nullptr,               N_("Configure this window..."),                        CB(layout_menu_layout_config_cb) },
   { "LogWindow",             nullptr,                           N_("_Log Window"),                                      nullptr,               N_("Log Window"),                                      CB(layout_menu_log_window_cb) },
   { "Maintenance",           PIXBUF_INLINE_ICON_MAINTENANCE,    N_("_Cache maintenance..."),                            nullptr,               N_("Cache maintenance..."),                            CB(layout_menu_remove_thumb_cb) },
   { "Move",                  PIXBUF_INLINE_ICON_MOVE,           N_("_Move..."),                                         "<control>M",          N_("Move..."),                                         CB(layout_menu_move_cb) },
@@ -1098,19 +874,10 @@ static GtkActionEntry menu_entries[] = {
   { "Wallpaper",             nullptr,                           N_("Set as _wallpaper"),                                nullptr,               N_("Set as wallpaper"),                                CB(layout_menu_wallpaper_cb) },
   { "Zoom100Alt1",           GQ_ICON_ZOOM_100,                  N_("Zoom _1:1"),                                        "KP_Divide",           N_("Zoom 1:1"),                                        CB(layout_menu_zoom_1_1_cb) },
   { "Zoom100",               GQ_ICON_ZOOM_100,                  N_("Zoom _1:1"),                                        "Z",                   N_("Zoom 1:1"),                                        CB(layout_menu_zoom_1_1_cb) },
-  { "Zoom200",               GQ_ICON_GENERIC,                   N_("Zoom _2:1"),                                        nullptr,               N_("Zoom 2:1"),                                        CB(layout_menu_zoom_2_1_cb) },
-  { "Zoom25",                GQ_ICON_GENERIC,                   N_("Zoom 1:4"),                                         nullptr,               N_("Zoom 1:4"),                                        CB(layout_menu_zoom_1_4_cb) },
-  { "Zoom300",               GQ_ICON_GENERIC,                   N_("Zoom _3:1"),                                        nullptr,               N_("Zoom 3:1"),                                        CB(layout_menu_zoom_3_1_cb) },
-  { "Zoom33",                GQ_ICON_GENERIC,                   N_("Zoom 1:3"),                                         nullptr,               N_("Zoom 1:3"),                                        CB(layout_menu_zoom_1_3_cb) },
-  { "Zoom400",               GQ_ICON_GENERIC,                   N_("Zoom _4:1"),                                        nullptr,               N_("Zoom 4:1"),                                        CB(layout_menu_zoom_4_1_cb) },
-  { "Zoom50",                GQ_ICON_GENERIC,                   N_("Zoom 1:2"),                                         nullptr,               N_("Zoom 1:2"),                                        CB(layout_menu_zoom_1_2_cb) },
-  { "ZoomFillHor",           PIXBUF_INLINE_ICON_ZOOMFILLHOR,    N_("Fit _Horizontally"),                                "H",                   N_("Fit Horizontally"),                                CB(layout_menu_zoom_fit_hor_cb) },
-  { "ZoomFillVert",          PIXBUF_INLINE_ICON_ZOOMFILLVERT,   N_("Fit _Vertically"),                                  "W",                   N_("Fit Vertically"),                                  CB(layout_menu_zoom_fit_vert_cb) },
   { "ZoomFitAlt1",           GQ_ICON_ZOOM_FIT,                  N_("_Zoom to fit"),                                     "KP_Multiply",         N_("Zoom to fit"),                                     CB(layout_menu_zoom_fit_cb) },
   { "ZoomFit",               GQ_ICON_ZOOM_FIT,                  N_("_Zoom to fit"),                                     "X",                   N_("Zoom to fit"),                                     CB(layout_menu_zoom_fit_cb) },
   { "ZoomInAlt1",            GQ_ICON_ZOOM_IN,                   N_("Zoom _in"),                                         "KP_Add",              N_("Zoom in"),                                         CB(layout_menu_zoom_in_cb) },
   { "ZoomIn",                GQ_ICON_ZOOM_IN,                   N_("Zoom _in"),                                         "equal",               N_("Zoom in"),                                         CB(layout_menu_zoom_in_cb) },
-  { "ZoomMenu",              nullptr,                           N_("_Zoom"),                                            nullptr,               nullptr,                                               nullptr },
   { "ZoomOutAlt1",           GQ_ICON_ZOOM_OUT,                  N_("Zoom _out"),                                        "KP_Subtract",         N_("Zoom out"),                                        CB(layout_menu_zoom_out_cb) },
   { "ZoomOut",               GQ_ICON_ZOOM_OUT,                  N_("Zoom _out"),                                        "minus",               N_("Zoom out"),                                        CB(layout_menu_zoom_out_cb) }
 };
@@ -1118,21 +885,13 @@ static GtkActionEntry menu_entries[] = {
 static GtkToggleActionEntry menu_toggle_entries[] = {
   { "Animate",                 nullptr,                              N_("_Animation"),               "A",               N_("Toggle animation"),              CB(layout_menu_animate_cb),                  FALSE  },
   { "ExifRotate",              GQ_ICON_ROTATE_LEFT,                  N_("_Exif rotate"),             "<alt>X",          N_("Toggle Exif rotate"),            CB(layout_menu_exif_rotate_cb),              FALSE  },
-  { "FloatTools",              PIXBUF_INLINE_ICON_FLOAT,             N_("_Float file list"),         "L",               N_("Float file list"),               CB(layout_menu_float_cb),                    FALSE  },
   { "Grayscale",               PIXBUF_INLINE_ICON_GRAYSCALE,         N_("Toggle _grayscale"),        "<shift>G",        N_("Toggle grayscale"),              CB(layout_menu_alter_desaturate_cb),         FALSE  },
-  { "HideSelectableToolbars",  nullptr,                              N_("Hide Selectable Bars"),     "<control>grave",  N_("Hide Selectable Bars"),          CB(layout_menu_selectable_toolbars_cb),      FALSE  },
-  { "IgnoreAlpha",             GQ_ICON_STRIKETHROUGH,                N_("Hide _alpha"),              "<shift>A",        N_("Hide alpha channel"),            CB(layout_menu_alter_ignore_alpha_cb),       FALSE  },
   { "ImageOverlay",            nullptr,                              N_("Image _Overlay"),           nullptr,           N_("Image Overlay"),                 CB(layout_menu_overlay_cb),                  FALSE  },
   { "OverUnderExposed",        PIXBUF_INLINE_ICON_EXPOSURE,          N_("Over/Under Exposed"),       "<shift>E",        N_("Highlight over/under exposed"),  CB(layout_menu_select_overunderexposed_cb),  FALSE  },
   { "RectangularSelection",    PIXBUF_INLINE_ICON_SELECT_RECTANGLE,  N_("Rectangular Selection"),    "<alt>R",          N_("Rectangular Selection"),         CB(layout_menu_rectangular_selection_cb),    FALSE  },
   { "ShowFileFilter",          GQ_ICON_FILE_FILTER,                  N_("Show File Filter"),         nullptr,           N_("Show File Filter"),              CB(layout_menu_file_filter_cb),              FALSE  },
-  { "ShowInfoPixel",           GQ_ICON_SELECT_COLOR,                 N_("Pi_xel Info"),              nullptr,           N_("Show Pixel Info"),               CB(layout_menu_info_pixel_cb),               FALSE  },
   { "UseColorProfiles",        GQ_ICON_COLOR_MANAGEMENT,             N_("Use _color profiles"),      nullptr,           N_("Use color profiles"),            CB(layout_color_menu_enable_cb),             FALSE  },
   { "UseImageProfile",         nullptr,                              N_("Use profile from _image"),  nullptr,           N_("Use profile from image"),        CB(layout_color_menu_use_image_cb),          FALSE  }
-};
-
-static GtkToggleActionEntry menu_view_dir_toggle_entries[] = {
-  { "FolderTree",  nullptr,  N_("T_oggle Folder View"),  "<control>T",  N_("Toggle Folders View"),  CB(layout_menu_view_dir_as_cb),FALSE },
 };
 
 static GtkRadioActionEntry menu_color_radio_entries[] = {
@@ -1362,9 +1121,6 @@ void layout_actions_setup(LayoutWindow *lw)
 				     menu_entries, G_N_ELEMENTS(menu_entries), lw);
 	gq_gtk_action_group_add_toggle_actions(lw->action_group,
 					    menu_toggle_entries, G_N_ELEMENTS(menu_toggle_entries), lw);
-	gq_gtk_action_group_add_toggle_actions(lw->action_group,
-					   menu_view_dir_toggle_entries, G_N_ELEMENTS(menu_view_dir_toggle_entries),
-					    lw);
 	gq_gtk_action_group_add_radio_actions(lw->action_group,
 					   menu_color_radio_entries, COLOR_PROFILE_FILE + COLOR_PROFILE_INPUTS,
 					   0, G_CALLBACK(layout_color_menu_input_cb), lw);
@@ -1661,7 +1417,6 @@ void layout_toolbar_add_default(LayoutWindow *lw, ToolbarType type)
 					layout_toolbar_add(lw, type, "ZoomFit");
 					layout_toolbar_add(lw, type, "Zoom100");
 					layout_toolbar_add(lw, type, "Preferences");
-					layout_toolbar_add(lw, type, "FloatTools");
 					}
 				}
 			else
@@ -1676,7 +1431,6 @@ void layout_toolbar_add_default(LayoutWindow *lw, ToolbarType type)
 				layout_toolbar_add(lw, type, "ZoomFit");
 				layout_toolbar_add(lw, type, "Zoom100");
 				layout_toolbar_add(lw, type, "Preferences");
-				layout_toolbar_add(lw, type, "FloatTools");
 				}
 			break;
 		case TOOLBAR_STATUS:
@@ -1696,14 +1450,12 @@ void layout_toolbar_add_default(LayoutWindow *lw, ToolbarType type)
 				else
 					{
 					layout_toolbar_add(lw, type, "ExifRotate");
-					layout_toolbar_add(lw, type, "ShowInfoPixel");
 					layout_toolbar_add(lw, type, "UseColorProfiles");
 					}
 				}
 			else
 				{
 				layout_toolbar_add(lw, type, "ExifRotate");
-				layout_toolbar_add(lw, type, "ShowInfoPixel");
 				layout_toolbar_add(lw, type, "UseColorProfiles");
 				}
 			break;
@@ -1869,21 +1621,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 
 	if (!lw->action_group) return;
 
-	action = gq_gtk_action_group_get_action(lw->action_group, "FolderTree");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.dir_view_type);
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "FloatTools");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.tools_float);
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "HideSelectableToolbars");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.selectable_toolbars_hidden);
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "ShowInfoPixel");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.show_info_pixel);
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "IgnoreAlpha");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.ignore_alpha);
-
 	action = gq_gtk_action_group_get_action(lw->action_group, "Animate");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.animate);
 
@@ -1903,7 +1640,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.show_file_filter);
 
 	layout_util_sync_color(lw);
-	layout_image_set_ignore_alpha(lw, lw->options.ignore_alpha);
 }
 
 void layout_util_sync(LayoutWindow *lw)

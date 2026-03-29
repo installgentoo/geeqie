@@ -62,7 +62,6 @@ struct ConfOptions
 	gchar *image_l_click_video_editor;
 	gboolean show_icon_names;
 	gboolean overunderexposed;
-	gboolean expand_menu_toolbar;
 
 	/* various */
 	gboolean tree_descend_subdirs;
@@ -149,7 +148,6 @@ struct ConfOptions
 		gboolean enable_in_place_rename;
 
 		gboolean confirm_delete;
-		gboolean confirm_move_to_trash;
 		gboolean enable_delete_key;
 		gboolean safe_delete_enable;
 		gboolean use_system_trash;
@@ -324,13 +322,6 @@ struct ConfOptions
 		gint duplicates;
 	} threads;
 
-	/* Selectable bars */
-	struct {
-		gboolean menu_bar;
-		gboolean tool_bar;
-		gboolean status_bar;
-	} selectable_bars;
-
 	/* Alternate similarity algorithm */
 	struct {
 		gboolean enabled;
@@ -353,8 +344,6 @@ struct CommandLine
 	gboolean startup_full_screen;
 	gboolean startup_in_slideshow;
 	gboolean startup_command_line_collection;
-	gboolean tools_hide;
-	gboolean tools_show;
 	gboolean log_window_show;
 	gchar *path;
 	gchar *file;
@@ -402,8 +391,6 @@ struct LayoutOptions
 	gchar *order;
 	gint style;
 
-	DirViewType dir_view_type;
-
 	struct SortParams
 	{
 		SortType method;
@@ -415,8 +402,6 @@ struct LayoutOptions
 
 	gboolean show_file_filter;
 	gboolean show_directory_date;
-	gboolean show_info_pixel;
-	gboolean ignore_alpha;
 
 	struct {
 		GdkRectangle rect;
@@ -448,10 +433,6 @@ struct LayoutOptions
 	GdkRectangle search_window;
 
 	GdkRectangle dupe_window;
-
-	gboolean tools_float;
-	gboolean tools_hidden;
-	gboolean selectable_toolbars_hidden;
 
 	gchar *home_path;
 	gchar *last_path;

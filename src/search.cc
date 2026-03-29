@@ -296,7 +296,6 @@ hard_coded_window_keys search_window_keys[] = {
 	{GDK_CONTROL_MASK, 'C', N_("Copy")},
 	{GDK_CONTROL_MASK, 'M', N_("Move")},
 	{GDK_CONTROL_MASK, 'R', N_("Rename")},
-	{GDK_CONTROL_MASK, 'D', N_("Move selection to Trash")},
 	{GDK_SHIFT_MASK, GDK_KEY_Delete, N_("Delete selection")},
 	{static_cast<GdkModifierType>(0), GDK_KEY_Delete, N_("Remove")},
 	{GDK_CONTROL_MASK, 'A', N_("Select all")},
@@ -304,8 +303,6 @@ hard_coded_window_keys search_window_keys[] = {
 	{GDK_CONTROL_MASK, GDK_KEY_Delete, N_("Clear")},
 	{GDK_CONTROL_MASK, 'T', N_("Toggle thumbs")},
 	{GDK_CONTROL_MASK, 'W', N_("Close window")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_Return, N_("View")},
-	{static_cast<GdkModifierType>(0), 'V', N_("View in new window")},
 	{GDK_CONTROL_MASK, GDK_KEY_Return, N_("Start/stop search")},
 	{static_cast<GdkModifierType>(0), GDK_KEY_F3, N_("Find duplicates")},
 	{static_cast<GdkModifierType>(0), 0, nullptr}
@@ -530,14 +527,6 @@ static gint search_result_util(SearchData *sd, gint64 *bytes, GList **list)
 	if (list) *list = g_list_reverse(plist);
 
 	return n;
-}
-
-static GList *search_result_get_filelist(SearchData *sd)
-{
-	GList *list = nullptr;
-
-	search_result_util(sd, nullptr, &list);
-	return list;
 }
 
 static gint search_result_count(SearchData *sd, gint64 *bytes)
@@ -924,16 +913,6 @@ static void sr_menu_view_cb(GtkWidget *, gpointer data)
 	if (sd->click_fd) layout_set_fd(nullptr, sd->click_fd);
 }
 
-static void sr_menu_viewnew_cb(GtkWidget *, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-	GList *list;
-
-	list = search_result_selection_list(sd);
-	view_window_new_from_list(list);
-	filelist_free(list);
-}
-
 static void sr_menu_select_all_cb(GtkWidget *, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
@@ -963,14 +942,6 @@ static void sr_menu_edit_cb(GtkWidget *widget, gpointer data)
 	search_result_edit_selected(sd, key);
 }
 
-static void sr_menu_print_cb(GtkWidget *, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-
-	print_window_new(sd->click_fd, search_result_selection_list(sd),
-			 search_result_get_filelist(sd), sd->window);
-}
-
 static void sr_menu_copy_cb(GtkWidget *, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
@@ -996,15 +967,6 @@ static void sr_menu_delete_cb(GtkWidget *, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
 
-	options->file_ops.safe_delete_enable = FALSE;
-	file_util_delete(nullptr, search_result_selection_list(sd), sd->window);
-}
-
-static void sr_menu_move_to_trash_cb(GtkWidget *, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-
-	options->file_ops.safe_delete_enable = TRUE;
 	file_util_delete(nullptr, search_result_selection_list(sd), sd->window);
 }
 
@@ -1012,21 +974,7 @@ static void sr_menu_copy_path_cb(GtkWidget *, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
 
-	file_util_path_list_to_clipboard(search_result_selection_list(sd), TRUE, ClipboardAction::COPY);
-}
-
-static void sr_menu_copy_path_unquoted_cb(GtkWidget *, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-
-	file_util_path_list_to_clipboard(search_result_selection_list(sd), FALSE, ClipboardAction::COPY);
-}
-
-static void sr_menu_play_cb(GtkWidget *, gpointer data)
-{
-	auto sd = static_cast<SearchData *>(data);
-
-	start_editor_from_file(options->image_l_click_video_editor, sd->click_fd);
+	file_util_path_list_to_clipboard(search_result_selection_list(sd), TRUE);
 }
 
 static void search_result_menu_destroy_cb(GtkWidget *, gpointer data)
@@ -1041,7 +989,6 @@ static GtkWidget *search_result_menu(SearchData *sd, gboolean on_row, gboolean e
 	GtkWidget *menu;
 	GtkWidget *item;
 	GList *editmenu_fd_list;
-	gboolean video;
 	GtkAccelGroup *accel_group;
 
 	menu = popup_menu_short_lived();
@@ -1051,15 +998,8 @@ static GtkWidget *search_result_menu(SearchData *sd, gboolean on_row, gboolean e
 	g_object_set_data(G_OBJECT(menu), "window_keys", search_window_keys);
 	g_object_set_data(G_OBJECT(menu), "accel_group", accel_group);
 
-	video = (on_row && sd->click_fd && sd->click_fd->format_class == FORMAT_CLASS_VIDEO);
-	menu_item_add_icon_sensitive(menu, _("_Play"), GQ_ICON_PREV_PAGE , video,
-			    G_CALLBACK(sr_menu_play_cb), sd);
-	menu_item_add_divider(menu);
-
 	menu_item_add_sensitive(menu, _("_View"), on_row,
 				G_CALLBACK(sr_menu_view_cb), sd);
-	menu_item_add_icon_sensitive(menu, _("View in _new window"), GQ_ICON_NEW, on_row,
-				      G_CALLBACK(sr_menu_viewnew_cb), sd);
 	menu_item_add_divider(menu);
 	menu_item_add_sensitive(menu, _("Select all"), !empty,
 				G_CALLBACK(sr_menu_select_all_cb), sd);
@@ -1075,8 +1015,6 @@ static GtkWidget *search_result_menu(SearchData *sd, gboolean on_row, gboolean e
 
 	gtk_widget_set_sensitive(item, on_row);
 
-	menu_item_add_icon_sensitive(menu, _("Print..."), GQ_ICON_PRINT, on_row,
-				      G_CALLBACK(sr_menu_print_cb), sd);
 	menu_item_add_divider(menu);
 	menu_item_add_icon_sensitive(menu, _("_Copy..."), GQ_ICON_COPY, on_row,
 				      G_CALLBACK(sr_menu_copy_cb), sd);
@@ -1086,14 +1024,8 @@ static GtkWidget *search_result_menu(SearchData *sd, gboolean on_row, gboolean e
 				G_CALLBACK(sr_menu_rename_cb), sd);
 	menu_item_add_sensitive(menu, _("_Copy path"), on_row,
 				G_CALLBACK(sr_menu_copy_path_cb), sd);
-	menu_item_add_sensitive(menu, _("_Copy path unquoted"), on_row,
-				G_CALLBACK(sr_menu_copy_path_unquoted_cb), sd);
 
 	menu_item_add_divider(menu);
-	menu_item_add_icon_sensitive(menu,
-				options->file_ops.confirm_move_to_trash ? _("Move selection to Trash...") :
-					_("Move selection to Trash"), GQ_ICON_DELETE, on_row,
-				G_CALLBACK(sr_menu_move_to_trash_cb), sd);
 	menu_item_add_icon_sensitive(menu,
 				options->file_ops.confirm_delete ? _("_Delete selection...") :
 					_("_Delete selection"), GQ_ICON_DELETE_SHRED, on_row,
@@ -1290,7 +1222,6 @@ static gboolean search_result_keypress_cb(GtkWidget *widget, GdkEventKey *event,
 				file_util_rename(nullptr, search_result_selection_list(sd), widget);
 				break;
 			case 'D': case 'd':
-				options->file_ops.safe_delete_enable = TRUE;
 				file_util_delete(nullptr, search_result_selection_list(sd), widget);
 				break;
 			case 'A': case 'a':

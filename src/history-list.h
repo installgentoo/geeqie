@@ -43,10 +43,6 @@ const gchar *history_chain_back();
 const gchar *history_chain_forward();
 void history_chain_append_end(const gchar *path);
 
-const gchar *image_chain_back();
-const gchar *image_chain_forward();
-void image_chain_append_end(const gchar *path);
-
 GList *history_list_get_by_key(const gchar *key);
 
 

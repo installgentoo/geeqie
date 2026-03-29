@@ -53,7 +53,6 @@ struct PixmapFolders
 
 struct ViewDir
 {
-	DirViewType type;
 	gpointer info;
 
 	GtkWidget *widget;

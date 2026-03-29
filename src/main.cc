@@ -366,16 +366,6 @@ static void parse_command_line(gint argc, gchar *argv[])
 				{
 				/* do nothing but do not produce warnings */
 				}
-			else if (strcmp(cmd_line, "-T") == 0 ||
-				 strcmp(cmd_line, "--with-tools") == 0)
-				{
-				command_line->tools_show = TRUE;
-				}
-			else if (strcmp(cmd_line, "-t") == 0 ||
-				 strcmp(cmd_line, "--without-tools") == 0)
-				{
-				command_line->tools_hide = TRUE;
-				}
 			else if (strcmp(cmd_line, "-f") == 0 ||
 				 strcmp(cmd_line, "--fullscreen") == 0)
 				{

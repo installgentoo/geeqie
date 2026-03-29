@@ -68,7 +68,6 @@ constexpr PixbufInline inline_pixbuf_data[] = {
 	{ PIXBUF_INLINE_ICON,                   "gqview-icon" },
 	{ PIXBUF_INLINE_ICON_GRAYSCALE,         "gq-icon-grayscale" },
 	{ PIXBUF_INLINE_ICON_HEIF,              "gq-icon-heic" },
-	{ PIXBUF_INLINE_ICON_HIDETOOLS,         "gq-icon-hidetools" },
 	{ PIXBUF_INLINE_ICON_MAINTENANCE,       "gq-icon-maintenance" },
 	{ PIXBUF_INLINE_ICON_MOVE,              "gq-icon-move" },
 	{ PIXBUF_INLINE_ICON_ORIGINAL,          "gq-icon-original" },
@@ -1555,54 +1554,3 @@ void pixbuf_desaturate_rect(GdkPixbuf *pb,
 			}
 		}
 }
-
-/*
- *-----------------------------------------------------------------------------
- * pixbuf ignore alpha
- *-----------------------------------------------------------------------------
-*/
-
-/**
- * @brief Sets the alpha channel to 255 (fully opaque) for every pixel in the specified
- *        pixbuf region.
- * @param pb The `GdkPixbuf` to paint into.
- * @param x,y Coordinates of the top-left corner of the first region.
- * @param w,h Extent of the first region.
- */
-void pixbuf_ignore_alpha_rect(GdkPixbuf *pb,
-			      gint x, gint y, gint w, gint h)
-{
-   gboolean has_alpha;
-   gint pw;
-   gint ph;
-   gint prs;
-   guchar *p_pix;
-   guchar *pp;
-   gint i;
-   gint j;
-
-   if (!pb) return;
-
-   pw = gdk_pixbuf_get_width(pb);
-   ph = gdk_pixbuf_get_height(pb);
-
-   if (x < 0 || x + w > pw) return;
-   if (y < 0 || y + h > ph) return;
-
-   has_alpha = gdk_pixbuf_get_has_alpha(pb);
-   if (!has_alpha) return;
-
-   prs = gdk_pixbuf_get_rowstride(pb);
-   p_pix = gdk_pixbuf_get_pixels(pb);
-
-   for (i = 0; i < h; i++)
-       {
-       pp = p_pix + (y + i) * prs + (x * 4 );
-       for (j = 0; j < w; j++)
-           {
-           pp[3] = 0xff;
-           pp+=4;
-           }
-       }
-}
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

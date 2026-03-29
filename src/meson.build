@@ -152,8 +152,6 @@ main_sources = files(
 'view-dir.h',
 'view-dir-list.cc',
 'view-dir-list.h',
-'view-dir-tree.cc',
-'view-dir-tree.h',
 'view-file.h',
 'window.cc',
 'window.h')

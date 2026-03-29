@@ -3,7 +3,6 @@
       <menu action="FileMenu">
         <menuitem action="Preferences"/>
         <menuitem action="Plugins"/>
-        <menuitem action="LayoutConfig"/>
         <menuitem action="Maintenance"/>
         <separator/>
         <menuitem action="Search"/>
@@ -17,7 +16,6 @@
         <menuitem action="Rename"/>
         <menuitem action="OpenWith"/>
         <separator/>
-        <menuitem action="Delete"/>
         <menuitem action="PermanentDelete"/>
         <separator/>
         <menuitem action="Quit"/>
@@ -33,38 +31,11 @@
         <menuitem action="PrevImage"/>
         <menuitem action="NextImage"/>
         <menuitem action="LastImage"/>
-        <menuitem action="ImageBack"/>
-        <menuitem action="ImageForward"/>
         <separator/>
         <menuitem action="CopyPath"/>
-        <menuitem action="CopyPathUnquoted"/>
-        <menuitem action="CopyImage"/>
-        <menuitem action="CutPath"/>
       </menu>
       <menu action="ViewMenu">
         <menuitem action="ExifRotate"/>
-        <separator/>
-        <menu action="FileDirMenu">
-          <menuitem action="FolderTree"/>
-          <separator/>
-          <menuitem action="FloatTools"/>
-          <menuitem action="HideTools"/>
-        </menu>
-        <separator/>
-        <menu action="ZoomMenu">
-          <menuitem action="ZoomIn"/>
-          <menuitem action="ZoomOut"/>
-          <menuitem action="ZoomFit"/>
-          <menuitem action="ZoomFillHor"/>
-          <menuitem action="ZoomFillVert"/>
-          <menuitem action="Zoom100"/>
-          <menuitem action="Zoom200"/>
-          <menuitem action="Zoom300"/>
-          <menuitem action="Zoom400"/>
-          <menuitem action="Zoom50"/>
-          <menuitem action="Zoom33"/>
-          <menuitem action="Zoom25"/>
-        </menu>
         <menu action="ColorMenu">
           <menuitem action="UseColorProfiles"/>
           <menuitem action="UseImageProfile"/>
@@ -83,11 +54,6 @@
         </menu>
         <menuitem action="OverUnderExposed"/>
         <menuitem action="FullScreen"/>
-        <separator/>
-        <menuitem action="HideSelectableToolbars"/>
-        <menuitem action="ShowInfoPixel"/>
-        <menuitem action="IgnoreAlpha"/>
-        <placeholder name="ToolsSection"/>
         <separator/>
         <menuitem action="Animate"/>
         <separator/>
@@ -117,8 +83,6 @@
   <accelerator action="PrevImageAlt2"/>
   <accelerator action="NextImageAlt1"/>
   <accelerator action="NextImageAlt2"/>
-  <accelerator action="DeleteAlt1"/>
-  <accelerator action="DeleteAlt2"/>
   <accelerator action="FullScreenAlt1"/>
   <accelerator action="FullScreenAlt2"/>
   <accelerator action="Escape"/>

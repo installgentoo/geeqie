@@ -1178,7 +1178,6 @@ gboolean rt_source_tile_render(RendererTiles *rt, ImageTile *it,
 /**
  * @brief
  * @param has_alpha
- * @param ignore_alpha
  * @param src
  * @param dest
  * @param pb_rect
@@ -1193,7 +1192,7 @@ gboolean rt_source_tile_render(RendererTiles *rt, ImageTile *it,
  *        Problem exhibited with gdk_pixbuf_copy_area() and GDK_INTERP_NEAREST.
  *        See https://github.com/BestImageViewer/geeqie/issues/772
  */
-void rt_tile_get_region(gboolean has_alpha, gboolean ignore_alpha,
+void rt_tile_get_region(gboolean has_alpha, gboolean,
                         const GdkPixbuf *src, GdkPixbuf *dest,
                         GdkRectangle pb_rect,
                         double offset_x, double offset_y, double scale_x, double scale_y,
@@ -1256,24 +1255,6 @@ void rt_tile_get_region(gboolean has_alpha, gboolean ignore_alpha,
 
 		if (scale_x == 1.0 && scale_y == 1.0) interp_type = GDK_INTERP_NEAREST;
 
-		if (ignore_alpha)
-			{
-			GdkPixbuf *tmppixbuf = gdk_pixbuf_add_alpha(src, FALSE, 0, 0, 0);
-
-			pixbuf_ignore_alpha_rect(tmppixbuf, 0, 0, gdk_pixbuf_get_width(src), gdk_pixbuf_get_height(src));
-
-			gdk_pixbuf_composite_color(tmppixbuf, dest,
-			                           pb_rect.x, pb_rect.y, pb_rect.width, pb_rect.height,
-			                           offset_x, offset_y,
-			                           scale_x, scale_y,
-			                           (wide_image && interp_type == GDK_INTERP_NEAREST) ? GDK_INTERP_TILES : interp_type,
-			                           255, check_x, check_y,
-			                           PR_ALPHA_CHECK_SIZE,
-			                           alpha_1,
-			                           alpha_2);
-			g_object_unref(tmppixbuf);
-			}
-		else
 			{
 			gdk_pixbuf_composite_color(src, dest,
 			                           pb_rect.x, pb_rect.y, pb_rect.width, pb_rect.height,
@@ -1392,7 +1373,7 @@ void rt_tile_render(RendererTiles *rt, ImageTile *it,
 		if (pr->width < PR_MIN_SCALE_SIZE || pr->height < PR_MIN_SCALE_SIZE) fast = TRUE;
 		if (pr->image_width > 32767) wide_image = TRUE;
 
-		rt_tile_get_region(has_alpha, pr->ignore_alpha,
+		rt_tile_get_region(has_alpha, FALSE,
 		                   pr->pixbuf, it->pixbuf, pb_rect,
 		                   static_cast<gdouble>(0.0) - src_x,
 		                   static_cast<gdouble>(0.0) - src_y,

@@ -67,7 +67,6 @@ struct ClipboardData
 {
 	GList *path_list; /**< g_strdup(fd->path) */
 	gboolean quoted;
-	ClipboardAction action;
 };
 
 enum ClipboardDestination {
@@ -2739,14 +2738,7 @@ static void file_util_create_dir_full(const gchar *path, const gchar *dest_path,
 
 void file_util_delete(FileData *source_fd, GList *source_list, GtkWidget *parent)
 {
-	if (options->file_ops.safe_delete_enable == FALSE)
-		{
-		file_util_delete_full(source_fd, source_list, parent, options->file_ops.confirm_delete ? UTILITY_PHASE_START : UTILITY_PHASE_ENTERING, nullptr, nullptr);
-		}
-	else
-		{
-		file_util_delete_full(source_fd, source_list, parent, options->file_ops.confirm_move_to_trash ? UTILITY_PHASE_START : UTILITY_PHASE_ENTERING, nullptr, nullptr);
-		}
+	file_util_delete_full(source_fd, source_list, parent, options->file_ops.confirm_delete ? UTILITY_PHASE_START : UTILITY_PHASE_ENTERING, nullptr, nullptr);
 }
 
 void file_util_delete_notify_done(FileData *source_fd, GList *source_list, GtkWidget *parent, FileUtilDoneFunc done_func, gpointer done_data)
@@ -2847,15 +2839,7 @@ static void clipboard_get_func(GtkClipboard *clipboard, GtkSelectionData *select
 
 	if (clipboard == gtk_clipboard_get(GDK_SELECTION_CLIPBOARD) && info == CLIPBOARD_X_SPECIAL_GNOME_COPIED_FILES)
 		{
-		switch (cbd->action)
-			{
-			case ClipboardAction::COPY:
-				g_string_append(path_list_str, "copy");
-				break;
-			case ClipboardAction::CUT:
-				g_string_append(path_list_str, "cut");
-				break;
-			}
+		g_string_append(path_list_str, "copy");
 
 		while (work)
 			{
@@ -2914,12 +2898,11 @@ static void clipboard_clear_func(GtkClipboard *, gpointer data)
 	g_free(cbd);
 }
 
-static gboolean path_list_to_clipboard(GList *path_list, gboolean quoted, ClipboardAction action, GdkAtom selection)
+static gboolean path_list_to_clipboard(GList *path_list, gboolean quoted, GdkAtom selection)
 {
 	auto *cbd = g_new0(ClipboardData, 1);
 	cbd->path_list = path_list;
 	cbd->quoted = quoted;
-	cbd->action = action;
 
 	return gtk_clipboard_set_with_data(gtk_clipboard_get(selection), target_types.data(), target_types.size(), clipboard_get_func, clipboard_clear_func, cbd);
 }
@@ -2930,7 +2913,7 @@ static gboolean path_list_to_clipboard(GList *path_list, gboolean quoted, Clipbo
  * @param quoted
  * @param action
  */
-void file_util_copy_path_to_clipboard(FileData *fd, gboolean quoted, ClipboardAction action)
+void file_util_copy_path_to_clipboard(FileData *fd, gboolean quoted)
 {
 	if (!fd || !*fd->path) return;
 
@@ -2938,14 +2921,14 @@ void file_util_copy_path_to_clipboard(FileData *fd, gboolean quoted, ClipboardAc
 		{
 		GList *path_list = g_list_append(nullptr, g_strdup(fd->path));
 
-		path_list_to_clipboard(path_list, quoted, action, GDK_SELECTION_PRIMARY);
+		path_list_to_clipboard(path_list, quoted, GDK_SELECTION_PRIMARY);
 		}
 
 	if (options->clipboard_selection == CLIPBOARD_CLIPBOARD || options->clipboard_selection == CLIPBOARD_BOTH)
 		{
 		GList *path_list = g_list_append(nullptr, g_strdup(fd->path));
 
-		path_list_to_clipboard(path_list, quoted, action, GDK_SELECTION_CLIPBOARD);
+		path_list_to_clipboard(path_list, quoted, GDK_SELECTION_CLIPBOARD);
 		}
 }
 
@@ -2955,7 +2938,7 @@ void file_util_copy_path_to_clipboard(FileData *fd, gboolean quoted, ClipboardAc
  * @param quoted
  * @param action
  */
-void file_util_path_list_to_clipboard(GList *fd_list, gboolean quoted, ClipboardAction action)
+void file_util_path_list_to_clipboard(GList *fd_list, gboolean quoted)
 {
 	// FIXME Is it safe to use FileList::to_path_list()?
 	static const auto get_path_list = [](GList *fd_list)
@@ -2976,12 +2959,12 @@ void file_util_path_list_to_clipboard(GList *fd_list, gboolean quoted, Clipboard
 
 	if (options->clipboard_selection == CLIPBOARD_PRIMARY || options->clipboard_selection == CLIPBOARD_BOTH)
 		{
-		path_list_to_clipboard(get_path_list(fd_list), quoted, action, GDK_SELECTION_PRIMARY);
+		path_list_to_clipboard(get_path_list(fd_list), quoted, GDK_SELECTION_PRIMARY);
 		}
 
 	if (options->clipboard_selection == CLIPBOARD_CLIPBOARD || options->clipboard_selection == CLIPBOARD_BOTH)
 		{
-		path_list_to_clipboard(get_path_list(fd_list), quoted, action, GDK_SELECTION_CLIPBOARD);
+		path_list_to_clipboard(get_path_list(fd_list), quoted, GDK_SELECTION_CLIPBOARD);
 		}
 
 	filelist_free(fd_list);

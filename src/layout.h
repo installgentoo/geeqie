@@ -115,7 +115,6 @@ struct LayoutWindow
 	GtkWidget *info_status; /**< status bar */
 	GtkWidget *info_details; /**< status bar */
 	GtkWidget *info_zoom; /**< status bar */
-	GtkWidget *info_pixel; /**< status bar */
 
 	/* full screen */
 
@@ -187,7 +186,7 @@ gboolean layout_sort_get(LayoutWindow *lw, SortType *type, gboolean *ascend, gbo
 
 gboolean layout_geometry_get_dividers(LayoutWindow *lw, gint *h, gint *v);
 
-void layout_views_set(LayoutWindow *lw, DirViewType dir_view_type);
+void layout_views_set(LayoutWindow *lw);
 
 void layout_views_set_sort_dir(LayoutWindow *lw, SortType method, gboolean ascend, gboolean case_sensitive);
 
@@ -198,17 +197,6 @@ void layout_style_set(LayoutWindow *lw, gint style, const gchar *order);
 void layout_menu_update_edit();
 void layout_styles_update();
 void layout_colors_update();
-
-
-void layout_tools_float_set(LayoutWindow *lw, gboolean popped, gboolean hidden);
-gboolean layout_tools_float_get(LayoutWindow *lw, gboolean *popped, gboolean *hidden);
-
-void layout_tools_float_toggle(LayoutWindow *lw);
-void layout_tools_hide_toggle(LayoutWindow *lw);
-
-
-void layout_selectable_toolbars_toggle(LayoutWindow *lw);
-void layout_info_pixel_set(LayoutWindow *lw, gboolean show);
 
 gchar *layout_get_unique_id();
 guint layout_window_count();

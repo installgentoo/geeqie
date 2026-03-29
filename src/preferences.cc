@@ -260,7 +260,6 @@ static void config_window_apply()
 
 	options->file_ops.confirm_delete = c_options->file_ops.confirm_delete;
 	options->file_ops.enable_delete_key = c_options->file_ops.enable_delete_key;
-	options->file_ops.confirm_move_to_trash = c_options->file_ops.confirm_move_to_trash;
 	options->file_ops.use_system_trash = c_options->file_ops.use_system_trash;
 	options->file_ops.no_trash = c_options->file_ops.no_trash;
 	options->file_ops.safe_delete_folder_maxsize = c_options->file_ops.safe_delete_folder_maxsize;
@@ -381,12 +380,6 @@ static void config_window_apply()
 
 	options->info_title.height = c_options->info_title.height;
 	options->info_comment.height = c_options->info_comment.height;
-
-	options->expand_menu_toolbar = c_options->expand_menu_toolbar;
-
-	options->selectable_bars.menu_bar = c_options->selectable_bars.menu_bar;
-	options->selectable_bars.tool_bar = c_options->selectable_bars.tool_bar;
-	options->selectable_bars.status_bar = c_options->selectable_bars.status_bar;
 
 	options->with_rename = c_options->with_rename;
 	options->collections_duplicates = c_options->collections_duplicates;
@@ -1684,28 +1677,6 @@ static void config_tab_general(GtkWidget *notebook)
 
 	pref_spacer(group, PREF_PAD_GROUP);
 
-	group = pref_group_new(vbox, FALSE, _("Expand toolbar"), GTK_ORIENTATION_VERTICAL);
-
-	pref_checkbox_new_int(group, _("Expand menu/toolbar (NOTE! Geeqie must be restarted for change to take effect)"),
-				options->expand_menu_toolbar, &c_options->expand_menu_toolbar);
-	gtk_widget_set_tooltip_text(group, _("Expand the menu/toolbar to the full width of the window"));
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("Hide Selectable Bars"), GTK_ORIENTATION_VERTICAL);
-
-	pref_checkbox_new_int(group, _("Menu bar"),
-				options->selectable_bars.menu_bar, &c_options->selectable_bars.menu_bar);
-
-	pref_checkbox_new_int(group, _("Tool bar"),
-				options->selectable_bars.tool_bar, &c_options->selectable_bars.tool_bar);
-
-	pref_checkbox_new_int(group, _("Status bar"),
-				options->selectable_bars.status_bar, &c_options->selectable_bars.status_bar);
-	gtk_widget_set_tooltip_text(group, _("The Hide Selectable Bars menu item (default keystroke is control-backtick) will toggle the display of the bars selected here"));
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
 	group = pref_group_new(vbox, FALSE, _("On-line help search engine"), GTK_ORIENTATION_VERTICAL);
 
 	help_search_engine_entry = gtk_entry_new();
@@ -2495,8 +2466,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 
 	pref_checkbox_new_int(group, _("Confirm permanent file delete"),
 			      options->file_ops.confirm_delete, &c_options->file_ops.confirm_delete);
-	pref_checkbox_new_int(group, _("Confirm move file to Trash"),
-			      options->file_ops.confirm_move_to_trash, &c_options->file_ops.confirm_move_to_trash);
 	pref_checkbox_new_int(group, _("Enable Delete key"),
 			      options->file_ops.enable_delete_key, &c_options->file_ops.enable_delete_key);
 

@@ -441,40 +441,8 @@ static void li_pop_menu_copy_path_cb(GtkWidget *, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	file_util_copy_path_to_clipboard(layout_image_get_fd(lw), TRUE, ClipboardAction::COPY);
+	file_util_copy_path_to_clipboard(layout_image_get_fd(lw), TRUE);
 }
-
-static void li_pop_menu_copy_path_unquoted_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	file_util_copy_path_to_clipboard(layout_image_get_fd(lw), FALSE, ClipboardAction::COPY);
-}
-
-static void li_pop_menu_cut_path_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	file_util_copy_path_to_clipboard(layout_image_get_fd(lw), FALSE, ClipboardAction::CUT);
-}
-
-#if HAVE_GTK4
-static void li_pop_menu_copy_image_cb(GtkWidget *, gpointer data)
-{
-/* @FIXME GTK4 stub */
-}
-#else
-static void li_pop_menu_copy_image_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	ImageWindow *imd = lw->image;
-
-	GdkPixbuf *pixbuf;
-	pixbuf = image_get_pixbuf(imd);
-	if (!pixbuf) return;
-	gtk_clipboard_set_image(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), pixbuf);
-}
-#endif
 
 static void li_pop_menu_move_cb(GtkWidget *widget, gpointer data)
 {
@@ -496,16 +464,6 @@ static void li_pop_menu_delete_cb(GtkWidget *widget, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	options->file_ops.safe_delete_enable = FALSE;
-	file_util_delete(layout_image_get_fd(lw), nullptr,
-			 li_pop_menu_click_parent(widget, lw));
-}
-
-static void li_pop_menu_move_to_trash_cb(GtkWidget *widget, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	options->file_ops.safe_delete_enable = TRUE;
 	file_util_delete(layout_image_get_fd(lw), nullptr,
 			 li_pop_menu_click_parent(widget, lw));
 }
@@ -522,13 +480,6 @@ static void li_pop_menu_animate_cb(GtkWidget *, gpointer data)
 	auto lw = static_cast<LayoutWindow *>(data);
 
 	layout_image_animate_toggle(lw);
-}
-
-static void li_pop_menu_hide_cb(GtkWidget *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_tools_hide_toggle(lw);
 }
 
 static void layout_image_popup_menu_destroy_cb(GtkWidget *, gpointer data)
@@ -596,17 +547,8 @@ static GtkWidget *layout_image_pop_menu(LayoutWindow *lw)
 	item = menu_item_add(menu, _("_Rename..."), G_CALLBACK(li_pop_menu_rename_cb), lw);
 	if (!path) gtk_widget_set_sensitive(item, FALSE);
 	item = menu_item_add(menu, _("_Copy to clipboard"), G_CALLBACK(li_pop_menu_copy_path_cb), lw);
-	item = menu_item_add(menu, _("_Copy to clipboard (unquoted)"), G_CALLBACK(li_pop_menu_copy_path_unquoted_cb), lw);
-	item = menu_item_add(menu, _("Copy _image to clipboard"), G_CALLBACK(li_pop_menu_copy_image_cb), lw);
-	item = menu_item_add(menu, _("Cut to clipboard"), G_CALLBACK(li_pop_menu_cut_path_cb), lw);
-	if (!path) gtk_widget_set_sensitive(item, FALSE);
 	menu_item_add_divider(menu);
 
-	item = menu_item_add_icon(menu,
-				options->file_ops.confirm_move_to_trash ? _("Move to Trash...") :
-					_("Move to Trash"), GQ_ICON_DELETE,
-								G_CALLBACK(li_pop_menu_move_to_trash_cb), lw);
-	if (!path) gtk_widget_set_sensitive(item, FALSE);
 	item = menu_item_add_icon(menu,
 				options->file_ops.confirm_delete ? _("_Delete...") :
 					_("_Delete"), GQ_ICON_DELETE_SHRED,
@@ -624,14 +566,6 @@ static GtkWidget *layout_image_pop_menu(LayoutWindow *lw)
 		}
 
 	menu_item_add_check(menu, _("GIF _animation"), lw->options.animate, G_CALLBACK(li_pop_menu_animate_cb), lw);
-
-	menu_item_add_divider(menu);
-
-	item = menu_item_add_check(menu, _("Hide file _list"), lw->options.tools_hidden,
-				   G_CALLBACK(li_pop_menu_hide_cb), lw);
-
-	item = menu_item_add_check(menu, _("Hide Selectable Bars"), lw->options.selectable_toolbars_hidden, G_CALLBACK(layout_selectable_toolbars_toggle), lw);
-	if (fullscreen) gtk_widget_set_sensitive(item, FALSE);
 
 	return menu;
 }
@@ -900,16 +834,6 @@ void layout_image_set_overunderexposed(LayoutWindow *lw, gboolean overunderexpos
 	image_set_overunderexposed(lw->image, overunderexposed);
 }
 
-void layout_image_set_ignore_alpha(LayoutWindow *lw, gboolean ignore_alpha)
-{
-   if (!layout_valid(&lw)) return;
-
-   lw->options.ignore_alpha = ignore_alpha;
-   image_set_ignore_alpha(lw->image, ignore_alpha);
-}
-
-/* stereo */
-
 const gchar *layout_image_get_path(LayoutWindow *lw)
 {
 	if (!layout_valid(&lw)) return nullptr;
@@ -949,11 +873,6 @@ void layout_image_set_fd(LayoutWindow *lw, FileData *fd)
 
 	layout_list_sync_fd(lw, fd);
 	layout_image_animate_new_file(lw);
-
-	if (fd)
-		{
-		image_chain_append_end(fd->path);
-		}
 }
 
 void layout_image_set_with_ahead(LayoutWindow *lw, FileData *fd, FileData *read_ahead_fd)
@@ -1342,79 +1261,6 @@ static void layout_image_set_buttons(LayoutWindow *lw)
 	image_set_scroll_func(lw->image, layout_image_scroll_cb, lw);
 }
 
-
-/* Returns the length of an integer */
-static gint num_length(gint num)
-{
-	gint len = 0;
-	if (num < 0) num = -num;
-	while (num)
-		{
-		num /= 10;
-		len++;
-		}
-	return len;
-}
-
-static void layout_status_update_pixel_cb(PixbufRenderer *pr, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint x_pixel;
-	gint y_pixel;
-	gint width;
-	gint height;
-	gchar *text;
-	PangoAttrList *attrs;
-
-	if (!data || !layout_valid(&lw) || !lw->image
-	    || !lw->options.show_info_pixel || lw->image->unknown) return;
-
-	pixbuf_renderer_get_image_size(pr, &width, &height);
-	if (width < 1 || height < 1) return;
-
-	pixbuf_renderer_get_mouse_position(pr, &x_pixel, &y_pixel);
-
-	if(x_pixel >= 0 && y_pixel >= 0)
-		{
-		gint r_mouse;
-		gint g_mouse;
-		gint b_mouse;
-		gint a_mouse;
-
-		pixbuf_renderer_get_pixel_colors(pr, x_pixel, y_pixel,
-						 &r_mouse, &g_mouse, &b_mouse, &a_mouse);
-
-		if (gdk_pixbuf_get_has_alpha(pr->pixbuf))
-			{
-			text = g_strdup_printf(_("[%*d,%*d]: RGBA(%3d,%3d,%3d,%3d)"),
-					 num_length(width - 1), x_pixel,
-					 num_length(height - 1), y_pixel,
-					 r_mouse, g_mouse, b_mouse, a_mouse);
-			}
-		else
-			{
-			text = g_strdup_printf(_("[%*d,%*d]: RGB(%3d,%3d,%3d)"),
-					 num_length(width - 1), x_pixel,
-					 num_length(height - 1), y_pixel,
-					 r_mouse, g_mouse, b_mouse);
-			}
-		}
-	else
-		{
-		text = g_strdup_printf(_("[%*s,%*s]: RGB(---,---,---)"),
-					 num_length(width - 1), " ",
-					 num_length(height - 1), " ");
-		}
-
-	attrs = pango_attr_list_new();
-	pango_attr_list_insert(attrs, pango_attr_family_new("Monospace"));
-	gtk_label_set_text(GTK_LABEL(lw->info_pixel), text);
-	gtk_label_set_attributes(GTK_LABEL(lw->info_pixel), attrs);
-	pango_attr_list_unref(attrs);
-	g_free(text);
-}
-
-
 /*
  *----------------------------------------------------------------------------
  * setup
@@ -1435,9 +1281,6 @@ void layout_image_init(LayoutWindow *lw)
 	lw->image = imd;
 
 	g_object_ref(imd->widget);
-
-	g_signal_connect(G_OBJECT(imd->pr), "update-pixel",
-			 G_CALLBACK(layout_status_update_pixel_cb), lw);
 
 	image_background_set_color_from_options(imd, FALSE);
 	image_auto_refresh_enable(imd, TRUE);

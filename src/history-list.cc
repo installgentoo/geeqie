@@ -42,8 +42,6 @@ gint dirname_compare(gconstpointer data, gconstpointer user_data)
 
 } // namespace
 
-static void update_recent_viewed_folder_image_list(const gchar *path);
-
 /**
  * @file
  *-----------------------------------------------------------------------------
@@ -116,83 +114,6 @@ void history_chain_append_end(const gchar *path)
 	else
 		{
 		nav_button = FALSE;
-		}
-}
-
-/**
- * @file
- *-----------------------------------------------------------------------------
- * Implements an image history chain. Whenever an image is displayed it is
- * appended to a chain.
- * Pressing the Image Back and Image Forward buttons moves along the chain,
- * but does not make additions to the chain.
- * The chain always increases and is deleted at the end of the session
- *
- *-----------------------------------------------------------------------------
- */
-static GList *image_chain = nullptr;
-static guint image_chain_index = G_MAXUINT;
-static gboolean image_nav_button = FALSE; /** Used to prevent the nav buttons making entries to the chain **/
-const gchar *image_chain_back()
-{
-	image_nav_button = TRUE;
-
-	image_chain_index = image_chain_index > 0 ? image_chain_index - 1 : 0;
-
-	return static_cast<const gchar *>(g_list_nth_data(image_chain, image_chain_index));
-}
-
-const gchar *image_chain_forward()
-{
-	image_nav_button= TRUE;
-	guint last = g_list_length(image_chain) - 1;
-
-	image_chain_index = image_chain_index < last ? image_chain_index + 1 : last;
-
-	return static_cast<const gchar *>(g_list_nth_data(image_chain, image_chain_index));
-}
-
-/**
- * @brief Appends a path to the image history chain
- * @param path Image path selected
- *
- * Each time the user selects a new image it is appended to the chain
- * except when it is identical to the current last entry
- * The pointer is always moved to the end of the chain
- *
- * Updates the recent viewed image_list
- */
-void image_chain_append_end(const gchar *path)
-{
-	GList *work;
-
-	if (!image_nav_button)
-		{
-		if(image_chain_index == G_MAXUINT)
-			{
-			image_chain = g_list_append(image_chain, g_strdup(path));
-			image_chain_index = 0;
-			}
-		else
-			{
-			work = g_list_last(image_chain);
-			if (g_strcmp0(static_cast<const gchar *>(work->data) , path) != 0)
-				{
-				image_chain = g_list_append(image_chain, g_strdup(path));
-				image_chain_index = g_list_length(image_chain) - 1;
-				DEBUG_3("%d %s", image_chain_index, path);
-				}
-			else
-				{
-				image_chain_index = g_list_length(image_chain) - 1;
-				}
-			}
-
-		update_recent_viewed_folder_image_list(path);
-		}
-	else
-		{
-		image_nav_button = FALSE;
 		}
 }
 
@@ -555,41 +476,3 @@ gchar *get_recent_viewed_folder_image(gchar *path)
 
 	return g_strdup(static_cast<const gchar *>(work->data));
 }
-
-static void update_recent_viewed_folder_image_list(const gchar *path)
-{
-	HistoryData *hd;
-	GList *work;
-	gchar *image_dir = nullptr;
-
-	if (options->recent_folder_image_list_maxsize == 0)
-		{
-		return;
-		}
-
-	hd = history_list_find_by_key("image_list");
-	if (!hd)
-		{
-		hd = g_new(HistoryData, 1);
-		hd->key = g_strdup("image_list");
-		hd->list = nullptr;
-		history_list = g_list_prepend(history_list, hd);
-		}
-
-	image_dir = g_path_get_dirname(path);
-	work = g_list_find_custom(hd->list, image_dir, dirname_compare);
-	g_free(image_dir);
-
-	if (work)
-		{
-		g_free(work->data);
-		work->data = g_strdup(path);
-		hd->list = g_list_remove_link(hd->list, work);
-		hd->list = g_list_concat(work, hd->list);
-		}
-	else
-		{
-		hd->list = g_list_prepend(hd->list, g_strdup(path));
-		}
-}
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

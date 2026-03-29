@@ -89,8 +89,6 @@ hard_coded_window_keys image_window_keys[] = {
 	{GDK_CONTROL_MASK, 'C', N_("Copy")},
 	{GDK_CONTROL_MASK, 'M', N_("Move")},
 	{GDK_CONTROL_MASK, 'R', N_("Rename")},
-	{GDK_CONTROL_MASK, 'D', N_("Move to Trash")},
-	{static_cast<GdkModifierType>(0), GDK_KEY_Delete, N_("Move to Trash")},
 	{GDK_SHIFT_MASK, GDK_KEY_Delete, N_("Delete")},
 	{GDK_CONTROL_MASK, 'W', N_("Close window")},
 	{static_cast<GdkModifierType>(0), GDK_KEY_Page_Up, N_("Previous")},
@@ -109,16 +107,6 @@ hard_coded_window_keys image_window_keys[] = {
 	{static_cast<GdkModifierType>(0), 'Z', N_("Zoom 1:1")},
 	{static_cast<GdkModifierType>(0), GDK_KEY_KP_Divide, N_("Zoom 1:1")},
 	{static_cast<GdkModifierType>(0), GDK_KEY_1, N_("Zoom 1:1")},
-	{static_cast<GdkModifierType>(0), '2', N_("Zoom 2:1")},
-	{static_cast<GdkModifierType>(0), '3', N_("Zoom 3:1")},
-	{static_cast<GdkModifierType>(0), '4', N_("Zoom 4:1")},
-	{static_cast<GdkModifierType>(0), '7', N_("Zoom 1:4")},
-	{static_cast<GdkModifierType>(0), '8', N_("Zoom 1:3")},
-	{static_cast<GdkModifierType>(0), '9', N_("Zoom 1:2")},
-	{static_cast<GdkModifierType>(0), 'W', N_("Zoom fit window width")},
-	{static_cast<GdkModifierType>(0), 'H', N_("Zoom fit window height")},
-	{static_cast<GdkModifierType>(0), 'S', N_("Toggle slideshow")},
-	{static_cast<GdkModifierType>(0), 'P', N_("Pause slideshow")},
 	{static_cast<GdkModifierType>(0), 'R', N_("Reload image")},
 	{static_cast<GdkModifierType>(0), 'F', N_("Full screen")},
 	{static_cast<GdkModifierType>(0), 'V', N_("Fullscreen")},
@@ -362,7 +350,6 @@ static gboolean view_window_key_press_cb(GtkWidget * (widget), GdkEventKey *even
 				file_util_rename(image_get_fd(imd), nullptr, imd->widget);
 				break;
 			case 'D': case 'd':
-				options->file_ops.safe_delete_enable = TRUE;
 				file_util_delete(image_get_fd(imd), nullptr, imd->widget);
 				break;
 			case 'W': case 'w':
@@ -396,7 +383,6 @@ static gboolean view_window_key_press_cb(GtkWidget * (widget), GdkEventKey *even
 			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
 				if (options->file_ops.enable_delete_key)
 					{
-					options->file_ops.safe_delete_enable = FALSE;
 					file_util_delete(image_get_fd(imd), nullptr, imd->widget);
 					}
 				break;
@@ -476,7 +462,6 @@ static gboolean view_window_key_press_cb(GtkWidget * (widget), GdkEventKey *even
 			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
 				if (options->file_ops.enable_delete_key)
 					{
-					options->file_ops.safe_delete_enable = TRUE;
 					file_util_delete(image_get_fd(imd), nullptr, imd->widget);
 					}
 				break;
@@ -931,17 +916,6 @@ static void view_delete_cb(GtkWidget *, gpointer data)
 	ImageWindow *imd;
 
 	imd = view_window_active_image(vw);
-	options->file_ops.safe_delete_enable = FALSE;
-	file_util_delete(image_get_fd(imd), nullptr, imd->widget);
-}
-
-static void view_move_to_trash_cb(GtkWidget *, gpointer data)
-{
-	auto vw = static_cast<ViewWindow *>(data);
-	ImageWindow *imd;
-
-	imd = view_window_active_image(vw);
-	options->file_ops.safe_delete_enable = TRUE;
 	file_util_delete(image_get_fd(imd), nullptr, imd->widget);
 }
 
@@ -951,16 +925,7 @@ static void view_copy_path_cb(GtkWidget *, gpointer data)
 	ImageWindow *imd;
 
 	imd = view_window_active_image(vw);
-	file_util_copy_path_to_clipboard(image_get_fd(imd), TRUE, ClipboardAction::COPY);
-}
-
-static void view_copy_path_unquoted_cb(GtkWidget *, gpointer data)
-{
-	auto vw = static_cast<ViewWindow *>(data);
-	ImageWindow *imd;
-
-	imd = view_window_active_image(vw);
-	file_util_copy_path_to_clipboard(image_get_fd(imd), FALSE, ClipboardAction::COPY);
+	file_util_copy_path_to_clipboard(image_get_fd(imd), TRUE);
 }
 
 static void view_fullscreen_cb(GtkWidget *, gpointer data)
@@ -1029,13 +994,8 @@ static GtkWidget *view_popup_menu(ViewWindow *vw)
 	menu_item_add(menu, _("_Move..."), G_CALLBACK(view_move_cb), vw);
 	menu_item_add(menu, _("_Rename..."), G_CALLBACK(view_rename_cb), vw);
 	menu_item_add(menu, _("_Copy path"), G_CALLBACK(view_copy_path_cb), vw);
-	menu_item_add(menu, _("_Copy path unquoted"), G_CALLBACK(view_copy_path_unquoted_cb), vw);
 
 	menu_item_add_divider(menu);
-	menu_item_add_icon(menu,
-				options->file_ops.confirm_move_to_trash ? _("Move to Trash...") :
-					_("Move to Trash"), GQ_ICON_DELETE,
-				G_CALLBACK(view_move_to_trash_cb), vw);
 	menu_item_add_icon(menu,
 				options->file_ops.confirm_delete ? _("_Delete...") :
 					_("_Delete"), GQ_ICON_DELETE_SHRED,
