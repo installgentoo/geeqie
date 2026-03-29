@@ -96,9 +96,6 @@ void layout_image_full_screen_start(LayoutWindow *lw)
 
 	layout_image_set_buttons(lw);
 
-	g_signal_connect(G_OBJECT(lw->full_screen->window), "key_press_event",
-			 G_CALLBACK(layout_key_press_cb), lw);
-
 	layout_actions_add_window(lw, lw->full_screen->window);
 
 	image_osd_copy_status(lw->full_screen->normal_imd, lw->image);
@@ -570,128 +567,6 @@ void layout_image_menu_popup(LayoutWindow *lw)
 	menu = layout_image_pop_menu(lw);
 	gtk_menu_popup_at_widget(GTK_MENU(menu), lw->image->widget, GDK_GRAVITY_EAST, GDK_GRAVITY_CENTER, nullptr);
 }
-
-/*
- *----------------------------------------------------------------------------
- * dnd
- *----------------------------------------------------------------------------
- */
-
-static void layout_image_dnd_receive(GtkWidget *, GdkDragContext *,
-				     gint, gint,
-				     GtkSelectionData *selection_data, guint info,
-				     guint, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gchar *url;
-
-
-	if (info == TARGET_TEXT_PLAIN)
-		{
-		url = g_strdup(reinterpret_cast<const gchar *>(gtk_selection_data_get_data(selection_data)));
-		download_web_file(url, FALSE, lw);
-		g_free(url);
-		}
-	else if (info == TARGET_URI_LIST)
-		{
-		GList *list;
-
-		if (info == TARGET_URI_LIST)
-			{
-			list = uri_filelist_from_gtk_selection_data(selection_data);
-			}
-
-		if (list)
-			{
-			auto fd = static_cast<FileData *>(list->data);
-
-			if (isfile(fd->path))
-				{
-				gchar *base;
-				gint row;
-				FileData *dir_fd;
-
-				base = remove_level_from_path(fd->path);
-				dir_fd = file_data_new_dir(base);
-				if (dir_fd != lw->dir_fd)
-					{
-					layout_set_fd(lw, dir_fd);
-					}
-				file_data_unref(dir_fd);
-				g_free(base);
-
-				row = layout_list_get_index(lw, fd);
-					if (row == -1)
-					{
-					layout_image_set_fd(lw, fd);
-					}
-				else
-					{
-					layout_image_set_index(lw, row);
-					}
-				}
-			else if (isdir(fd->path))
-				{
-				layout_set_fd(lw, fd);
-				layout_image_set_fd(lw, nullptr);
-				}
-			}
-
-		filelist_free(list);
-		}
-}
-
-static void layout_image_dnd_get(GtkWidget *, GdkDragContext *,
-				 GtkSelectionData *selection_data, guint,
-				 guint, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	FileData *fd;
-
-		fd = layout_image_get_fd(lw);
-
-	if (fd)
-		{
-		GList *list;
-
-		list = g_list_append(nullptr, fd);
-		uri_selection_data_set_uris_from_filelist(selection_data, list);
-		g_list_free(list);
-		}
-	else
-		{
-		gtk_selection_data_set(selection_data, gtk_selection_data_get_target(selection_data),
-				       8, nullptr, 0);
-		}
-}
-
-static void layout_image_dnd_end(GtkWidget *, GdkDragContext *context, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	if (gdk_drag_context_get_selected_action(context) == GDK_ACTION_MOVE)
-		{
-		FileData *fd;
-		gint row;
-
-		fd = layout_image_get_fd(lw);
-		row = layout_list_get_index(lw, fd);
-		if (row < 0) return;
-
-		if (!isfile(fd->path))
-			{
-			if (static_cast<guint>(row) < layout_list_count(lw, nullptr) - 1)
-				{
-				layout_image_next(lw);
-				}
-			else
-				{
-				layout_image_prev(lw);
-				}
-			}
-		layout_refresh(lw);
-		}
-}
-
 
 /*
  *----------------------------------------------------------------------------
@@ -1270,21 +1145,6 @@ void layout_image_init(LayoutWindow *lw)
 
 	image_background_set_color_from_options(imd, FALSE);
 	image_auto_refresh_enable(imd, TRUE);
-
-	/* DnD — inlined from layout_image_dnd_init */
-	gtk_drag_source_set(imd->pr, GDK_BUTTON2_MASK,
-	                    dnd_file_drag_types.data(), dnd_file_drag_types.size(),
-	                    static_cast<GdkDragAction>(GDK_ACTION_COPY | GDK_ACTION_MOVE | GDK_ACTION_LINK));
-	g_signal_connect(G_OBJECT(imd->pr), "drag_data_get",
-			 G_CALLBACK(layout_image_dnd_get), lw);
-	g_signal_connect(G_OBJECT(imd->pr), "drag_end",
-			 G_CALLBACK(layout_image_dnd_end), lw);
-	gtk_drag_dest_set(imd->pr,
-	                  static_cast<GtkDestDefaults>(GTK_DEST_DEFAULT_MOTION | GTK_DEST_DEFAULT_DROP),
-	                  dnd_file_drop_types.data(), dnd_file_drop_types.size(),
-	                  static_cast<GdkDragAction>(GDK_ACTION_COPY | GDK_ACTION_MOVE | GDK_ACTION_LINK));
-	g_signal_connect(G_OBJECT(imd->pr), "drag_data_received",
-			 G_CALLBACK(layout_image_dnd_receive), lw);
 
 	image_color_profile_set(imd,
 				options->color_profile.input_type,

@@ -3009,24 +3009,10 @@ static void dupe_window_recompare(DupeWindow *dw)
 	dupe_check_start(dw);
 }
 
-static void dupe_menu_view(DupeWindow *dw, DupeItem *di, GtkWidget *listview, gint new_window)
+static void dupe_menu_view(DupeWindow *, DupeItem *di, GtkWidget *, gint)
 {
 	if (!di) return;
-
-		{
-		if (new_window)
-			{
-			GList *list;
-
-			list = dupe_listview_get_selection(dw, listview);
-			view_window_new_from_list(list);
-			filelist_free(list);
-			}
-		else
-			{
-			layout_set_fd(nullptr, di->fd);
-			}
-		}
+	layout_set_fd(nullptr, di->fd);
 }
 
 static void dupe_window_remove_selection(DupeWindow *dw, GtkWidget *listview, gboolean do_colors)
@@ -3075,17 +3061,6 @@ static void dupe_window_remove_selection(DupeWindow *dw, GtkWidget *listview, gb
 static void dupe_window_edit_selected(DupeWindow *dw, const gchar *key)
 {
 	file_util_start_editor_from_filelist(key, dupe_listview_get_selection(dw, dw->listview), nullptr, dw->window);
-}
-
-static void dupe_window_append_file_list(DupeWindow *dw, gint on_second)
-{
-	GList *list;
-
-	dw->second_drop = (dw->second_set && on_second);
-
-	list = layout_list(nullptr);
-	dupe_window_add_files(dw, list, FALSE);
-	filelist_free(list);
 }
 
 /*
@@ -3984,9 +3959,6 @@ static gboolean dupe_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, g
 						dupe_window_clear(dw);
 						}
 					break;
-				case 'L': case 'l':
-					dupe_window_append_file_list(dw, FALSE);
-					break;
 				case 'T': case 't':
 					gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(dw->button_thumbs),
 						!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(dw->button_thumbs)));
@@ -4019,12 +3991,6 @@ static gboolean dupe_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, g
 		stop_signal = TRUE;
 		switch (event->keyval)
 			{
-			case GDK_KEY_Return: case GDK_KEY_KP_Enter:
-				dupe_menu_view(dw, di, listview, FALSE);
-				break;
-			case 'V': case 'v':
-				dupe_menu_view(dw, di, listview, TRUE);
-				break;
 			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
 				dupe_window_remove_selection(dw, listview, FALSE);
 				break;

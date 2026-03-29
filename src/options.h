@@ -314,7 +314,6 @@ struct LayoutOptions
 	SortParams file_view_list_sort;
 
 	gboolean show_file_filter;
-	gboolean show_directory_date;
 
 	struct {
 		GdkRectangle rect;

@@ -1151,43 +1151,6 @@ void layout_views_set_sort_dir(LayoutWindow *lw, SortType method, gboolean ascen
 	lw->options.dir_view_list_sort.case_sensitive = case_sensitive;
 }
 
-/*
- *-----------------------------------------------------------------------------
- * tools window (for floating/hidden)
- *-----------------------------------------------------------------------------
- */
-
-static gboolean layout_geometry_get_tools(LayoutWindow *lw, GdkRectangle &rect, gint &divider_pos)
-{
-	GdkWindow *window;
-	GtkAllocation allocation;
-	if (!layout_valid(&lw)) return FALSE;
-
-	if (!lw->tools || !gtk_widget_get_visible(lw->tools))
-		{
-		/* use the stored values (sort of breaks success return value) */
-
-		divider_pos = lw->options.float_window.vdivider_pos;
-
-		return FALSE;
-		}
-
-	window = gtk_widget_get_window(lw->tools);
-	rect = window_get_root_origin_geometry(window);
-	gtk_widget_get_allocation(gtk_paned_get_child1(GTK_PANED(lw->tools_pane)), &allocation);
-
-	if (gtk_orientable_get_orientation(GTK_ORIENTABLE(lw->tools_pane)) == GTK_ORIENTATION_VERTICAL)
-		{
-		divider_pos = allocation.height;
-		}
-	else
-		{
-		divider_pos = allocation.width;
-		}
-
-	return TRUE;
-}
-
 static gboolean layout_geometry_get_log_window(LayoutWindow *lw, GdkRectangle &log_window)
 {
 	GdkWindow *window;
@@ -1203,11 +1166,6 @@ static gboolean layout_geometry_get_log_window(LayoutWindow *lw, GdkRectangle &l
 	log_window = window_get_root_origin_geometry(window);
 
 	return TRUE;
-}
-
-static void layout_tools_geometry_sync(LayoutWindow *lw)
-{
-	layout_geometry_get_tools(lw, lw->options.float_window.rect, lw->options.float_window.vdivider_pos);
 }
 
 static void layout_grid_setup(LayoutWindow *lw)
@@ -1235,14 +1193,6 @@ static void layout_grid_setup(LayoutWindow *lw)
 	files = layout_list_new(lw);
 	DEBUG_NAME(files);
 
-	if (lw->tools)
-		{
-		layout_tools_geometry_sync(lw);
-		gq_gtk_widget_destroy(lw->tools);
-		lw->tools = nullptr;
-		lw->tools_pane = nullptr;
-		}
-
 	layout_status_setup(lw, lw->group_box, FALSE);
 
 	/* Hardcoded layout: tools left, files right */
@@ -1264,22 +1214,6 @@ static void layout_grid_setup(LayoutWindow *lw)
 	image_grab_focus(lw->image);
 }
 
-void layout_colors_update()
-{
-	GList *work;
-
-	work = layout_window_list;
-	while (work)
-		{
-		auto lw = static_cast<LayoutWindow *>(work->data);
-		work = work->next;
-
-		if (!lw->image) continue;
-
-		image_background_set_color_from_options(lw->image, !!lw->full_screen);
-		}
-}
-
 /*
  *-----------------------------------------------------------------------------
  * base
@@ -1298,28 +1232,12 @@ void layout_sync_options_with_current_state(LayoutWindow *lw)
 
 	layout_geometry_get_dividers(lw, &lw->options.main_window.hdivider_pos, &lw->options.main_window.vdivider_pos);
 
-	layout_geometry_get_tools(lw, lw->options.float_window.rect, lw->options.float_window.vdivider_pos);
-
 	lw->options.image_overlay.state = image_osd_get(lw->image);
 
 	g_free(lw->options.last_path);
 	lw->options.last_path = g_strdup(layout_get_path(lw));
 
 	layout_geometry_get_log_window(lw, lw->options.log_window);
-}
-
-void layout_apply_options(LayoutWindow *lw, LayoutOptions *lop)
-{
-	gboolean refresh_lists;
-
-	if (!layout_valid(&lw)) return;
-/** @FIXME add other options too */
-
-	refresh_lists = (lop->show_directory_date != lw->options.show_directory_date);
-
-	copy_layout_options(&lw->options, lop);
-
-	if (refresh_lists) layout_refresh(lw);
 }
 
 LayoutWindow *layout_new(FileData *dir_fd, LayoutOptions *lop)
@@ -1374,8 +1292,6 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 
 	g_signal_connect(G_OBJECT(lw->window), "focus-in-event",
 			 G_CALLBACK(layout_set_current_cb), lw);
-
-	layout_keyboard_init(lw, lw->window);
 
 	lw->main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 	DEBUG_NAME(lw->main_box);
@@ -1434,7 +1350,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_BOOL(*layout, dir_view_list_sort.ascend);
 	WRITE_NL(); WRITE_BOOL(*layout, dir_view_list_sort.case_sensitive);
 	WRITE_NL(); WRITE_BOOL(*layout, show_file_filter);
-	WRITE_NL(); WRITE_BOOL(*layout, show_directory_date);
 	WRITE_NL(); WRITE_CHAR(*layout, home_path);
 	WRITE_NL(); WRITE_UINT(*layout, startup_path);
 	WRITE_SEPARATOR();
@@ -1514,7 +1429,6 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_BOOL(*layout, dir_view_list_sort.ascend)) continue;
 		if (READ_BOOL(*layout, dir_view_list_sort.case_sensitive)) continue;
 		if (READ_BOOL(*layout, show_file_filter)) continue;
-		if (READ_BOOL(*layout, show_directory_date)) continue;
 		if (READ_CHAR(*layout, home_path)) continue;
 		if (READ_UINT_ENUM_CLAMP(*layout, startup_path, 0, STARTUP_PATH_HOME)) continue;
 
@@ -1650,15 +1564,13 @@ LayoutWindow *layout_new_from_config(const gchar **attribute_names, const gchar 
 	return lw;
 }
 
-void layout_update_from_config(LayoutWindow *lw, const gchar **attribute_names, const gchar **attribute_values)
+void layout_update_from_config(LayoutWindow *, const gchar **attribute_names, const gchar **attribute_values)
 {
 	LayoutOptions lop;
 
 	init_layout_options(&lop);
 
 	if (attribute_names) layout_load_attributes(&lop, attribute_names, attribute_values);
-
-	layout_apply_options(lw, &lop);
 
 	free_layout_options_content(&lop);
 }

@@ -939,8 +939,6 @@ static void set_theme_bg_color()
 			work = work->next;
 			}
 		}
-
-	view_window_colors_update();
 }
 
 static gboolean theme_change_cb(GObject *, GParamSpec *, gpointer)

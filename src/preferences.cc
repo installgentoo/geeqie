@@ -312,8 +312,6 @@ static void config_window_apply()
 		options->image.use_custom_border_color_in_fullscreen = c_options->image.use_custom_border_color_in_fullscreen;
 		options->image.use_custom_border_color = c_options->image.use_custom_border_color;
 		options->image.border_color = c_options->image.border_color;
-		layout_colors_update();
-		view_window_colors_update();
 		}
 
 	options->image.alpha_color_1 = c_options->image.alpha_color_1;

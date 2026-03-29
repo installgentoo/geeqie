@@ -763,30 +763,11 @@ void view_window_new(FileData *fd)
 		}
 }
 
-void view_window_new_from_list(GList *list)
-{
-	real_view_window_new(nullptr, list, nullptr, nullptr);
-}
-
 /*
  *-----------------------------------------------------------------------------
  * public
  *-----------------------------------------------------------------------------
  */
-
-void view_window_colors_update()
-{
-	GList *work;
-
-	work = view_window_list;
-	while (work)
-		{
-		auto vw = static_cast<ViewWindow *>(work->data);
-		work = work->next;
-
-		image_background_set_color_from_options(vw->imd, !!vw->fs);
-		}
-}
 
 gboolean view_window_find_image(ImageWindow *imd, gint *index, gint *total)
 {

@@ -28,9 +28,6 @@ class FileData;
 struct ImageWindow;
 
 void view_window_new(FileData *fd);
-void view_window_new_from_list(GList *list);
-
-void view_window_colors_update();
 
 gboolean view_window_find_image(ImageWindow *imd, gint *index, gint *total);
 

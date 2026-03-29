@@ -186,7 +186,6 @@ static gboolean vdlist_populate(ViewDir *vd, gboolean clear)
 		{
 		gint match;
 		GdkPixbuf *pixbuf;
-		const gchar *date = "";
 		gboolean done = FALSE;
 
 		fd = static_cast<FileData *>(work->data);
@@ -212,8 +211,6 @@ static gboolean vdlist_populate(ViewDir *vd, gboolean clear)
 			else
 				{
 				pixbuf = vd->pf->close;
-				if (vd->layout && vd->layout->options.show_directory_date)
-					date = text_from_time(fd->date);
 				}
 			}
 		else
@@ -275,7 +272,6 @@ static gboolean vdlist_populate(ViewDir *vd, gboolean clear)
 						   DIR_COLUMN_ICON, pixbuf,
 						   DIR_COLUMN_NAME, fd->name,
 						   DIR_COLUMN_LINK, link,
-						   DIR_COLUMN_DATE, date,
 						   -1);
 
 				done = TRUE;
@@ -290,7 +286,6 @@ static gboolean vdlist_populate(ViewDir *vd, gboolean clear)
 						   DIR_COLUMN_ICON, pixbuf,
 						   DIR_COLUMN_NAME, fd->name,
 						   DIR_COLUMN_LINK, link,
-						   DIR_COLUMN_DATE, date,
 						   -1);
 
 				if (valid) valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(store), &iter);

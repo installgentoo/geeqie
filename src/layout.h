@@ -75,11 +75,6 @@ struct LayoutWindow
 
 	ImageWindow *image;
 
-	/* tools window (float) */
-
-	GtkWidget *tools;
-	GtkWidget *tools_pane;
-
 	GtkWidget *menu_bar; /**< referenced by lw, exist during whole lw lifetime */
 	/* toolbar */
 
@@ -118,8 +113,6 @@ LayoutWindow *layout_new_from_default();
 gboolean layout_valid(LayoutWindow **lw);
 
 void layout_show_config_window(LayoutWindow *lw);
-
-void layout_apply_options(LayoutWindow *lw, LayoutOptions *lop);
 
 void layout_sync_options_with_current_state(LayoutWindow *lw);
 void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names, const gchar **attribute_values);
@@ -172,7 +165,6 @@ void layout_status_update(LayoutWindow *lw, const gchar *text);
 
 void layout_menu_update_edit();
 void layout_styles_update();
-void layout_colors_update();
 
 gchar *layout_get_unique_id();
 guint layout_window_count();

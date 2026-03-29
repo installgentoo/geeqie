@@ -1221,9 +1221,6 @@ static gboolean search_result_keypress_cb(GtkWidget *widget, GdkEventKey *event,
 			case 'R': case 'r':
 				file_util_rename(nullptr, search_result_selection_list(sd), widget);
 				break;
-			case 'D': case 'd':
-				file_util_delete(nullptr, search_result_selection_list(sd), widget);
-				break;
 			case 'A': case 'a':
 				if (event->state & GDK_SHIFT_MASK)
 					{
@@ -1247,18 +1244,6 @@ static gboolean search_result_keypress_cb(GtkWidget *widget, GdkEventKey *event,
 		stop_signal = TRUE;
 		switch (event->keyval)
 			{
-			case GDK_KEY_Return: case GDK_KEY_KP_Enter:
-				if (mfd) layout_set_fd(nullptr, mfd->fd);
-				break;
-			case 'V': case 'v':
-				{
-				GList *list;
-
-				list = search_result_selection_list(sd);
-				view_window_new_from_list(list);
-				filelist_free(list);
-				}
-				break;
 			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
 				search_result_remove_selection(sd);
 				break;

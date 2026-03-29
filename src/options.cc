@@ -248,7 +248,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->search_window = {100, 100, 700, 650};
 	options->dupe_window = {100, 100, 800, 400};
 	options->folder_window.vdivider_pos = 100;
-	options->show_directory_date = FALSE;
 	options->show_file_filter = FALSE;
 	options->image_overlay.state = OSD_SHOW_NOTHING;
 	options->animate = TRUE;
