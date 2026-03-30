@@ -41,15 +41,12 @@ void write_uint_option(GString *str, gint indent, const gchar *label, guint n);
 gboolean read_uint_option(const gchar *option, const gchar *label, const gchar *value, guint *n);
 gboolean read_uint_option_clamp(const gchar *option, const gchar *label, const gchar *value, guint *n, guint min, guint max);
 gboolean read_int_option_clamp(const gchar *option, const gchar *label, const gchar *value, gint *n, gint min, gint max);
-void write_int_unit_option(GString *str, gint indent, const gchar *label, gint n, gint subunits);
-gboolean read_int_unit_option(const gchar *option, const gchar *label, const gchar *value, gint *n, gint subunits);
 void write_bool_option(GString *str, gint indent, const gchar *label, gint n);
 gboolean read_bool_option(const gchar *option, const gchar *label, const gchar *value, gint *n);
 
 #define WRITE_BOOL(_source_, _name_) write_bool_option(outstr, indent, #_name_, (_source_)._name_)
 #define WRITE_INT(_source_, _name_) write_int_option(outstr, indent, #_name_, (_source_)._name_)
 #define WRITE_UINT(_source_, _name_) write_uint_option(outstr, indent, #_name_, (_source_)._name_)
-#define WRITE_INT_UNIT(_source_, _name_, _unit_) write_int_unit_option(outstr, indent, #_name_, (_source_)._name_, _unit_)
 #define WRITE_CHAR(_source_, _name_) write_char_option(outstr, indent, #_name_, (_source_)._name_)
 #define WRITE_COLOR(_source_, _name_) write_color_option(outstr, indent, #_name_, &(_source_)._name_)
 
@@ -68,7 +65,6 @@ gboolean read_bool_option(const gchar *option, const gchar *label, const gchar *
 #define READ_INT_CLAMP(_target_, _name_, _min_, _max_) read_int_option_clamp(option, #_name_, value, &(_target_)._name_, _min_, _max_)
 #define READ_UINT_CLAMP(_target_, _name_, _min_, _max_) read_uint_option_clamp(option, #_name_, value, &(_target_)._name_, _min_, _max_)
 #define READ_UINT_ENUM_CLAMP(_target_, _name_, _min_, _max_) read_uint_option_clamp(option, #_name_, value, (guint*)&(_target_)._name_, _min_, _max_)
-#define READ_INT_UNIT(_target_, _name_, _unit_) read_int_unit_option(option, #_name_, value, &(_target_)._name_, _unit_)
 #define READ_CHAR(_target_, _name_) read_char_option(option, #_name_, value, &(_target_)._name_)
 #define READ_COLOR(_target_, _name_) read_color_option(option, #_name_, value, &(_target_)._name_)
 
@@ -76,7 +72,6 @@ gboolean read_bool_option(const gchar *option, const gchar *label, const gchar *
 #define READ_INT_FULL(_name_, _target_) read_int_option(option, _name_, value, &(_target_))
 #define READ_UINT_FULL(_name_, _target_) read_uint_option(option, _name_, value, &(_target_))
 #define READ_INT_CLAMP_FULL(_name_, _target_, _min_, _max_) read_int_option_clamp(option, _name_, value, &(_target_), _min_, _max_)
-#define READ_INT_UNIT_FULL(_name_, _target_, _unit_) read_int_unit_option(option, _name_, value, &(_target_), _unit_)
 #define READ_CHAR_FULL(_name_, _target_) read_char_option(option, _name_, value, &(_target_))
 #define READ_COLOR_FULL(_name_, _target_) read_color_option(option, _name_, value, &(_target_))
 
@@ -84,7 +79,6 @@ gboolean read_bool_option(const gchar *option, const gchar *label, const gchar *
 
 
 gboolean save_config_to_file(const gchar *utf8_path, ConfOptions *options, LayoutWindow *lw);
-gboolean save_default_layout_options_to_file(const gchar *utf8_path, ConfOptions *options, LayoutWindow *lw);
 
 gboolean load_config_from_buf(const gchar *buf, gsize size, gboolean startup);
 gboolean load_config_from_file(const gchar *utf8_path, gboolean startup);

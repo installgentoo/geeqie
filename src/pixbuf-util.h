@@ -99,14 +99,6 @@ void pixbuf_draw_triangle(GdkPixbuf *pb, GdkRectangle clip,
                           GdkPoint c1, GdkPoint c2, GdkPoint c3,
                           guint8 r, guint8 g, guint8 b, guint8 a);
 
-void pixbuf_draw_line(GdkPixbuf *pb, GdkRectangle clip,
-                      gint x1, gint y1, gint x2, gint y2,
-                      guint8 r, guint8 g, guint8 b, guint8 a);
-
-void pixbuf_draw_shadow(GdkPixbuf *pb, GdkRectangle clip,
-                        gint x, gint y, gint w, gint h, gint border,
-                        guint8 r, guint8 g, guint8 b, guint8 a);
-
 void pixbuf_desaturate_rect(GdkPixbuf *pb,
 			    gint x, gint y, gint w, gint h);
 

@@ -64,7 +64,6 @@ const gchar *get_rc_dir();
 const gchar *get_trash_dir();
 
 gboolean stat_utf8(const gchar *s, struct stat *st);
-gboolean lstat_utf8(const gchar *s, struct stat *st);
 
 gboolean isname(const gchar *s);
 gboolean isfile(const gchar *s);
@@ -78,7 +77,6 @@ gboolean access_file(const gchar *s, gint mode);
 gboolean unlink_file(const gchar *s);
 gboolean mkdir_utf8(const gchar *s, gint mode);
 gboolean rmdir_utf8(const gchar *s);
-gboolean copy_file_attributes(const gchar *s, const gchar *t, gint perms, gint mtime);
 gboolean copy_file(const gchar *s, const gchar *t);
 gboolean move_file(const gchar *s, const gchar *t);
 gboolean rename_file(const gchar *s, const gchar *t);
@@ -97,15 +95,12 @@ gboolean file_extension_match(const gchar *path, const gchar *ext);
 
 void parse_out_relatives(gchar *path);
 
-gboolean file_in_path(const gchar *name);
-
 gboolean recursive_mkdir_if_not_exists(const gchar *path, mode_t mode);
 
 gchar *md5_text_from_file_utf8(const gchar *path, const gchar *error_text);
 gboolean md5_get_digest_from_file_utf8(const gchar *path, guchar digest[16]);
 
 gboolean download_web_file(const gchar *text, gboolean minimized, gpointer data);
-gboolean rmdir_recursive(GFile *file, GCancellable *cancellable, GError **error);
 gint scale_factor();
 
 guchar *map_file(const gchar *path, gsize &map_len);

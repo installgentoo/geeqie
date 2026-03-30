@@ -55,7 +55,6 @@ void layout_image_scroll(LayoutWindow *lw, gint x, gint y, gboolean connect_scro
 void layout_image_zoom_adjust(LayoutWindow *lw, gdouble increment);
 void layout_image_zoom_adjust_at_point(LayoutWindow *lw, gdouble increment, gint x, gint y);
 void layout_image_zoom_set(LayoutWindow *lw, gdouble zoom);
-void layout_image_zoom_set_fill_geometry(LayoutWindow *lw, gboolean vertical);
 void layout_image_set_desaturate(LayoutWindow *lw, gboolean desaturate);
 gboolean layout_image_get_desaturate(LayoutWindow *lw);
 void layout_image_set_overunderexposed(LayoutWindow *lw, gboolean overunderexposed);

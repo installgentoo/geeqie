@@ -720,16 +720,6 @@ GList *vficon_selection_get_list_by_index(ViewFile *vf)
 	return g_list_reverse(list);
 }
 
-void vficon_selection_foreach(ViewFile *vf, const ViewFile::SelectionCallback &func)
-{
-	for (GList *work = VFICON(vf)->selection; work; work = work->next)
-		{
-		auto *fd_n = static_cast<FileData *>(work->data);
-
-		func(fd_n);
-		}
-}
-
 void vficon_select_by_fd(ViewFile *vf, FileData *fd)
 {
 	if (!fd) return;
@@ -742,26 +732,6 @@ void vficon_select_by_fd(ViewFile *vf, FileData *fd)
 		}
 
 	vficon_set_focus(vf, fd);
-}
-
-void vficon_select_list(ViewFile *vf, GList *list)
-{
-	GList *work;
-	FileData *fd;
-
-	if (!list) return;
-
-	work = list;
-	while (work)
-		{
-		fd = static_cast<FileData *>(work->data);
-		if (g_list_find(vf->list, fd))
-			{
-			VFICON(vf)->selection = g_list_append(VFICON(vf)->selection, fd);
-			vficon_selection_add(vf, fd, SELECTION_SELECTED, nullptr);
-			}
-		work = work->next;
-		}
 }
 
 static void vficon_select_closest(ViewFile *vf, FileData *sel_fd)

@@ -357,7 +357,6 @@ static void pixbuf_renderer_init(PixbufRenderer *pr)
 	pr->x_mouse = -1;
 	pr->y_mouse = -1;
 
-	pr->source_tiles_enabled = FALSE;
 	pr->source_tiles = nullptr;
 
 	pr->orientation = 1;
@@ -727,261 +726,6 @@ static void pr_source_tile_free_all(PixbufRenderer *pr)
 static void pr_source_tile_unset(PixbufRenderer *pr)
 {
 	pr_source_tile_free_all(pr);
-	pr->source_tiles_enabled = FALSE;
-}
-
-static gboolean pr_source_tile_visible(PixbufRenderer *pr, SourceTile *st)
-{
-	gint x1;
-	gint y1;
-	gint x2;
-	gint y2;
-
-	if (!st) return FALSE;
-
-	x1 = pr->x_scroll;
-	y1 = pr->y_scroll;
-	x2 = pr->x_scroll + pr->vis_width;
-	y2 = pr->y_scroll + pr->vis_height;
-
-	return static_cast<gdouble>(st->x) * pr->scale <= static_cast<gdouble>(x2) &&
-		 static_cast<gdouble>(st->x + pr->source_tile_width) * pr->scale >= static_cast<gdouble>(x1) &&
-		 static_cast<gdouble>(st->y) * pr->scale <= static_cast<gdouble>(y2) &&
-		 static_cast<gdouble>(st->y + pr->source_tile_height) * pr->scale >= static_cast<gdouble>(y1);
-}
-
-static SourceTile *pr_source_tile_new(PixbufRenderer *pr, gint x, gint y)
-{
-	SourceTile *st = nullptr;
-	gint count;
-
-	g_return_val_if_fail(pr->source_tile_width >= 1 && pr->source_tile_height >= 1, NULL);
-
-	if (pr->source_tiles_cache_size < 4) pr->source_tiles_cache_size = 4;
-
-	count = g_list_length(pr->source_tiles);
-	if (count >= pr->source_tiles_cache_size)
-		{
-		GList *work;
-
-		work = g_list_last(pr->source_tiles);
-		while (work && count >= pr->source_tiles_cache_size)
-			{
-			SourceTile *needle;
-
-			needle = static_cast<SourceTile *>(work->data);
-			work = work->prev;
-
-			if (!pr_source_tile_visible(pr, needle))
-				{
-				pr->source_tiles = g_list_remove(pr->source_tiles, needle);
-
-				if (pr->func_tile_dispose)
-					{
-					pr->func_tile_dispose(pr, needle->x, needle->y,
-							      pr->source_tile_width, pr->source_tile_height,
-							      needle->pixbuf, pr->func_tile_data);
-					}
-
-				if (!st)
-					{
-					st = needle;
-					}
-				else
-					{
-					pr_source_tile_free(needle);
-					}
-
-				count--;
-				}
-			}
-		}
-
-	if (!st)
-		{
-		st = g_new0(SourceTile, 1);
-		st->pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8,
-					    pr->source_tile_width, pr->source_tile_height);
-		}
-
-	st->x = ROUND_DOWN(x, pr->source_tile_width);
-	st->y = ROUND_DOWN(y, pr->source_tile_height);
-	st->blank = TRUE;
-
-	pr->source_tiles = g_list_prepend(pr->source_tiles, st);
-
-	return st;
-}
-
-static SourceTile *pr_source_tile_request(PixbufRenderer *pr, gint x, gint y)
-{
-	SourceTile *st;
-
-	st = pr_source_tile_new(pr, x, y);
-	if (!st) return nullptr;
-
-	if (pr->func_tile_request &&
-	    pr->func_tile_request(pr, st->x, st->y,
-				   pr->source_tile_width, pr->source_tile_height, st->pixbuf, pr->func_tile_data))
-		{
-		st->blank = FALSE;
-		}
-
-	GdkRectangle rect{st->x, st->y, pr->source_tile_width, pr->source_tile_height};
-	pr_scale_region(rect, pr->scale);
-
-	pr->renderer->invalidate_region(pr->renderer, rect);
-	if (pr->renderer2) pr->renderer2->invalidate_region(pr->renderer2, rect);
-	return st;
-}
-
-static SourceTile *pr_source_tile_find(PixbufRenderer *pr, gint x, gint y)
-{
-	GList *work;
-
-	work = pr->source_tiles;
-	while (work)
-		{
-		auto st = static_cast<SourceTile *>(work->data);
-
-		if (x >= st->x && x < st->x + pr->source_tile_width &&
-		    y >= st->y && y < st->y + pr->source_tile_height)
-			{
-			if (work != pr->source_tiles)
-				{
-				pr->source_tiles = g_list_remove_link(pr->source_tiles, work);
-				pr->source_tiles = g_list_concat(work, pr->source_tiles);
-				}
-			return st;
-			}
-
-		work = work->next;
-		}
-
-	return nullptr;
-}
-
-GList *pr_source_tile_compute_region(PixbufRenderer *pr, gint x, gint y, gint w, gint h, gboolean request)
-{
-	gint x1;
-	gint y1;
-	GList *list = nullptr;
-	gint sx;
-	gint sy;
-
-	if (x < 0) x = 0;
-	if (y < 0) y = 0;
-	if (w > pr->image_width) w = pr->image_width;
-	if (h > pr->image_height) h = pr->image_height;
-
-	sx = ROUND_DOWN(x, pr->source_tile_width);
-	sy = ROUND_DOWN(y, pr->source_tile_height);
-
-	for (x1 = sx; x1 < x + w; x1+= pr->source_tile_width)
-		{
-		for (y1 = sy; y1 < y + h; y1 += pr->source_tile_height)
-			{
-			SourceTile *st;
-
-			st = pr_source_tile_find(pr, x1, y1);
-			if (!st && request) st = pr_source_tile_request(pr, x1, y1);
-
-			if (st) list = g_list_prepend(list, st);
-			}
-		}
-
-	return g_list_reverse(list);
-}
-
-static void pr_source_tile_changed(PixbufRenderer *pr, gint x, gint y, gint width, gint height)
-{
-	if (width < 1 || height < 1) return;
-
-	const GdkRectangle request_rect{x, y, width, height};
-	GdkRectangle st_rect{0, 0, pr->source_tile_width, pr->source_tile_height};
-	GdkRectangle r;
-
-	for (GList *work = pr->source_tiles; work; work = work->next)
-		{
-		auto *st = static_cast<SourceTile *>(work->data);
-
-		st_rect.x = st->x;
-		st_rect.y = st->y;
-
-		if (gdk_rectangle_intersect(&st_rect, &request_rect, &r))
-			{
-			GdkPixbuf *pixbuf;
-
-			pixbuf = gdk_pixbuf_new_subpixbuf(st->pixbuf, r.x - st->x, r.y - st->y, r.width, r.height);
-			if (pr->func_tile_request &&
-			    pr->func_tile_request(pr, r.x, r.y, r.width, r.height, pixbuf, pr->func_tile_data))
-				{
-				pr_scale_region(r, pr->scale);
-
-				pr->renderer->invalidate_region(pr->renderer, r);
-				if (pr->renderer2) pr->renderer2->invalidate_region(pr->renderer2, r);
-				}
-			g_object_unref(pixbuf);
-			}
-		}
-}
-
-/**
- * @brief Display an on-request array of pixbuf tiles
- */
-void pixbuf_renderer_set_tiles(PixbufRenderer *pr, gint width, gint height,
-			       gint tile_width, gint tile_height, gint cache_size,
-			       PixbufRendererTileRequestFunc func_request,
-			       PixbufRendererTileDisposeFunc func_dispose,
-			       gpointer user_data,
-			       gdouble zoom)
-{
-	g_return_if_fail(IS_PIXBUF_RENDERER(pr));
-	g_return_if_fail(tile_width >= 32 && tile_height >= 32);
-	g_return_if_fail(width >= 32 && height > 32);
-	g_return_if_fail(func_request != nullptr);
-
-	if (pr->pixbuf) g_object_unref(pr->pixbuf);
-	pr->pixbuf = nullptr;
-
-	pr_source_tile_unset(pr);
-
-	if (cache_size < 4) cache_size = 4;
-
-	pr->source_tiles_enabled = TRUE;
-	pr->source_tiles_cache_size = cache_size;
-	pr->source_tile_width = tile_width;
-	pr->source_tile_height = tile_height;
-
-	pr->image_width = width;
-	pr->image_height = height;
-
-	pr->func_tile_request = func_request;
-	pr->func_tile_dispose = func_dispose;
-	pr->func_tile_data = user_data;
-
-	pr_zoom_sync(pr, zoom, static_cast<PrZoomFlags>(PR_ZOOM_FORCE | PR_ZOOM_NEW), 0, 0);
-}
-
-void pixbuf_renderer_set_tiles_size(PixbufRenderer *pr, gint width, gint height)
-{
-	g_return_if_fail(IS_PIXBUF_RENDERER(pr));
-	g_return_if_fail(width >= 32 && height > 32);
-
-	if (!pr->source_tiles_enabled) return;
-	if (pr->image_width == width && pr->image_height == height) return;
-
-	pr->image_width = width;
-	pr->image_height = height;
-
-	pr_zoom_sync(pr, pr->zoom, PR_ZOOM_FORCE, 0, 0);
-}
-
-gint pixbuf_renderer_get_tiles(PixbufRenderer *pr)
-{
-	g_return_val_if_fail(IS_PIXBUF_RENDERER(pr), FALSE);
-
-	return pr->source_tiles_enabled;
 }
 
 static void pr_zoom_adjust_real(PixbufRenderer *pr, gdouble increment,
@@ -1657,7 +1401,7 @@ void pixbuf_renderer_scroll(PixbufRenderer *pr, gint x, gint y)
 
 	g_return_if_fail(IS_PIXBUF_RENDERER(pr));
 
-	if (!pr->pixbuf && !pr->source_tiles_enabled) return;
+	if (!pr->pixbuf) return;
 
 	old_x = pr->x_scroll;
 	old_y = pr->y_scroll;
@@ -1678,26 +1422,6 @@ void pixbuf_renderer_scroll(PixbufRenderer *pr, gint x, gint y)
 
 	pr->renderer->scroll(pr->renderer, x_off, y_off);
 	if (pr->renderer2) pr->renderer2->scroll(pr->renderer2, x_off, y_off);
-}
-
-void pixbuf_renderer_scroll_to_point(PixbufRenderer *pr, gint x, gint y,
-				     gdouble x_align, gdouble y_align)
-{
-	gint px;
-	gint py;
-	gint ax;
-	gint ay;
-
-	x_align = CLAMP(x_align, 0.0, 1.0);
-	y_align = CLAMP(y_align, 0.0, 1.0);
-
-	ax = static_cast<gdouble>(pr->vis_width) * x_align;
-	ay = static_cast<gdouble>(pr->vis_height) * y_align;
-
-	px = static_cast<gdouble>(x) * pr->scale - (pr->x_scroll + ax);
-	py = static_cast<gdouble>(y) * pr->scale - (pr->y_scroll + ay);
-
-	pixbuf_renderer_scroll(pr, px, py);
 }
 
 /* get or set coordinates of viewport center in the image, in range 0.0 - 1.0 */
@@ -2075,30 +1799,7 @@ void pixbuf_renderer_move(PixbufRenderer *pr, PixbufRenderer *source)
 	pr->post_process_slow = source->post_process_slow;
 	pr->orientation = source->orientation;
 
-	if (source->source_tiles_enabled)
-		{
-		pr_source_tile_unset(pr);
-
-		pr->source_tiles_enabled = source->source_tiles_enabled;
-		pr->source_tiles_cache_size = source->source_tiles_cache_size;
-		pr->source_tile_width = source->source_tile_width;
-		pr->source_tile_height = source->source_tile_height;
-		pr->image_width = source->image_width;
-		pr->image_height = source->image_height;
-
-		pr->func_tile_request = source->func_tile_request;
-		pr->func_tile_dispose = source->func_tile_dispose;
-		pr->func_tile_data = source->func_tile_data;
-
-		pr->source_tiles = source->source_tiles;
-		source->source_tiles = nullptr;
-
-		pr_zoom_sync(pr, source->zoom, static_cast<PrZoomFlags>(PR_ZOOM_FORCE | PR_ZOOM_NEW), 0, 0);
-		}
-	else
-		{
-		pixbuf_renderer_set_pixbuf(pr, source->pixbuf, source->zoom);
-		}
+	pixbuf_renderer_set_pixbuf(pr, source->pixbuf, source->zoom);
 
 	pr->scroll_reset = scroll_reset;
 
@@ -2133,28 +1834,7 @@ void pixbuf_renderer_copy(PixbufRenderer *pr, PixbufRenderer *source)
 
 	pr->orientation = source->orientation;
 
-	if (source->source_tiles_enabled)
-		{
-		pr->source_tiles_enabled = source->source_tiles_enabled;
-		pr->source_tiles_cache_size = source->source_tiles_cache_size;
-		pr->source_tile_width = source->source_tile_width;
-		pr->source_tile_height = source->source_tile_height;
-		pr->image_width = source->image_width;
-		pr->image_height = source->image_height;
-
-		pr->func_tile_request = source->func_tile_request;
-		pr->func_tile_dispose = source->func_tile_dispose;
-		pr->func_tile_data = source->func_tile_data;
-
-		pr->source_tiles = source->source_tiles;
-		source->source_tiles = nullptr;
-
-		pr_zoom_sync(pr, source->zoom, static_cast<PrZoomFlags>(PR_ZOOM_FORCE | PR_ZOOM_NEW), 0, 0);
-		}
-	else
-		{
-		pixbuf_renderer_set_pixbuf(pr, source->pixbuf, source->zoom);
-		}
+	pixbuf_renderer_set_pixbuf(pr, source->pixbuf, source->zoom);
 
 	pr->scroll_reset = scroll_reset;
 }
@@ -2165,11 +1845,6 @@ void pixbuf_renderer_copy(PixbufRenderer *pr, PixbufRenderer *source)
 void pixbuf_renderer_area_changed(PixbufRenderer *pr, gint x, gint y, gint w, gint h)
 {
 	g_return_if_fail(IS_PIXBUF_RENDERER(pr));
-
-	if (pr->source_tiles_enabled)
-		{
-		pr_source_tile_changed(pr, x, y, w, h);
-		}
 
 	pr->renderer->area_changed(pr->renderer, x, y, w, h);
 	if (pr->renderer2) pr->renderer2->area_changed(pr->renderer2, x, y, w, h);
@@ -2210,128 +1885,12 @@ gdouble pixbuf_renderer_zoom_get_scale(PixbufRenderer *pr)
 	return pr->scale;
 }
 
-void pixbuf_renderer_zoom_set_limits(PixbufRenderer *pr, gdouble min, gdouble max)
-{
-	g_return_if_fail(IS_PIXBUF_RENDERER(pr));
-
-	if (min > 1.0 || max < 1.0) return;
-	if (min < 1.0 && min > -1.0) return;
-	if (min < -200.0 || max > 200.0) return;
-
-	if (pr->zoom_min != min)
-		{
-		pr->zoom_min = min;
-		g_object_notify(G_OBJECT(pr), "zoom_min");
-		}
-	if (pr->zoom_max != max)
-		{
-		pr->zoom_max = max;
-		g_object_notify(G_OBJECT(pr), "zoom_max");
-		}
-}
-
-/**
- * @brief x_pixel and y_pixel are the pixel coordinates see #pixbuf_renderer_get_mouse_position
- */
-gboolean pixbuf_renderer_get_pixel_colors(PixbufRenderer *pr, gint x_pixel, gint y_pixel,
-                                          gint *r_mouse, gint *g_mouse, gint *b_mouse, gint *a_mouse)
-{
-	GdkPixbuf *pb = pr->pixbuf;
-	gint p_alpha;
-	gint prs;
-	guchar *p_pix;
-	guchar *pp;
-	size_t xoff;
-	size_t yoff;
-
-	g_return_val_if_fail(IS_PIXBUF_RENDERER(pr), FALSE);
-	g_return_val_if_fail(r_mouse != nullptr && g_mouse != nullptr && b_mouse != nullptr, FALSE);
-
-	if (!pr->pixbuf && !pr->source_tiles_enabled)
-		{
-		*r_mouse = -1;
-		*g_mouse = -1;
-		*b_mouse = -1;
-		*a_mouse = -1;
-		return FALSE;
-		}
-
-	if (!pb) return FALSE;
-
-	GdkRectangle map_rect = pr_tile_region_map_orientation(pr->orientation,
-	                                                       {x_pixel, y_pixel, 1, 1}, /*single pixel */
-	                                                       pr->image_width, pr->image_height);
-
-	if (map_rect.x < 0 || map_rect.x > gdk_pixbuf_get_width(pr->pixbuf) - 1) return FALSE;
-	if (map_rect.y < 0 || map_rect.y > gdk_pixbuf_get_height(pr->pixbuf) - 1) return FALSE;
-
-	p_alpha = gdk_pixbuf_get_has_alpha(pb);
-	prs = gdk_pixbuf_get_rowstride(pb);
-	p_pix = gdk_pixbuf_get_pixels(pb);
-
-	xoff = static_cast<size_t>(map_rect.x) * (p_alpha ? 4 : 3);
-	yoff = static_cast<size_t>(map_rect.y) * prs;
-	pp = p_pix + yoff + xoff;
-	*r_mouse = *pp;
-	pp++;
-	*g_mouse = *pp;
-	pp++;
-	*b_mouse = *pp;
-
-	if (p_alpha)
-		{
-		pp++;
-		*a_mouse = *pp;
-		}
-
-	return TRUE;
-}
-
-gboolean pixbuf_renderer_get_mouse_position(PixbufRenderer *pr, gint *x_pixel_return, gint *y_pixel_return)
-{
-	gint x_pixel;
-	gint y_pixel;
-	gint x_pixel_clamped;
-	gint y_pixel_clamped;
-
-	g_return_val_if_fail(IS_PIXBUF_RENDERER(pr), FALSE);
-	g_return_val_if_fail(x_pixel_return != nullptr && y_pixel_return != nullptr, FALSE);
-
-	if (!pr->pixbuf && !pr->source_tiles_enabled)
-		{
-		*x_pixel_return = -1;
-		*y_pixel_return = -1;
-		return FALSE;
-		}
-
-	x_pixel = floor(static_cast<gdouble>(pr->x_mouse - pr->x_offset + pr->x_scroll) / pr->scale);
-	y_pixel = floor(static_cast<gdouble>(pr->y_mouse - pr->y_offset + pr->y_scroll) / pr->scale);
-	x_pixel_clamped = CLAMP(x_pixel, 0, pr->image_width - 1);
-	y_pixel_clamped = CLAMP(y_pixel, 0, pr->image_height - 1);
-
-	if (x_pixel != x_pixel_clamped)
-		{
-		/* mouse is not on pr */
-		x_pixel = -1;
-		}
-	if (y_pixel != y_pixel_clamped)
-		{
-		/* mouse is not on pr */
-		y_pixel = -1;
-		}
-
-	*x_pixel_return = x_pixel;
-	*y_pixel_return = y_pixel;
-
-	return TRUE;
-}
-
 gboolean pixbuf_renderer_get_image_size(PixbufRenderer *pr, gint *width, gint *height)
 {
 	g_return_val_if_fail(IS_PIXBUF_RENDERER(pr), FALSE);
 	g_return_val_if_fail(width != nullptr && height != nullptr, FALSE);
 
-	if (!pr->pixbuf && !pr->source_tiles_enabled && (!pr->image_width || !pr->image_height))
+	if (!pr->pixbuf && (!pr->image_width || !pr->image_height))
 		{
 		*width = 0;
 		*height = 0;
@@ -2348,7 +1907,7 @@ gboolean pixbuf_renderer_get_scaled_size(PixbufRenderer *pr, gint *width, gint *
 	g_return_val_if_fail(IS_PIXBUF_RENDERER(pr), FALSE);
 	g_return_val_if_fail(width != nullptr && height != nullptr, FALSE);
 
-	if (!pr->pixbuf && !pr->source_tiles_enabled && (!pr->image_width || !pr->image_height))
+	if (!pr->pixbuf && (!pr->image_width || !pr->image_height))
 		{
 		*width = 0;
 		*height = 0;
@@ -2357,31 +1916,6 @@ gboolean pixbuf_renderer_get_scaled_size(PixbufRenderer *pr, gint *width, gint *
 
 	*width = pr->width;
 	*height = pr->height;
-	return TRUE;
-}
-
-/**
- * @brief Region of image in pixel coordinates
- */
-gboolean pixbuf_renderer_get_visible_rect(PixbufRenderer *pr, GdkRectangle *rect)
-{
-	g_return_val_if_fail(IS_PIXBUF_RENDERER(pr), FALSE);
-	g_return_val_if_fail(rect != nullptr, FALSE);
-
-	if ((!pr->pixbuf && !pr->source_tiles_enabled) ||
-	    !pr->scale)
-		{
-		rect->x = 0;
-		rect->y = 0;
-		rect->width = 0;
-		rect->height = 0;
-		return FALSE;
-		}
-
-	rect->x = static_cast<gint>(static_cast<gdouble>(pr->x_scroll) / pr->scale);
-	rect->y = static_cast<gint>(static_cast<gdouble>(pr->y_scroll) / pr->scale);
-	rect->width = static_cast<gint>(static_cast<gdouble>(pr->vis_width) / pr->scale);
-	rect->height = static_cast<gint>(static_cast<gdouble>(pr->vis_height) / pr->scale);
 	return TRUE;
 }
 

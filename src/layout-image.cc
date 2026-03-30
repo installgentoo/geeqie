@@ -635,18 +635,6 @@ void layout_image_zoom_set(LayoutWindow *lw, gdouble zoom)
 		}
 }
 
-void layout_image_zoom_set_fill_geometry(LayoutWindow *lw, gboolean vertical)
-{
-	if (!layout_valid(&lw)) return;
-
-	image_zoom_set_fill_geometry(lw->image, vertical);
-
-	if (lw->full_screen && lw->image != lw->full_screen->imd)
-		{
-		image_zoom_set_fill_geometry(lw->full_screen->imd, vertical);
-		}
-}
-
 void layout_image_reset_orientation(LayoutWindow *lw)
 {
 	ImageWindow *imd= lw->image;

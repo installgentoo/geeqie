@@ -28,15 +28,9 @@
 #include <config.h>
 
 const gchar *gq_gtk_entry_get_text(GtkEntry *entry);
-gchar *date_get_abbreviated_day_name(gint day);
-gchar *decode_geo_parameters(const gchar *input_text);
 gchar *expand_tilde(const gchar *filename);
-gchar *get_symbolic_link(const gchar *path_utf8);
-gchar *get_file_group(const gchar *path_utf8);
-gchar *get_file_owner(const gchar *path_utf8);
 gchar *utf8_validate_or_convert(const gchar *text);
 gdouble get_zoom_increment();
-gint date_get_first_day_of_week();
 gint get_cpu_cores();
 gint utf8_compare(const gchar *s1, const gchar *s2, gboolean case_sensitive);
 gint gq_gtk_tree_iter_utf8_collate(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gint sort_column_id);

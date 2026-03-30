@@ -67,6 +67,7 @@ static gdouble exif_rational_to_double(ExifRational *r, gint sign)
 	return static_cast<gdouble>(r->num) / r->den;
 }
 
+static ExifRational *exif_get_rational(ExifData *exif, const gchar *key, gint *sign);
 static gdouble exif_get_rational_as_double(ExifData *exif, const gchar *key)
 {
 	ExifRational *r;
@@ -664,22 +665,6 @@ gchar *exif_get_formatted_by_key(ExifData *exif, const gchar *key, gboolean *key
 	return nullptr;
 }
 
-gchar *exif_get_description_by_key(const gchar *key)
-{
-	if (!key) return nullptr;
-
-	if (strncmp(key, EXIF_FORMATTED(), EXIF_FORMATTED_LEN) == 0 || strncmp(key, "file.", 5) == 0 || strncmp(key, "lua.", 4) == 0)
-		{
-		gint i;
-
-		for (i = 0; ExifFormattedList[i].key; i++)
-			if (strcmp(key, ExifFormattedList[i].key) == 0)
-				return g_strdup(_(ExifFormattedList[i].description));
-		}
-
-	return exif_get_tag_description_by_key(key);
-}
-
 gint exif_get_integer(ExifData *exif, const gchar *key, gint *value)
 {
 	ExifItem *item;
@@ -688,7 +673,7 @@ gint exif_get_integer(ExifData *exif, const gchar *key, gint *value)
 	return exif_item_get_integer(item, value);
 }
 
-ExifRational *exif_get_rational(ExifData *exif, const gchar *key, gint *sign)
+static ExifRational *exif_get_rational(ExifData *exif, const gchar *key, gint *sign)
 {
 	ExifItem *item;
 
@@ -825,105 +810,6 @@ gboolean exif_jpeg_parse_color(ExifData *exif, guchar *data, guint size)
 		}
 
 	return FALSE;
-}
-
-/*
- *-------------------------------------------------------------------
- * file info
- * it is here because it shares tag neming infrastructure with exif
- * we should probably not invest too much effort into this because
- * new exiv2 will support the same functionality
- * https://dev.exiv2.org/issues/505
- *-------------------------------------------------------------------
- */
-
-static gchar *mode_number(mode_t m)
-{
-	gint mb;
-	gint mu;
-	gint mg;
-	gint mo;
-	gchar pbuf[12];
-
-	mb = mu = mg = mo = 0;
-
-	if (m & S_ISUID) mb |= 4;
-	if (m & S_ISGID) mb |= 2;
-	if (m & S_ISVTX) mb |= 1;
-
-	if (m & S_IRUSR) mu |= 4;
-	if (m & S_IWUSR) mu |= 2;
-	if (m & S_IXUSR) mu |= 1;
-
-	if (m & S_IRGRP) mg |= 4;
-	if (m & S_IWGRP) mg |= 2;
-	if (m & S_IXGRP) mg |= 1;
-
-	if (m & S_IROTH) mo |= 4;
-	if (m & S_IWOTH) mo |= 2;
-	if (m & S_IXOTH) mo |= 1;
-
-	pbuf[0] = (m & S_IRUSR) ? 'r' : '-';
-	pbuf[1] = (m & S_IWUSR) ? 'w' : '-';
-	pbuf[2] = (m & S_IXUSR) ? 'x' : '-';
-	pbuf[3] = (m & S_IRGRP) ? 'r' : '-';
-	pbuf[4] = (m & S_IWGRP) ? 'w' : '-';
-	pbuf[5] = (m & S_IXGRP) ? 'x' : '-';
-	pbuf[6] = (m & S_IROTH) ? 'r' : '-';
-	pbuf[7] = (m & S_IWOTH) ? 'w' : '-';
-	pbuf[8] = (m & S_IXOTH) ? 'x' : '-';
-	pbuf[9] = '\0';
-
-	return g_strdup_printf("%s (%d%d%d%d)", pbuf, mb, mu, mg, mo);
-}
-
-gchar *metadata_file_info(FileData *fd, const gchar *key, MetadataFormat)
-{
-	gchar *page_n_of_m;
-
-	if (strcmp(key, "file.size") == 0)
-		{
-		return g_strdup_printf("%ld", static_cast<long>(fd->size));
-		}
-	if (strcmp(key, "file.date") == 0)
-		{
-		return g_strdup(text_from_time(fd->date));
-		}
-	if (strcmp(key, "file.mode") == 0)
-		{
-		return mode_number(fd->mode);
-		}
-	if (strcmp(key, "file.ctime") == 0)
-		{
-		return g_strdup(text_from_time(fd->cdate));
-		}
-	if (strcmp(key, "file.class") == 0)
-		{
-		return g_strdup(format_class_list[fd->format_class]);
-		}
-	if (strcmp(key, "file.owner") == 0)
-		{
-		return get_file_owner(fd->path);
-		}
-	if (strcmp(key, "file.group") == 0)
-		{
-		return get_file_group(fd->path);
-		}
-	if (strcmp(key, "file.link") == 0)
-		{
-		return get_symbolic_link(fd->path);
-		}
-	if (strcmp(key, "file.page_no") == 0)
-		{
-		if (fd->page_total > 1)
-			{
-			page_n_of_m = g_strdup_printf("[%d/%d]", fd->page_num + 1, fd->page_total);
-			return page_n_of_m;
-			}
-
-		return nullptr;
-		}
-	return g_strdup("");
 }
 
 #if HAVE_LUA

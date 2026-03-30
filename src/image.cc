@@ -928,14 +928,6 @@ void image_set_scroll_func(ImageWindow *imd,
 	imd->data_scroll = data;
 }
 
-void image_set_focus_in_func(ImageWindow *imd,
-			   void (*func)(ImageWindow *, gpointer),
-			   gpointer data)
-{
-	imd->func_focus_in = func;
-	imd->data_focus_in = data;
-}
-
 /* path, name */
 
 const gchar *image_get_path(ImageWindow *imd)
@@ -1187,27 +1179,14 @@ void image_copy_from_image(ImageWindow *imd, ImageWindow *source)
 
 /* manipulation */
 
-void image_area_changed(ImageWindow *imd, gint x, gint y, gint width, gint height)
-{
-	pixbuf_renderer_area_changed(PIXBUF_RENDERER(imd->pr), x, y, width, height);
-}
-
 void image_reload(ImageWindow *imd)
 {
-	if (pixbuf_renderer_get_tiles(PIXBUF_RENDERER(imd->pr))) return;
-
 	image_change_complete(imd, image_zoom_get(imd));
 }
 
 void image_scroll(ImageWindow *imd, gint x, gint y)
 {
 	pixbuf_renderer_scroll(PIXBUF_RENDERER(imd->pr), x, y);
-}
-
-void image_scroll_to_point(ImageWindow *imd, gint x, gint y,
-			   gdouble x_align, gdouble y_align)
-{
-	pixbuf_renderer_scroll_to_point(PIXBUF_RENDERER(imd->pr), x, y, x_align, y_align);
 }
 
 void image_get_scroll_center(ImageWindow *imd, gdouble *x, gdouble *y)
@@ -1230,41 +1209,9 @@ void image_zoom_adjust_at_point(ImageWindow *imd, gdouble increment, gint x, gin
 	pixbuf_renderer_zoom_adjust_at_point(PIXBUF_RENDERER(imd->pr), increment, x, y);
 }
 
-void image_zoom_set_limits(ImageWindow *imd, gdouble min, gdouble max)
-{
-	pixbuf_renderer_zoom_set_limits(PIXBUF_RENDERER(imd->pr), min, max);
-}
-
 void image_zoom_set(ImageWindow *imd, gdouble zoom)
 {
 	pixbuf_renderer_zoom_set(PIXBUF_RENDERER(imd->pr), zoom);
-}
-
-void image_zoom_set_fill_geometry(ImageWindow *imd, gboolean vertical)
-{
-	PixbufRenderer *pr = PIXBUF_RENDERER(imd->pr);
-	gdouble zoom;
-	gint width;
-	gint height;
-
-	if (!pixbuf_renderer_get_pixbuf(pr) ||
-	    !pixbuf_renderer_get_image_size(pr, &width, &height)) return;
-
-	if (vertical)
-		{
-		zoom = static_cast<gdouble>(pr->viewport_height) / height;
-		}
-	else
-		{
-		zoom = static_cast<gdouble>(pr->viewport_width) / width;
-		}
-
-	if (zoom < 1.0)
-		{
-		zoom = 0.0 - 1.0 / zoom;
-		}
-
-	pixbuf_renderer_zoom_set(pr, zoom);
 }
 
 gdouble image_zoom_get(ImageWindow *imd)
@@ -1341,8 +1288,6 @@ gdouble image_zoom_get_default(ImageWindow *imd)
  */
 void image_prebuffer_set(ImageWindow *imd, FileData *fd)
 {
-	if (pixbuf_renderer_get_tiles(PIXBUF_RENDERER(imd->pr))) return;
-
 	if (fd)
 		{
 		if (!file_cache_get(image_get_cache(), fd))
@@ -1506,27 +1451,6 @@ void image_set_delay_flip(ImageWindow *imd, gboolean delay)
  */
 void image_to_root_window(ImageWindow *, gboolean)
 {
-}
-
-void image_select(ImageWindow *imd, gboolean select)
-{
-	if (!imd->has_frame) return;
-
-	if (select)
-		{
-		gtk_widget_set_state_flags(imd->widget, GTK_STATE_FLAG_SELECTED, TRUE);
-		gtk_widget_set_state_flags(imd->pr, GTK_STATE_FLAG_NORMAL, TRUE); /* do not propagate */
-		}
-	else
-		gtk_widget_set_state_flags(imd->widget, GTK_STATE_FLAG_NORMAL, TRUE);
-}
-
-void image_set_selectable(ImageWindow *imd, gboolean selectable)
-{
-	if (!imd->has_frame) return;
-
-	gq_gtk_frame_set_shadow_type(GTK_FRAME(imd->frame), GTK_SHADOW_NONE);
-	gtk_container_set_border_width(GTK_CONTAINER(imd->frame), selectable ? 4 : 0);
 }
 
 void image_grab_focus(ImageWindow *imd)
@@ -1694,8 +1618,6 @@ ImageWindow *image_new(gboolean frame)
 	DEBUG_NAME(imd->widget);
 
 	image_set_frame(imd, frame);
-
-	image_set_selectable(imd, 0);
 
 	g_signal_connect(G_OBJECT(imd->pr), "clicked",
 			 G_CALLBACK(image_click_cb), imd);

@@ -83,13 +83,11 @@ gboolean vficon_is_selected(ViewFile *vf, FileData *fd);
 guint vficon_selection_count(ViewFile *vf, gint64 *bytes);
 GList *vficon_selection_get_list(ViewFile *vf);
 GList *vficon_selection_get_list_by_index(ViewFile *vf);
-void vficon_selection_foreach(ViewFile *vf, const ViewFile::SelectionCallback &func);
 
 void vficon_select_all(ViewFile *vf);
 void vficon_select_none(ViewFile *vf);
 void vficon_select_invert(ViewFile *vf);
 void vficon_select_by_fd(ViewFile *vf, FileData *fd);
-void vficon_select_list(ViewFile *vf, GList *list);
 
 
 void vficon_thumb_progress_count(const GList *list, gint &count, gint &done);

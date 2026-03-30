@@ -159,6 +159,7 @@ static void cache_maintenance_status_icon_activate_cb(GtkStatusIcon *, gpointer)
 	gtk_menu_popup_at_pointer(GTK_MENU(menu), nullptr);
 }
 
+static void cache_maintain_home_remote(gboolean, gboolean clear, GDestroyNotify func);
 void cache_maintenance(const gchar *path)
 {
 	cache_maintenance_path = g_strdup(path);
@@ -419,7 +420,7 @@ static void cache_maintain_home(gboolean, gboolean clear, GtkWidget *parent)
  *
  *
  */
-void cache_maintain_home_remote(gboolean, gboolean clear, GDestroyNotify func)
+static void cache_maintain_home_remote(gboolean, gboolean clear, GDestroyNotify func)
 {
 	CMData *cm = cache_maintain_data_new(clear, FALSE, TRUE);
 	if (!cm) return;
@@ -1088,20 +1089,6 @@ static void cache_manager_standard_process(GtkWidget *widget, gboolean clear)
 	cd->idle_id = 0;
 
 	gtk_widget_show(cd->gd->dialog);
-}
-
-void cache_manager_standard_process_remote(gboolean clear)
-{
-	CacheOpsData *cd;
-
-	cd = g_new0(CacheOpsData, 1);
-	cd->clear = clear;
-	cd->days = 30;
-	cd->tl = nullptr;
-	cd->idle_id = 0;
-	cd->remote = TRUE;
-
-	cache_manager_standard_clean_start(nullptr, cd);
 }
 
 static void cache_manager_standard_clean_cb(GtkWidget *widget, gpointer)

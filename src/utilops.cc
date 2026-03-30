@@ -2766,12 +2766,6 @@ void file_util_copy_simple(GList *list, const gchar *dest_path, GtkWidget *paren
 	file_util_copy_full(nullptr, list, dest_path, parent, UTILITY_PHASE_ENTERING);
 }
 
-void file_util_rename_simple(FileData *fd, const gchar *dest_path, GtkWidget *parent)
-{
-	file_util_rename_full(fd, nullptr, dest_path, parent, UTILITY_PHASE_ENTERING);
-}
-
-
 void file_util_start_editor_from_file(const gchar *key, FileData *fd, GtkWidget *parent)
 {
 	file_util_start_editor_full(key, fd, nullptr, nullptr, nullptr, parent, UTILITY_PHASE_ENTERING);

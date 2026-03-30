@@ -133,7 +133,6 @@ guint layout_selection_count(LayoutWindow *lw, gint64 *bytes);
 void layout_select_all(LayoutWindow *lw);
 void layout_select_none(LayoutWindow *lw);
 void layout_select_invert(LayoutWindow *lw);
-void layout_select_list(LayoutWindow *lw, GList *list);
 
 void layout_refresh(LayoutWindow *lw);
 

@@ -198,7 +198,7 @@ void rt_border_draw(RendererTiles *rt, GdkRectangle border_rect)
 		rt_overlay_draw(rt, r, nullptr);
 	};
 
-	if (!pr->pixbuf && !pr->source_tiles_enabled)
+	if (!pr->pixbuf)
 		{
 		draw_if_intersect({0, 0, pr->viewport_width, pr->viewport_height});
 		cairo_destroy(cr);
@@ -324,24 +324,12 @@ void rt_tile_remove(RendererTiles *rt, ImageTile *it)
 
 void rt_tile_free_space(RendererTiles *rt, guint space, ImageTile *it)
 {
-	PixbufRenderer *pr = rt->pr;
 	GList *work;
 	guint tile_max;
 
 	work = g_list_last(rt->tiles);
 
-	if (pr->source_tiles_enabled && pr->scale < 1.0)
-		{
-		gint tiles;
-
-		tiles = (pr->vis_width / rt->tile_width + 1) * (pr->vis_height / rt->tile_height + 1);
-		tile_max = MAX(tiles * rt->tile_width * rt->tile_height * 3,
-			       (gint)((gdouble)rt->tile_cache_max * 1048576.0 * pr->scale));
-		}
-	else
-		{
-		tile_max = rt->tile_cache_max * 1048576;
-		}
+	tile_max = rt->tile_cache_max * 1048576;
 
 	while (work && rt->tile_cache_size + space > tile_max)
 		{
@@ -1044,138 +1032,6 @@ void rt_tile_apply_orientation(RendererTiles *rt, gint orientation, GdkPixbuf **
 }
 
 /**
- * @brief Renders the contents of the specified region of the specified ImageTile, using
- *        SourceTiles that the RendererTiles knows how to create/access.
- * @param rt The RendererTiles object.
- * @param it The ImageTile to render.
- * @param x,y,w,h The sub-region of the ImageTile to render.
- * @retval TRUE We rendered something that needs to be drawn.
- * @retval FALSE We didn't render anything that needs to be drawn.
- */
-gboolean rt_source_tile_render(RendererTiles *rt, ImageTile *it,
-                               gint x, gint y, gint w, gint h,
-                               gboolean, gboolean)
-{
-	PixbufRenderer *pr = rt->pr;
-	gboolean draw = FALSE;
-
-	if (pr->image_width == 0 || pr->image_height == 0) return FALSE;
-
-	// This is the scale due to zooming.  So if the user is zoomed in 2x (we're
-	// rendering twice as large), these numbers will be 2.  Note that these values
-	// can definitely be fractional (becomes important below).
-	const gdouble scale_x = static_cast<gdouble>(pr->width) / pr->image_width;
-	const gdouble scale_y = static_cast<gdouble>(pr->height) / pr->image_height;
-
-	// And these are the unscaled coordinates where our tile data should originate from.
-	const gint sx = static_cast<gdouble>(it->x + x) / scale_x;
-	const gint sy = static_cast<gdouble>(it->y + y) / scale_y;
-	const gint sw = static_cast<gdouble>(w) / scale_x;
-	const gint sh = static_cast<gdouble>(h) / scale_y;
-
-	/* HACK: The pixbuf scalers get kinda buggy(crash) with extremely
-	 * small sizes for anything but GDK_INTERP_NEAREST
-	 */
-	const gboolean force_nearest = pr->width < PR_MIN_SCALE_SIZE || pr->height < PR_MIN_SCALE_SIZE;
-	GdkInterpType interp_type = force_nearest ? GDK_INTERP_NEAREST : pr->zoom_quality;
-
-#if 0
-	// Draws red over draw region, to check for leaks (regions not filled)
-	pixbuf_set_rect_fill(it->pixbuf, x, y, rt->hidpi_scale * w, rt->hidpi_scale * h, 255, 0, 0, 255);
-#endif
-
-	// Since the RendererTiles ImageTiles and PixbufRenderer SourceTiles are different
-	// sizes and may not exactly overlap, we now determine which SourceTiles are needed
-	// to cover the ImageTile that we're being asked to render.
-	//
-	// This will render the relevant SourceTiles if needed, or pull from the cache if
-	// they've already been generated.
-	GList *list = pr_source_tile_compute_region(pr, sx, sy, sw, sh, TRUE);
-	const GdkRectangle it_rect{it->x + x, it->y + y, w, h};
-	GdkRectangle st_rect;
-	for (GList *work = list; work; work = work->next)
-		{
-		const auto st = static_cast<SourceTile *>(work->data);
-
-		// The scaled (output) coordinates that are covered by this SourceTile.
-		// To avoid aliasing line artifacts due to under-drawing, we expand the
-		// render area to the nearest whole pixel.
-		st_rect.x = floor(st->x * scale_x);
-		st_rect.y = floor(st->y * scale_y);
-		st_rect.width = ceil((st->x + pr->source_tile_width) * scale_x) - st_rect.x;
-		st_rect.height = ceil((st->y + pr->source_tile_height) * scale_y) - st_rect.y;
-
-		// We find the overlapping region r between the ImageTile (output)
-		// region and the region that's covered by this SourceTile (input).
-		GdkRectangle r;
-		if (gdk_rectangle_intersect(&st_rect, &it_rect, &r))
-			{
-			if (st->blank)
-				{
-				// If this SourceTile has no contents, we just paint a black rect
-				// of the appropriate size.
-				cairo_t *cr = cairo_create(it->surface);
-				cairo_rectangle (cr, r.x - st->x, r.y - st->y, rt->hidpi_scale * r.width, rt->hidpi_scale * r.height);
-				cairo_set_source_rgb(cr, 0, 0, 0);
-				cairo_fill (cr);
-				cairo_destroy (cr);
-				// TODO(xsdg): We almost certainly need to set draw = TRUE in this branch.
-				// This may explain the smearing that we sometimes get when panning the view while drawing.
-				}
-			else
-				{
-				// Note that the ImageTile it contains its own solitary pixbuf, it->pixbuf.
-				// This means that the region covered by this function (possibly split across
-				// multiple SourceTiles) has origin (0, 0).  Additionally, the width and height
-				// of that pixbuf will reflect the value of GDK_SCALE (which is stored by the
-				// RendererTiles rt).  The following is an invariant:
-				// it->pixbuf->width  = rt->hidpi_scale * it->width
-				// it->pixbuf->height = rt->hidpi_scale * it->height
-				//
-				// So for hidpi rendering, we need to multiply the scale factor from the zoom by
-				// the additional scale factor for hidpi.  This combined scale factor is then
-				// applied to the offset (explained below), width, and height.
-
-				// (May need to use unfloored stx,sty values here)
-				const gdouble offset_x = rt->hidpi_scale * static_cast<gdouble>(st_rect.x - it->x);
-				const gdouble offset_y = rt->hidpi_scale * static_cast<gdouble>(st_rect.y - it->y);
-
-				// TODO(xsdg): Just draw instead of usign scale-draw for the case where
-				// (pr->zoom == 1.0 || pr->scale == 1.0)
-
-				// The order of operations in this function is scale, offset, clip, copy.
-				// So we start with the data from st->pixbuf.  First we scale that data by
-				// the scale factors.  Then we offset that intermediate image by the offsets.
-				// Next, we clip that offsetted image to the (x,y,w,h) region specified.  And
-				// lastly, we copy the resulting region into the _region with the same
-				// coordinates_ in it->pixbuf.
-				//
-				// At this point, recall that we may need to render into ImageTile from multiple
-				// SourceTiles.  The region specified by r accounts for this, and thus,
-				// those are the coordinates _within the current SourceTile_ that need to be
-				// rendered into the ImageTile.
-				//
-				// The offsets translate the region from wherever it may be in the actual image
-				// to the ImageTile pixbuf coordinate system.  Because ImageTile and SourceTile
-				// coordinates are not necessarily aligned, an offset will be negative if this
-				// SourceTile starts left of or above the ImageTile, positive if it starts in
-				// the middle of the ImageTile, or zero if the left or top edges are aligned.
-				gdk_pixbuf_scale(st->pixbuf, it->pixbuf,
-				                 r.x - it->x, r.y - it->y, rt->hidpi_scale * r.width, rt->hidpi_scale * r.height,
-				                 offset_x, offset_y,
-				                 rt->hidpi_scale * scale_x, rt->hidpi_scale * scale_y,
-				                 interp_type);
-				draw = TRUE;
-				}
-			}
-		}
-
-	g_list_free(list);
-
-	return draw;
-}
-
-/**
  * @brief
  * @param has_alpha
  * @param src
@@ -1324,10 +1180,6 @@ void rt_tile_render(RendererTiles *rt, ImageTile *it,
 		cairo_set_source_rgb(cr, 0, 0, 0);
 		cairo_fill (cr);
 		cairo_destroy (cr);
-		}
-	else if (pr->source_tiles_enabled)
-		{
-		draw = rt_source_tile_render(rt, it, x, y, w, h, new_data, fast);
 		}
 	else
 		{
@@ -1530,7 +1382,7 @@ gboolean rt_queue_draw_idle_cb(gpointer data)
 	gboolean fast;
 
 
-	if ((!pr->pixbuf && !pr->source_tiles_enabled) ||
+	if (!pr->pixbuf ||
 	    (!rt->draw_queue && !rt->draw_queue_2pass) ||
 	    !rt->draw_idle_id)
 		{

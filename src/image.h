@@ -139,18 +139,12 @@ void image_set_drag_func(ImageWindow *imd,
 void image_set_scroll_func(ImageWindow *imd,
 	void (*func)(ImageWindow *, GdkEventScroll *event, gpointer),
 	gpointer data);
-void image_set_focus_in_func(ImageWindow *imd,
-	void (*func)(ImageWindow *, gpointer),
-	gpointer data);
 void image_set_complete_func(ImageWindow *imd,
 			     void (*func)(ImageWindow *imd, gint preload, gpointer data),
 			     gpointer data);
 void image_set_state_func(ImageWindow *imd,
 			  void (*func)(ImageWindow *imd, ImageState state, gpointer data),
 			  gpointer data);
-
-void image_select(ImageWindow *imd, gboolean select);
-void image_set_selectable(ImageWindow *imd, gboolean selectable);
 
 void image_grab_focus(ImageWindow *imd);
 /* path, name */
@@ -170,11 +164,8 @@ gboolean image_get_image_size(ImageWindow *imd, gint *width, gint *height);
 GdkPixbuf *image_get_pixbuf(ImageWindow *imd);
 
 /* manipulation */
-void image_area_changed(ImageWindow *imd, gint x, gint y, gint width, gint height);
 void image_reload(ImageWindow *imd);
 void image_scroll(ImageWindow *imd, gint x, gint y);
-void image_scroll_to_point(ImageWindow *imd, gint x, gint y,
-			   gdouble x_align, gdouble y_align);
 void image_get_scroll_center(ImageWindow *imd, gdouble *x, gdouble *y);
 void image_set_scroll_center(ImageWindow *imd, gdouble x, gdouble y);
 void image_set_desaturate(ImageWindow *imd, gboolean desaturate);
@@ -184,9 +175,7 @@ void image_set_overunderexposed(ImageWindow *imd, gboolean overunderexposed);
 /* zoom */
 void image_zoom_adjust(ImageWindow *imd, gdouble increment);
 void image_zoom_adjust_at_point(ImageWindow *imd, gdouble increment, gint x, gint y);
-void image_zoom_set_limits(ImageWindow *imd, gdouble min, gdouble max);
 void image_zoom_set(ImageWindow *imd, gdouble zoom);
-void image_zoom_set_fill_geometry(ImageWindow *imd, gboolean vertical);
 gdouble image_zoom_get(ImageWindow *imd);
 gdouble image_zoom_get_real(ImageWindow *imd);
 gchar *image_zoom_get_as_text(ImageWindow *imd);

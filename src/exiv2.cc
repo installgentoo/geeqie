@@ -391,12 +391,6 @@ void exif_free(ExifData *exif)
 	delete exif;
 }
 
-ExifData *exif_get_original(ExifData *exif)
-{
-	return exif->original();
-}
-
-
 ExifItem *exif_get_item(ExifData *exif, const gchar *key)
 {
 	try {
@@ -429,93 +423,6 @@ ExifItem *exif_get_item(ExifData *exif, const gchar *key)
 	}
 }
 
-
-ExifItem *exif_get_first_item(ExifData *exif)
-{
-	try {
-		exif->exifIter = exif->exifData().begin();
-		exif->iptcIter = exif->iptcData().begin();
-		exif->xmpIter = exif->xmpData().begin();
-		if (exif->exifIter != exif->exifData().end())
-			{
-			const Exiv2::Metadatum *item = &*exif->exifIter;
-			++exif->exifIter;
-			return (ExifItem *)item;
-			}
-		if (exif->iptcIter != exif->iptcData().end())
-			{
-			const Exiv2::Metadatum *item = &*exif->iptcIter;
-			++exif->iptcIter;
-			return (ExifItem *)item;
-			}
-		if (exif->xmpIter != exif->xmpData().end())
-			{
-			const Exiv2::Metadatum *item = &*exif->xmpIter;
-			++exif->xmpIter;
-			return (ExifItem *)item;
-			}
-		return nullptr;
-
-	}
-	catch (Exiv2::AnyError& e) {
-		debug_exception(e);
-		return nullptr;
-	}
-}
-
-ExifItem *exif_get_next_item(ExifData *exif)
-{
-	try {
-		if (exif->exifIter != exif->exifData().end())
-			{
-			const Exiv2::Metadatum *item = &*exif->exifIter;
-			++exif->exifIter;
-			return (ExifItem *)item;
-		}
-		if (exif->iptcIter != exif->iptcData().end())
-			{
-			const Exiv2::Metadatum *item = &*exif->iptcIter;
-			++exif->iptcIter;
-			return (ExifItem *)item;
-		}
-		if (exif->xmpIter != exif->xmpData().end())
-			{
-			const Exiv2::Metadatum *item = &*exif->xmpIter;
-			++exif->xmpIter;
-			return (ExifItem *)item;
-		}
-		return nullptr;
-	}
-	catch (Exiv2::AnyError& e) {
-		debug_exception(e);
-		return nullptr;
-	}
-}
-
-char *exif_item_get_tag_name(ExifItem *item)
-{
-	try {
-		if (!item) return nullptr;
-		return g_strdup((reinterpret_cast<Exiv2::Metadatum *>(item))->key().c_str());
-	}
-	catch (Exiv2::AnyError& e) {
-		debug_exception(e);
-		return nullptr;
-	}
-}
-
-guint exif_item_get_tag_id(ExifItem *item)
-{
-	try {
-		if (!item) return 0;
-		return (reinterpret_cast<Exiv2::Metadatum *>(item))->tag();
-	}
-	catch (Exiv2::AnyError& e) {
-		debug_exception(e);
-		return 0;
-	}
-}
-
 guint exif_item_get_elements(ExifItem *item)
 {
 	try {
@@ -541,17 +448,6 @@ char *exif_item_get_data(ExifItem *item, guint *data_len)
 	}
 	catch (Exiv2::AnyError& e) {
 		debug_exception(e);
-		return nullptr;
-	}
-}
-
-char *exif_item_get_description(ExifItem *item)
-{
-	try {
-		if (!item) return nullptr;
-		return utf8_validate_or_convert((reinterpret_cast<Exiv2::Metadatum *>(item))->tagLabel().c_str());
-	}
-	catch (std::exception& e) {
 		return nullptr;
 	}
 }
@@ -603,19 +499,6 @@ guint exif_item_get_format_id(ExifItem *item)
 	}
 }
 
-const char *exif_item_get_format_name(ExifItem *item, gboolean)
-{
-	try {
-		if (!item) return nullptr;
-		return (reinterpret_cast<Exiv2::Metadatum *>(item))->typeName();
-	}
-	catch (Exiv2::AnyError& e) {
-		debug_exception(e);
-		return nullptr;
-	}
-}
-
-
 gchar *exif_item_get_data_as_text(ExifItem *item, ExifData *exif)
 {
 	try {
@@ -627,27 +510,6 @@ gchar *exif_item_get_data_as_text(ExifItem *item, ExifData *exif)
 		return nullptr;
 	}
 }
-
-gchar *exif_item_get_string(ExifItem *item, int idx)
-{
-	try {
-		if (!item) return nullptr;
-		auto em = reinterpret_cast<Exiv2::Metadatum *>(item);
-		std::string str = em->toString(idx);
-		if (idx == 0 && str.empty()) str = em->toString();
-		if (str.length() > 5 && str.substr(0, 5) == "lang=")
-			{
-			std::string::size_type pos = str.find_first_of(' ');
-			if (pos != std::string::npos) str = str.substr(pos+1);
-			}
-
-		return utf8_validate_or_convert(str.c_str());
-	}
-	catch (Exiv2::AnyError& e) {
-		return nullptr;
-	}
-}
-
 
 gint exif_item_get_integer(ExifItem *item, gint *value)
 {
@@ -685,121 +547,12 @@ ExifRational *exif_item_get_rational(ExifItem *item, gint *sign, guint n)
 	}
 }
 
-gchar *exif_get_tag_description_by_key(const gchar *key)
-{
-	try {
-		Exiv2::ExifKey ekey(key);
-		return utf8_validate_or_convert(ekey.tagLabel().c_str());
-	}
-	catch (Exiv2::AnyError& e) {
-		try {
-			Exiv2::IptcKey ikey(key);
-			return utf8_validate_or_convert(ikey.tagLabel().c_str());
-		}
-		catch (Exiv2::AnyError& e) {
-			try {
-				Exiv2::XmpKey xkey(key);
-				return utf8_validate_or_convert(xkey.tagLabel().c_str());
-			}
-			catch (Exiv2::AnyError& e) {
-				debug_exception(e);
-				return nullptr;
-			}
-		}
-	}
-	return nullptr;
-}
-
 static const AltKey *find_alt_key(const gchar *xmp_key)
 {
 	for (const auto& k : alt_keys)
 		if (strcmp(xmp_key, k.xmp_key) == 0) return &k;
 	return nullptr;
 }
-
-static gint exif_update_metadata_simple(ExifData *exif, const gchar *key, const GList *values)
-{
-	try {
-		const GList *work = values;
-
-		try {
-			Exiv2::ExifKey ekey(key);
-
-			auto pos = exif->exifData().findKey(ekey);
-			while (pos != exif->exifData().end())
-				{
-				exif->exifData().erase(pos);
-				pos = exif->exifData().findKey(ekey);
-				}
-
-			while (work)
-				{
-				exif->exifData()[key] = static_cast<gchar *>(work->data);
-				work = work->next;
-				}
-		}
-		catch (Exiv2::AnyError& e) {
-			try
-			{
-				Exiv2::IptcKey ekey(key);
-				auto pos = exif->iptcData().findKey(ekey);
-				while (pos != exif->iptcData().end())
-					{
-					exif->iptcData().erase(pos);
-					pos = exif->iptcData().findKey(ekey);
-					}
-
-				while (work)
-					{
-					exif->iptcData()[key] = static_cast<gchar *>(work->data);
-					work = work->next;
-					}
-			}
-			catch (Exiv2::AnyError& e) {
-				Exiv2::XmpKey ekey(key);
-				auto pos = exif->xmpData().findKey(ekey);
-				while (pos != exif->xmpData().end())
-					{
-					exif->xmpData().erase(pos);
-					pos = exif->xmpData().findKey(ekey);
-					}
-
-				while (work)
-					{
-					exif->xmpData()[key] = static_cast<gchar *>(work->data);
-					work = work->next;
-					}
-			}
-		}
-		return 1;
-	}
-	catch (Exiv2::AnyError& e) {
-		debug_exception(e);
-		return 0;
-	}
-}
-
-gint exif_update_metadata(ExifData *exif, const gchar *key, const GList *values)
-{
-	gint ret = exif_update_metadata_simple(exif, key, values);
-
-	if (
-	    !values || /* deleting item */
-	    !ret  /* writing to the explicitly given xmp tag failed */
-	    )
-		{
-		/* deleted xmp metadatum can't be converted, we have to delete also the corresponding legacy tag */
-		/* if we can't write xmp, update at least the legacy tag */
-		const AltKey *alt_key = find_alt_key(key);
-		if (alt_key && alt_key->iptc_key)
-			ret = exif_update_metadata_simple(exif, alt_key->iptc_key, values);
-
-		if (alt_key && alt_key->exif_key)
-			ret = exif_update_metadata_simple(exif, alt_key->exif_key, values);
-		}
-	return ret;
-}
-
 
 static GList *exif_add_value_to_glist(GList *list, Exiv2::Metadatum &item, MetadataFormat format, const Exiv2::ExifData *metadata)
 {
@@ -939,14 +692,6 @@ gchar* exif_get_image_comment(FileData* fd)
 		return g_strdup("");
 
 	return g_strdup(fd->exif->image_comment().c_str());
-}
-
-void exif_set_image_comment(FileData* fd, const gchar* comment)
-{
-	if (!fd || !fd->exif)
-		return;
-
-	fd->exif->set_image_comment(comment ? comment : "");
 }
 
 

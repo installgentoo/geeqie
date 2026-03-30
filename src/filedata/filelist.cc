@@ -88,7 +88,6 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 	GList *dlist = nullptr;
 	GList *flist = nullptr;
 	gint (*stat_func)(const gchar *path, struct stat *buf);
-	GHashTable *basename_hash = nullptr;
 
 	g_assert(files || dirs);
 
@@ -104,8 +103,6 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 		g_free(pathl);
 		return FALSE;
 		}
-
-	if (files) basename_hash = file_data_basename_hash_new();
 
 	if (follow_symlinks)
 		stat_func = stat;
@@ -160,8 +157,6 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 
 	if (dirs) *dirs = dlist;
 	if (files) *files = flist;
-
-	if (basename_hash) file_data_basename_hash_free(basename_hash);
 
 	return TRUE;
 }
@@ -260,9 +255,9 @@ gint FileData::FileList::sort_file_cb(gconstpointer a, gconstpointer b, gpointer
                 static_cast<SortSettings *>(data));
 }
 
-GList *FileData::FileList::sort_full(GList *list, SortType method, gboolean ascending, gboolean case_sensitive, GCompareDataFunc cb)
+static GList *sort_full(GList *list, SortType method, gboolean ascending, gboolean case_sensitive, GCompareDataFunc cb)
 {
-	SortSettings settings = {method, ascending, case_sensitive};
+	FileData::FileList::SortSettings settings = {method, ascending, case_sensitive};
 	return g_list_sort_with_data(list, cb, &settings);
 }
 
@@ -419,33 +414,6 @@ void FileData::FileList::recursive_append(GList **list, GList *dirs)
 		}
 }
 
-void FileData::FileList::recursive_append_full(GList **list, GList *dirs, SortType method, gboolean ascend, gboolean case_sensitive)
-{
-	GList *work;
-
-	work = dirs;
-	while (work)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-		GList *f;
-		GList *d;
-
-		if (read_list(fd, &f, &d))
-			{
-			f = filter(f, FALSE);
-			f = sort_full(f, method, ascend, case_sensitive, sort_file_cb);
-			*list = g_list_concat(*list, f);
-
-			d = filter(d, TRUE);
-			d = sort_path(d);
-			recursive_append_full(list, d, method, ascend, case_sensitive);
-			free_list(d);
-			}
-
-		work = work->next;
-		}
-}
-
 GList *FileData::FileList::recursive(FileData *dir_fd)
 {
 	GList *list;
@@ -458,23 +426,6 @@ GList *FileData::FileList::recursive(FileData *dir_fd)
 	d = filter(d, TRUE);
 	d = sort_path(d);
 	recursive_append(&list, d);
-	free_list(d);
-
-	return list;
-}
-
-GList *FileData::FileList::recursive_full(FileData *dir_fd, SortType method, gboolean ascend, gboolean case_sensitive)
-{
-	GList *list;
-	GList *d;
-
-	if (!read_list(dir_fd, &list, &d)) return nullptr;
-	list = filter(list, FALSE);
-	list = sort_full(list, method, ascend, case_sensitive, sort_file_cb);
-
-	d = filter(d, TRUE);
-	d = sort_path(d);
-	recursive_append_full(&list, d, method, ascend, case_sensitive);
 	free_list(d);
 
 	return list;

@@ -216,23 +216,6 @@ GtkWidget *menu_item_add_sensitive(GtkWidget *menu, const gchar *label, gboolean
 	return item;
 }
 
-GtkWidget *menu_item_add_stock_sensitive(GtkWidget *menu, const gchar *label, const gchar *stock_id, gboolean sensitive,
-					 GCallback func, gpointer data)
-{
-	GtkWidget *item;
-	GtkAccelGroup *accel_group;
-
-	item = menu_item_add_stock(menu, label, stock_id, func, data);
-	gtk_widget_set_sensitive(item, sensitive);
-	accel_group = static_cast<GtkAccelGroup *>(g_object_get_data(G_OBJECT(menu), "accel_group"));
-	if (accel_group)
-		{
-		menu_item_add_main_window_accelerator(item, accel_group);
-		}
-
-	return item;
-}
-
 GtkWidget *menu_item_add_icon_sensitive(GtkWidget *menu, const gchar *label, const gchar *icon_name, gboolean sensitive,
 					 GCallback func, gpointer data)
 {

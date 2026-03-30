@@ -279,7 +279,6 @@ static void search_window_close(SearchData *sd);
 
 static void search_notify_cb(FileData *fd, NotifyType type, gpointer data);
 static void search_start_cb(GtkWidget *widget, gpointer data);
-void mfd_list_free(GList *list);
 
 /*
  *-------------------------------------------------------------------
@@ -2509,6 +2508,8 @@ static gboolean search_window_delete_cb(GtkWidget *, GdkEventAny *, gpointer dat
 	return TRUE;
 }
 
+static void mfd_list_free(GList *list);
+
 static void search_window_destroy_cb(GtkWidget *, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
@@ -2991,7 +2992,7 @@ static void search_notify_cb(FileData *fd, NotifyType type, gpointer data)
 		}
 }
 
-void mfd_list_free(GList *list)
+static void mfd_list_free(GList *list)
 {
 	GList *work;
 

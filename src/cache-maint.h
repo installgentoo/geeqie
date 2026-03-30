@@ -31,8 +31,6 @@ class FileData;
 void cache_notify_cb(FileData *fd, NotifyType type, gpointer data);
 void cache_manager_show();
 
-void cache_maintain_home_remote(gboolean metadata, gboolean clear, GDestroyNotify func);
-void cache_manager_standard_process_remote(gboolean clear);
 void cache_manager_render_remote(const gchar *path, gboolean recurse, gboolean local, GSourceFunc destroy_func);
 void cache_maintenance(const gchar *path);
 

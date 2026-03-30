@@ -110,7 +110,6 @@ GtkWidget *pref_spacer(GtkWidget *parent_box, gboolean padding);
 GtkWidget *pref_line(GtkWidget *parent_box, gboolean padding);
 
 GtkWidget *pref_label_new(GtkWidget *parent_box, const gchar *text);
-GtkWidget *pref_label_new_mnemonic(GtkWidget *parent_box, const gchar *text, GtkWidget *widget);
 void pref_label_bold(GtkWidget *label, gboolean bold, gboolean increase_size);
 
 GtkWidget *pref_button_new(GtkWidget *parent_box, const gchar *icon_name,
@@ -137,16 +136,7 @@ GtkWidget *pref_spin_new_int(GtkWidget *parent_box, const gchar *text, const gch
 			     gint min, gint max, gint step,
 			     gint value, gint *value_var);
 
-void pref_link_sensitivity(GtkWidget *widget, GtkWidget *watch);
-
-void pref_signal_block_data(GtkWidget *widget, gpointer data);
-void pref_signal_unblock_data(GtkWidget *widget, gpointer data);
-
-
 GtkWidget *pref_table_new(GtkWidget *parent_box, gint, gint, gboolean, gboolean);
-
-GtkWidget *pref_table_box(GtkWidget *table, gint column, gint row,
-			  GtkOrientation orientation, const gchar *text);
 
 GtkWidget *pref_table_label(GtkWidget *table, gint column, gint row,
 			    const gchar *text, GtkAlign alignment);
@@ -154,25 +144,6 @@ GtkWidget *pref_table_label(GtkWidget *table, gint column, gint row,
 GtkWidget *pref_table_button(GtkWidget *table, gint column, gint row,
 			     const gchar *stock_id, const gchar *text,
 			     GCallback func, gpointer data);
-
-GtkWidget *pref_table_spin(GtkWidget *table, gint column, gint row,
-			   const gchar *text, const gchar *suffix,
-			   gdouble min, gdouble max, gdouble step, gint digits,
-			   gdouble value,
-			   GCallback func, gpointer data);
-
-GtkWidget *pref_table_spin_new_int(GtkWidget *table, gint column, gint row,
-				   const gchar *text, const gchar *suffix,
-				   gint min, gint max, gint step,
-				   gint value, gint *value_var);
-
-
-GtkWidget *pref_toolbar_new(GtkWidget *parent_box);
-GtkWidget *pref_toolbar_button(GtkWidget *toolbar,
-			       const gchar *icon_name, const gchar *label, gboolean toggle,
-			       const gchar *description,
-			       GCallback func, gpointer data);
-
 
 GtkWidget *date_selection_new();
 
@@ -194,33 +165,10 @@ void sizer_set_limits(GtkWidget *sizer,
 		      gint vsize_min, gint vsize_max);
 
 
-void pref_list_int_set(const gchar *group, const gchar *key, gint value);
-gboolean pref_list_int_get(const gchar *group, const gchar *key, gint *result);
-
-
 void pref_color_button_set_cb(GtkWidget *widget, gpointer data);
 GtkWidget *pref_color_button_new(GtkWidget *parent_box,
 				 const gchar *title, GdkRGBA *color,
 				 GCallback func, gpointer data);
-
-gchar *text_widget_text_pull(GtkWidget *text_widget);
-gchar *text_widget_text_pull_selected(GtkWidget *text_widget);
-
-struct ActionItem
-{
-	ActionItem(const gchar *name, const gchar *label, const gchar *icon_name);
-	ActionItem(const ActionItem &other);
-	ActionItem(ActionItem &&other) noexcept;
-	~ActionItem();
-	ActionItem &operator=(const ActionItem &other);
-	ActionItem &operator=(ActionItem &&other) noexcept;
-
-	bool has_label(const gchar *label) const;
-
-	gchar *name = nullptr; /* GtkActionEntry terminology */
-	gchar *label = nullptr;
-	gchar *icon_name = nullptr;
-};
 
 // Copy pixbuf returned by gtk_icon_theme_load_icon() to avoid GTK+ keeping the old icon theme loaded
 GdkPixbuf *gq_gtk_icon_theme_load_icon_copy(GtkIconTheme *icon_theme, const gchar *icon_name, gint size, GtkIconLookupFlags flags);

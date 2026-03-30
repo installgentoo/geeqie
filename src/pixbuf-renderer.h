@@ -160,7 +160,6 @@ struct PixbufRenderer
 	gint drag_last_y;
 	gint drag_moved;
 
-	gboolean source_tiles_enabled;
 	gint source_tiles_cache_size;
 
 	GList *source_tiles;	/**< list of active source tiles */
@@ -227,15 +226,6 @@ void pixbuf_renderer_set_orientation(PixbufRenderer *pr, gint orientation);
 
 void pixbuf_renderer_set_post_process_func(PixbufRenderer *pr, PixbufRendererPostProcessFunc func, gpointer user_data, gboolean slow);
 
-void pixbuf_renderer_set_tiles(PixbufRenderer *pr, gint width, gint height,
-			       gint tile_width, gint tile_height, gint cache_size,
-			       PixbufRendererTileRequestFunc func_request,
-			       PixbufRendererTileDisposeFunc func_dispose,
-			       gpointer user_data,
-			       gdouble zoom);
-void pixbuf_renderer_set_tiles_size(PixbufRenderer *pr, gint width, gint height);
-gint pixbuf_renderer_get_tiles(PixbufRenderer *pr);
-
 void pixbuf_renderer_move(PixbufRenderer *pr, PixbufRenderer *source);
 void pixbuf_renderer_copy(PixbufRenderer *pr, PixbufRenderer *source);
 
@@ -244,8 +234,6 @@ void pixbuf_renderer_area_changed(PixbufRenderer *pr, gint x, gint y, gint width
 /* scrolling */
 
 void pixbuf_renderer_scroll(PixbufRenderer *pr, gint x, gint y);
-void pixbuf_renderer_scroll_to_point(PixbufRenderer *pr, gint x, gint y,
-				     gdouble x_align, gdouble y_align);
 
 void pixbuf_renderer_get_scroll_center(PixbufRenderer *pr, gdouble *x, gdouble *y);
 void pixbuf_renderer_set_scroll_center(PixbufRenderer *pr, gdouble x, gdouble y);
@@ -258,14 +246,10 @@ void pixbuf_renderer_zoom_set(PixbufRenderer *pr, gdouble zoom);
 gdouble pixbuf_renderer_zoom_get(PixbufRenderer *pr);
 gdouble pixbuf_renderer_zoom_get_scale(PixbufRenderer *pr);
 
-void pixbuf_renderer_zoom_set_limits(PixbufRenderer *pr, gdouble min, gdouble max);
-
 /* sizes */
 
 gboolean pixbuf_renderer_get_image_size(PixbufRenderer *pr, gint *width, gint *height);
 gboolean pixbuf_renderer_get_scaled_size(PixbufRenderer *pr, gint *width, gint *height);
-
-gboolean pixbuf_renderer_get_visible_rect(PixbufRenderer *pr, GdkRectangle *rect);
 
 void pixbuf_renderer_set_color(PixbufRenderer *pr, GdkRGBA *color);
 
@@ -276,11 +260,6 @@ gint pixbuf_renderer_overlay_add(PixbufRenderer *pr, GdkPixbuf *pixbuf, gint x, 
 void pixbuf_renderer_overlay_set(PixbufRenderer *pr, gint id, GdkPixbuf *pixbuf, gint x, gint y);
 gboolean pixbuf_renderer_overlay_get(PixbufRenderer *pr, gint id, GdkPixbuf **pixbuf, gint *x, gint *y);
 void pixbuf_renderer_overlay_remove(PixbufRenderer *pr, gint id);
-
-gboolean pixbuf_renderer_get_mouse_position(PixbufRenderer *pr, gint *x_pixel, gint *y_pixel);
-
-gboolean pixbuf_renderer_get_pixel_colors(PixbufRenderer *pr, gint x_pixel, gint y_pixel,
-	 				gint *r_mouse, gint *g_mouse, gint *b_mouse, gint *a_mouse);
 
 void pixbuf_renderer_set_size_early(PixbufRenderer *pr, guint width, guint height);
 
@@ -311,6 +290,4 @@ GdkRectangle pr_coords_map_orientation_reverse(gint orientation,
                                                GdkRectangle area,
                                                gint tile_w, gint tile_h);
 void pr_scale_region(GdkRectangle &region, gdouble scale);
-
-GList *pr_source_tile_compute_region(PixbufRenderer *pr, gint x, gint y, gint w, gint h, gboolean request);
 #endif

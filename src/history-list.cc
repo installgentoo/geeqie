@@ -269,15 +269,6 @@ gboolean history_list_save(const gchar *path)
 	return (secure_close(ssi) == 0);
 }
 
-static void history_list_free(HistoryData *hd)
-{
-	if (!hd) return;
-
-	g_free(hd->key);
-	g_list_free_full(hd->list, g_free);
-	g_free(hd);
-}
-
 static HistoryData *history_list_find_by_key(const gchar *key)
 {
 	if (!key) return nullptr;
@@ -300,16 +291,6 @@ const gchar *history_list_find_last_path_by_key(const gchar *key)
 	if (!hd || !hd->list) return nullptr;
 
 	return static_cast<const gchar *>(hd->list->data);
-}
-
-void history_list_free_key(const gchar *key)
-{
-	HistoryData *hd;
-	hd = history_list_find_by_key(key);
-	if (!hd) return;
-
-	history_list = g_list_remove(history_list, hd);
-	history_list_free(hd);
 }
 
 void history_list_add_to_key(const gchar *key, const gchar *path, gint max)

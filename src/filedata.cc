@@ -96,29 +96,6 @@ void file_data_unref(FileData *fd)
 
 #endif
 
-void file_data_lock(FileData *fd)
-{
-	if (fd == nullptr) return;
-	fd->file_data_lock(fd);
-}
-
-void file_data_unlock(FileData *fd)
-{
-	if (fd == nullptr) return;
-	fd->file_data_unlock(fd);
-}
-
-void file_data_lock_list(GList *list)
-{
-	FileData::file_data_lock_list(list);
-}
-
-void file_data_unlock_list(GList *list)
-{
-	FileData::file_data_unlock_list(list);
-}
-
-
 gboolean file_data_check_changed_files(FileData *fd)
 {
 	return fd->file_data_check_changed_files(fd);
@@ -151,12 +128,6 @@ GList *filelist_sort(GList *list, SortType method, gboolean ascend, gboolean cas
 {
 	return FileData::FileList::sort(list, method, ascend, case_sensitive);
 }
-
-GList *filelist_sort_full(GList *list, SortType method, gboolean ascend, gboolean case_sensitive, GCompareDataFunc cb)
-{
-	return FileData::FileList::sort_full(list, method, ascend, case_sensitive, cb);
-}
-
 
 gboolean filelist_read(FileData *dir_fd, GList **files, GList **dirs)
 {
@@ -203,11 +174,6 @@ GList *filelist_sort_path(GList *list)
 GList *filelist_recursive(FileData *dir_fd)
 {
 	return FileData::FileList::recursive(dir_fd);
-}
-
-GList *filelist_recursive_full(FileData *dir_fd, SortType method, gboolean ascend, gboolean case_sensitive)
-{
-	return FileData::FileList::recursive_full(dir_fd, method, ascend, case_sensitive);
 }
 
 gboolean file_data_filter_file_filter(FileData *fd, GRegex *filter)

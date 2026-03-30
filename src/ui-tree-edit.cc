@@ -581,23 +581,3 @@ GList *uig_list_insert_link(GList *list, GList *link, gpointer data)
 
 	return list;
 }
-
-GList *uig_list_insert_list(GList *parent, GList *insert_link, GList *list)
-{
-	GList *end;
-
-	if (!insert_link) return g_list_concat(parent, list);
-	if (insert_link == parent) return g_list_concat(list, parent);
-	if (!parent) return list;
-	if (!list) return parent;
-
-	end  = g_list_last(list);
-
-	if (insert_link->prev) insert_link->prev->next = list;
-	list->prev = insert_link->prev;
-	insert_link->prev = end;
-	end->next = insert_link;
-
-	return parent;
-}
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

@@ -28,8 +28,6 @@
 gboolean history_list_load(const gchar *path);
 gboolean history_list_save(const gchar *path);
 
-void history_list_free_key(const gchar *key);
-
 void history_list_add_to_key(const gchar *key, const gchar *path, gint max);
 
 void history_list_item_change(const gchar *key, const gchar *oldpath, const gchar *newpath);

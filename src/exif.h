@@ -112,38 +112,22 @@ ExifData *exif_read(gchar *path, gchar *, GHashTable *);
 ExifData *exif_read_fd(FileData *fd);
 void exif_free_fd(FileData *fd, ExifData *exif);
 
-ExifData *exif_get_original(ExifData *exif);
-
 void exif_free(ExifData *exif);
 
 gchar *exif_get_data_as_text(ExifData *exif, const gchar *key);
 gint exif_get_integer(ExifData *exif, const gchar *key, gint *value);
-ExifRational *exif_get_rational(ExifData *exif, const gchar *key, gint *sign);
 
 ExifItem *exif_get_item(ExifData *exif, const gchar *key);
-ExifItem *exif_get_first_item(ExifData *exif);
-ExifItem *exif_get_next_item(ExifData *exif);
 
-
-gchar *exif_item_get_tag_name(ExifItem *item);
-guint exif_item_get_tag_id(ExifItem *item);
 guint exif_item_get_elements(ExifItem *item);
 gchar *exif_item_get_data(ExifItem *item, guint *data_len);
-gchar *exif_item_get_description(ExifItem *item);
 guint exif_item_get_format_id(ExifItem *item);
-const gchar *exif_item_get_format_name(ExifItem *item, gboolean brief);
 gchar *exif_item_get_data_as_text(ExifItem *item, ExifData *exif);
 gint exif_item_get_integer(ExifItem *item, gint *value);
 ExifRational *exif_item_get_rational(ExifItem *item, gint *sign, guint n);
 
-gchar *exif_item_get_string(ExifItem *item, gint idx);
-
-gchar *exif_get_description_by_key(const gchar *key);
-gchar *exif_get_tag_description_by_key(const gchar *key);
-
 gchar *exif_get_formatted_by_key(ExifData *exif, const gchar *key, gboolean *key_valid);
 
-gint exif_update_metadata(ExifData *exif, const gchar *key, const GList *values);
 GList *exif_get_metadata(ExifData *exif, const gchar *key, MetadataFormat format);
 
 guchar *exif_get_color_profile(ExifData *exif, guint *data_len);
@@ -157,13 +141,11 @@ gboolean exif_jpeg_parse_color(ExifData *exif, guchar *data, guint size);
 
 /* support for so called "jpeg comment" */
 gchar* exif_get_image_comment(FileData* fd);
-void exif_set_image_comment(FileData* fd, const gchar* comment);
 
 /*raw support */
 guchar *exif_get_preview(ExifData *exif, guint *data_len, gint requested_width, gint requested_height);
 void exif_free_preview(const guchar *buf);
 
-gchar *metadata_file_info(FileData *fd, const gchar *key, MetadataFormat format);
 gchar *metadata_lua_info(FileData *fd, const gchar *key, MetadataFormat format);
 
 #endif

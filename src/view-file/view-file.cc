@@ -170,17 +170,6 @@ GList *vf_selection_get_list_by_index(ViewFile *vf)
 	return vficon_selection_get_list_by_index(vf);
 }
 
-void vf_selection_foreach(ViewFile *vf, const ViewFile::SelectionCallback &func)
-{
-	if (!vf) return;
-
-	
-	{
-
-	vficon_selection_foreach(vf, func);
-	}
-}
-
 void vf_select_all(ViewFile *vf)
 {
 	
@@ -214,15 +203,6 @@ void vf_select_by_fd(ViewFile *vf, FileData *fd)
 	{
 
 	vficon_select_by_fd(vf, fd);
-	}
-}
-
-void vf_select_list(ViewFile *vf, GList *list)
-{
-	
-	{
-
-	vficon_select_list(vf, list);
 	}
 }
 
@@ -550,6 +530,7 @@ gboolean vf_refresh(ViewFile *vf)
 	return vficon_refresh(vf);
 }
 
+static void vf_thumb_stop(ViewFile *vf);
 gboolean vf_set_fd(ViewFile *vf, FileData *dir_fd)
 {
 	vf_thumb_stop(vf);
@@ -1043,7 +1024,7 @@ void vf_thumb_cleanup(ViewFile *vf)
 	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
 }
 
-void vf_thumb_stop(ViewFile *vf)
+static void vf_thumb_stop(ViewFile *vf)
 {
 	if (vf->thumbs_running) vf_thumb_cleanup(vf);
 }

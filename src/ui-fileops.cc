@@ -262,7 +262,7 @@ gboolean stat_utf8(const gchar *s, struct stat *st)
 	return ret;
 }
 
-gboolean lstat_utf8(const gchar *s, struct stat *st)
+static gboolean lstat_utf8(const gchar *s, struct stat *st)
 {
 	gchar *sl;
 	gboolean ret;
@@ -399,7 +399,7 @@ gboolean rmdir_utf8(const gchar *s)
 	return ret;
 }
 
-gboolean copy_file_attributes(const gchar *s, const gchar *t, gint perms, gint mtime)
+static gboolean copy_file_attributes(const gchar *s, const gchar *t, gint perms, gint mtime)
 {
 	struct stat st;
 	gchar *sl;
@@ -800,25 +800,6 @@ void parse_out_relatives(gchar *path)
 	path[t] = '\0';
 }
 
-gboolean file_in_path(const gchar *name)
-{
-	if (!name) return FALSE;
-
-	g_autofree gchar *path = g_strdup(getenv("PATH"));
-	if (!path) return FALSE;
-
-	g_auto(GStrv) paths = g_strsplit(path, ":", 0);
-	g_autofree gchar *namel = path_from_utf8(name);
-
-	for (gint i = 0; paths[i]; i++)
-		{
-		g_autofree gchar *f = g_build_filename(paths[i], namel, NULL);
-		if (isfile(f)) return TRUE;
-		}
-
-	return FALSE;
-}
-
 gboolean recursive_mkdir_if_not_exists(const gchar *path, mode_t mode)
 {
 	if (!path) return FALSE;
@@ -996,27 +977,6 @@ gboolean download_web_file(const gchar *text, gboolean minimized, gpointer data)
 	g_file_copy_async(web->web_file, web->tmp_g_file, G_FILE_COPY_OVERWRITE, G_PRIORITY_LOW, web->cancellable, web_file_progress_cb, web, web_file_async_ready_cb, web);
 
 	return TRUE;
-}
-
-gboolean rmdir_recursive(GFile *file, GCancellable *cancellable, GError **error)
-{
-	g_autoptr(GFileEnumerator) enumerator = nullptr;
-
-	enumerator = g_file_enumerate_children(file, G_FILE_ATTRIBUTE_STANDARD_NAME, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, nullptr);
-
-	while (enumerator != nullptr)
-		{
-		 GFile *child;
-
-		if (!g_file_enumerator_iterate(enumerator, nullptr, &child, cancellable, error))
-			return FALSE;
-		if (child == nullptr)
-			break;
-		if (!rmdir_recursive(child, cancellable, error))
-			return FALSE;
-		}
-
-	return g_file_delete(file, cancellable, error);
 }
 
 /**
