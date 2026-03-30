@@ -401,7 +401,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_INT(*options, thumbnails.max_width);
 	WRITE_NL(); WRITE_INT(*options, thumbnails.max_height);
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.enable_caching);
-	WRITE_NL(); WRITE_BOOL(*options, thumbnails.cache_into_dirs);
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.use_xvpics);
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.spec_standard);
 	WRITE_NL(); WRITE_UINT(*options, thumbnails.quality);
@@ -437,8 +436,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 
 	/* Filtering Options */
 	WRITE_NL(); WRITE_BOOL(*options, file_filter.show_hidden_files);
-	WRITE_NL(); WRITE_BOOL(*options, file_filter.show_parent_directory);
-	WRITE_NL(); WRITE_BOOL(*options, file_filter.show_dot_directory);
 	WRITE_NL(); WRITE_BOOL(*options, file_filter.disable_file_extension_checks);
 	WRITE_NL(); WRITE_BOOL(*options, file_filter.disable);
 	WRITE_SEPARATOR();
@@ -725,7 +722,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_INT_CLAMP(*options, thumbnails.max_height, 16, 512)) continue;
 
 		if (READ_BOOL(*options, thumbnails.enable_caching)) continue;
-		if (READ_BOOL(*options, thumbnails.cache_into_dirs)) continue;
 		if (READ_BOOL(*options, thumbnails.use_xvpics)) continue;
 		if (READ_BOOL(*options, thumbnails.spec_standard)) continue;
 		if (READ_UINT_CLAMP(*options, thumbnails.quality, GDK_INTERP_NEAREST, GDK_INTERP_BILINEAR)) continue;
@@ -767,8 +763,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 
 		/* Filtering options */
 		if (READ_BOOL(*options, file_filter.show_hidden_files)) continue;
-		if (READ_BOOL(*options, file_filter.show_parent_directory)) continue;
-		if (READ_BOOL(*options, file_filter.show_dot_directory)) continue;
 		if (READ_BOOL(*options, file_filter.disable_file_extension_checks)) continue;
 		if (READ_BOOL(*options, file_filter.disable)) continue;
 

@@ -126,9 +126,7 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 				{
 				/* we ignore the .thumbnails dir for cleanliness */
 				if (dirs &&
-				    (name[0] != '.' || (name[1] != '\0' && (name[1] != '.' || name[2] != '\0'))) &&
-				    strcmp(name, GQ_CACHE_LOCAL_THUMB) != 0 &&
-				    strcmp(name, THUMB_FOLDER_LOCAL) != 0)
+				    (name[0] != '.' || (name[1] != '\0' && (name[1] != '.' || name[2] != '\0'))))
 					{
 					dlist = g_list_prepend(dlist, file_data_new_local(filepath, &ent_sbuf, TRUE));
 					}
@@ -359,8 +357,7 @@ GList *FileData::FileList::filter(GList *list, gboolean is_dir_list)
 		work = work->next;
 
 		if ((!options->file_filter.show_hidden_files && is_hidden_file(filepath)) ||
-		    (!is_dir_list && !filter_name_exists(name)) ||
-		    (is_dir_list && name[0] == '.' && strcmp(name, GQ_CACHE_LOCAL_THUMB) == 0) )
+		    (!is_dir_list && !filter_name_exists(name)))
 			{
 			list = g_list_remove_link(list, link);
 			::file_data_unref(fd);

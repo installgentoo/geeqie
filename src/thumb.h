@@ -61,7 +61,7 @@ void thumb_loader_set_callbacks(ThumbLoader *tl,
 				ThumbLoader::Func func_error,
 				ThumbLoader::Func func_progress,
 				gpointer data);
-void thumb_loader_set_cache(ThumbLoader *tl, gboolean enable_cache, gboolean local, gboolean retry_failed);
+void thumb_loader_set_cache(ThumbLoader *tl, gboolean enable_cache, gboolean, gboolean retry_failed);
 
 gboolean thumb_loader_start(ThumbLoader *tl, FileData *fd);
 void thumb_loader_free(ThumbLoader *tl);

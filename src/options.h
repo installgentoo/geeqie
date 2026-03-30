@@ -124,7 +124,6 @@ struct ConfOptions
 		gint max_width;
 		gint max_height;
 		gboolean enable_caching;
-		gboolean cache_into_dirs;
 		gboolean use_xvpics;
 		gboolean spec_standard;
 		guint quality;
@@ -137,8 +136,6 @@ struct ConfOptions
 	/* file filtering */
 	struct {
 		gboolean show_hidden_files;
-		gboolean show_parent_directory;
-		gboolean show_dot_directory;
 		gboolean disable_file_extension_checks;
 		gboolean disable;
 	} file_filter;

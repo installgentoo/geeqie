@@ -39,7 +39,6 @@ struct ImageLoader;
 #else
 #define THUMB_FOLDER_GLOBAL ".thumbnails"
 #endif
-#define THUMB_FOLDER_LOCAL  ".thumblocal"
 #define THUMB_FOLDER_NORMAL "normal"
 #define THUMB_FOLDER_LARGE  "large"
 #define THUMB_FOLDER_FAIL   "fail" G_DIR_SEPARATOR_S GQ_APPNAME_LC "-" VERSION
@@ -59,15 +58,11 @@ struct ThumbLoaderStd
 
 	gchar *thumb_path;
 	gchar *thumb_uri;
-	const gchar *local_uri;
-
-	gboolean thumb_path_local;
 
 	gint requested_width;
 	gint requested_height;
 
 	gboolean cache_enable;
-	gboolean cache_local;
 	gboolean cache_hit;
 	gboolean cache_retry;
 
@@ -88,7 +83,7 @@ void thumb_loader_std_set_callbacks(ThumbLoaderStd *tl,
 				    ThumbLoaderStd::Func func_error,
 				    ThumbLoaderStd::Func func_progress,
 				    gpointer data);
-void thumb_loader_std_set_cache(ThumbLoaderStd *tl, gboolean enable_cache, gboolean local, gboolean retry_failed);
+void thumb_loader_std_set_cache(ThumbLoaderStd *tl, gboolean enable_cache, gboolean, gboolean retry_failed);
 gboolean thumb_loader_std_start(ThumbLoaderStd *tl, FileData *fd);
 void thumb_loader_std_free(ThumbLoaderStd *tl);
 

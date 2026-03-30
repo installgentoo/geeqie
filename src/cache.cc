@@ -70,11 +70,7 @@ struct CachePathParts
 {
 	CachePathParts(CacheType cache_type)
 	{
-			{
-			rc = get_thumbnails_cache_dir();
-			local = GQ_CACHE_LOCAL_THUMB;
-			use_local_dir = options->thumbnails.cache_into_dirs;
-			}
+		rc = get_thumbnails_cache_dir();
 
 		switch (cache_type)
 			{
@@ -87,14 +83,6 @@ struct CachePathParts
 			}
 	}
 
-	gchar *build_path_local(const gchar *source) const
-	{
-		g_autofree gchar *base = remove_level_from_path(source);
-		g_autofree gchar *name = g_strconcat(filename_from_path(source), ext, nullptr);
-
-		return g_build_filename(base, local, name, nullptr);
-	}
-
 	gchar *build_path_rc(const gchar *source) const
 	{
 		g_autofree gchar *name = g_strconcat(source, ext, nullptr);
@@ -103,9 +91,7 @@ struct CachePathParts
 	}
 
 	const gchar *rc = nullptr;
-	const gchar *local = nullptr;
 	const gchar *ext = nullptr;
-	gboolean use_local_dir = FALSE;
 };
 
 constexpr gint CACHE_LOAD_LINE_NOISE = 8;
@@ -125,12 +111,6 @@ gchar *cache_get_location(CacheType type, const gchar *source, gint include_name
 		}
 
 	gchar *path = nullptr;
-
-	if (cache.use_local_dir && access_file(base, W_OK))
-		{
-		path = g_build_filename(base, cache.local, name, NULL);
-		if (mode) *mode = 0775;
-		}
 
 	if (!path)
 		{
@@ -642,34 +622,12 @@ gchar *cache_find_location(CacheType type, const gchar *source)
 
 	const CachePathParts cache{type};
 
-	if (cache.use_local_dir)
-		{
-		path = cache.build_path_local(source);
-		}
-	else
-		{
-		path = cache.build_path_rc(source);
-		}
+	path = cache.build_path_rc(source);
 
 	if (!isfile(path))
 		{
 		g_free(path);
-
-		/* try the opposite method if not found */
-		if (!cache.use_local_dir)
-			{
-			path = cache.build_path_local(source);
-			}
-		else
-			{
-			path = cache.build_path_rc(source);
-			}
-
-		if (!isfile(path))
-			{
-			g_free(path);
-			path = nullptr;
-			}
+		path = nullptr;
 		}
 
 	return path;

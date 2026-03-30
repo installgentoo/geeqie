@@ -131,9 +131,6 @@ static void thumb_loader_std_reset(ThumbLoaderStd *tl)
 
 	g_free(tl->thumb_uri);
 	tl->thumb_uri = nullptr;
-	tl->local_uri = nullptr;
-
-	tl->thumb_path_local = FALSE;
 
 	tl->cache_hit = FALSE;
 
@@ -144,7 +141,7 @@ static void thumb_loader_std_reset(ThumbLoaderStd *tl)
 	tl->progress = 0.0;
 }
 
-static gchar *thumb_std_cache_path(const gchar *path, const gchar *uri, gboolean local,
+static gchar *thumb_std_cache_path(const gchar *path, const gchar *uri, gboolean,
 				   const gchar *cache_subfolder)
 {
 	gchar *result = nullptr;
@@ -159,18 +156,8 @@ static gchar *thumb_std_cache_path(const gchar *path, const gchar *uri, gboolean
 
 	name = g_strconcat(md5_text, THUMB_NAME_EXTENSION, NULL);
 
-	if (local)
-		{
-		gchar *base = remove_level_from_path(path);
-
-		result = g_build_filename(base, THUMB_FOLDER_LOCAL, cache_subfolder, name, NULL);
-		g_free(base);
-		}
-	else
-		{
-		result = g_build_filename(get_thumbnails_standard_cache_dir(),
-													cache_subfolder, name, NULL);
-		}
+	result = g_build_filename(get_thumbnails_standard_cache_dir(),
+												cache_subfolder, name, NULL);
 
 	g_free(name);
 	g_free(md5_text);
@@ -178,7 +165,7 @@ static gchar *thumb_std_cache_path(const gchar *path, const gchar *uri, gboolean
 	return result;
 }
 
-static gchar *thumb_loader_std_cache_path(ThumbLoaderStd *tl, gboolean local, GdkPixbuf *pixbuf, gboolean fail)
+static gchar *thumb_loader_std_cache_path(ThumbLoaderStd *tl, gboolean, GdkPixbuf *pixbuf, gboolean fail)
 {
 	const gchar *folder;
 	gint w;
@@ -210,9 +197,7 @@ static gchar *thumb_loader_std_cache_path(ThumbLoaderStd *tl, gboolean local, Gd
 		folder = THUMB_FOLDER_NORMAL;
 		}
 
-	return thumb_std_cache_path(tl->fd->path,
-				    (local) ?  tl->local_uri : tl->thumb_uri,
-				    local, folder);
+	return thumb_std_cache_path(tl->fd->path, tl->thumb_uri, FALSE, folder);
 }
 
 static gboolean thumb_loader_std_fail_check(ThumbLoaderStd *tl)
@@ -277,7 +262,7 @@ static gboolean thumb_loader_std_validate(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 	if (w != THUMB_SIZE_NORMAL && w != THUMB_SIZE_LARGE &&
 	    h != THUMB_SIZE_NORMAL && h != THUMB_SIZE_LARGE) return FALSE;
 
-	valid_uri = (tl->thumb_path_local) ? tl->local_uri : tl->thumb_uri;
+	valid_uri = tl->thumb_uri;
 
 	uri = gdk_pixbuf_get_option(pixbuf, THUMB_MARKER_URI);
 	mtime_str = gdk_pixbuf_get_option(pixbuf, THUMB_MARKER_MTIME);
@@ -302,9 +287,6 @@ static void thumb_loader_std_save(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 
 	if (!pixbuf)
 		{
-		/* local failures are not stored */
-		if (tl->cache_local) return;
-
 		log_printf("warning: thumbnail generation failed (no fail marker file written): source=%s\n",
 		           tl->fd && tl->fd->path ? tl->fd->path : "(null)");
 		return;
@@ -315,35 +297,16 @@ static void thumb_loader_std_save(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 		fail = FALSE;
 		}
 
-	tl->thumb_path = thumb_loader_std_cache_path(tl, tl->cache_local, pixbuf, fail);
+	tl->thumb_path = thumb_loader_std_cache_path(tl, FALSE, pixbuf, fail);
 	if (!tl->thumb_path)
 		{
 		g_object_unref(G_OBJECT(pixbuf));
 		return;
 		}
-	tl->thumb_path_local = tl->cache_local;
 
 	/* create thumbnail dir if needed */
 	base_path = remove_level_from_path(tl->thumb_path);
-	if (tl->cache_local)
-		{
-		if (!isdir(base_path))
-			{
-			struct stat st;
-			gchar *source_base;
-
-			source_base = remove_level_from_path(tl->fd->path);
-			if (stat_utf8(source_base, &st))
-				{
-				recursive_mkdir_if_not_exists(base_path, st.st_mode);
-				}
-			g_free(source_base);
-			}
-		}
-	else
-		{
-		recursive_mkdir_if_not_exists(base_path, S_IRWXU);
-		}
+	recursive_mkdir_if_not_exists(base_path, S_IRWXU);
 	g_free(base_path);
 
 	DEBUG_1("thumb saving: %s", tl->fd->path);
@@ -358,7 +321,7 @@ static void thumb_loader_std_save(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 		gchar *pathl;
 		gboolean success;
 
-		mark_uri = (tl->cache_local) ? tl->local_uri :tl->thumb_uri;
+		mark_uri = tl->thumb_uri;
 
 		mark_app = g_strdup_printf("%s %s", GQ_APPNAME, VERSION);
 		const std::string mark_mtime = std::to_string(static_cast<unsigned long long>(tl->source_mtime));
@@ -371,7 +334,7 @@ static void thumb_loader_std_save(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 		if (success)
 			{
 			const auto default_permission = 0600;
-			chmod(pathl, (tl->cache_local) ? tl->source_mode : default_permission);
+			chmod(pathl, default_permission);
 			success = rename_file(tmp_path, tl->thumb_path);
 			}
 
@@ -580,20 +543,6 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoaderStd *tl, GdkPixbuf *pixbuf,
 					}
 				}
 			}
-		else if (tl->cache_local && !tl->thumb_path_local)
-			{
-			/* A local cache save was requested, but a valid thumb is in $HOME,
-			 * so specifically save as a local thumbnail.
-			 */
-			g_free(tl->thumb_path);
-			tl->thumb_path = nullptr;
-
-			tl->cache_hit = FALSE;
-
-			DEBUG_1("thumb copied: %s", tl->fd->path);
-
-			thumb_loader_std_save(tl, pixbuf);
-			}
 		}
 
 		{
@@ -633,7 +582,7 @@ static gboolean thumb_loader_std_next_source(ThumbLoaderStd *tl, gboolean remove
 
 	if (tl->thumb_path)
 		{
-		if (!tl->thumb_path_local && remove_broken)
+		if (remove_broken)
 			{
 			DEBUG_1("thumb broken, unlinking: %s", tl->thumb_path);
 			unlink_file(tl->thumb_path);
@@ -641,25 +590,6 @@ static gboolean thumb_loader_std_next_source(ThumbLoaderStd *tl, gboolean remove
 
 		g_free(tl->thumb_path);
 		tl->thumb_path = nullptr;
-
-		if (!tl->thumb_path_local)
-			{
-			tl->thumb_path = thumb_loader_std_cache_path(tl, TRUE, nullptr, FALSE);
-			if (isfile(tl->thumb_path))
-				{
-				FileData *fd = file_data_new_no_grouping(tl->thumb_path);
-				if (thumb_loader_std_setup(tl, fd))
-					{
-					file_data_unref(fd);
-					tl->thumb_path_local = TRUE;
-					return TRUE;
-					}
-				file_data_unref(fd);
-				}
-
-			g_free(tl->thumb_path);
-			tl->thumb_path = nullptr;
-			}
 
 		if (thumb_loader_std_setup(tl, tl->fd)) return TRUE;
 		}
@@ -770,12 +700,11 @@ static gboolean thumb_loader_std_setup(ThumbLoaderStd *tl, FileData *fd)
  * Note: Currently local_cache only specifies where to save a _new_ thumb, if
  *       a valid existing thumb is found anywhere the local thumb will not be created.
  */
-void thumb_loader_std_set_cache(ThumbLoaderStd *tl, gboolean enable_cache, gboolean local, gboolean retry_failed)
+void thumb_loader_std_set_cache(ThumbLoaderStd *tl, gboolean enable_cache, gboolean, gboolean retry_failed)
 {
 	if (!tl) return;
 
 	tl->cache_enable = enable_cache;
-	tl->cache_local = local;
 	tl->cache_retry = retry_failed;
 }
 
@@ -806,7 +735,6 @@ gboolean thumb_loader_std_start(ThumbLoaderStd *tl, FileData *fd)
 
 		pathl = path_from_utf8(fd->path);
 		tl->thumb_uri = g_filename_to_uri(pathl, nullptr, nullptr);
-		tl->local_uri = filename_from_path(tl->thumb_uri);
 		g_free(pathl);
 		}
 
@@ -815,7 +743,6 @@ gboolean thumb_loader_std_start(ThumbLoaderStd *tl, FileData *fd)
 		gint found;
 
 		tl->thumb_path = thumb_loader_std_cache_path(tl, FALSE, nullptr, FALSE);
-		tl->thumb_path_local = FALSE;
 
 		found = isfile(tl->thumb_path);
 		if (found)

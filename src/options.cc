@@ -69,9 +69,7 @@ ConfOptions *init_options(ConfOptions *options)
 	options->sort_totals = FALSE;
 
 	options->file_filter.disable = FALSE;
-	options->file_filter.show_dot_directory = FALSE;
 	options->file_filter.show_hidden_files = FALSE;
-	options->file_filter.show_parent_directory = TRUE;
 	options->file_filter.disable_file_extension_checks = FALSE;
 
 	options->hide_window_decorations = FALSE;
@@ -145,7 +143,6 @@ ConfOptions *init_options(ConfOptions *options)
 
 	options->show_icon_names = TRUE;
 
-	options->thumbnails.cache_into_dirs = FALSE;
 	options->thumbnails.enable_caching = TRUE;
 	options->thumbnails.max_width = DEFAULT_THUMB_WIDTH;
 	options->thumbnails.max_height = DEFAULT_THUMB_HEIGHT;

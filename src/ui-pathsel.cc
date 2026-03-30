@@ -198,8 +198,7 @@ static void dest_populate(Dest_Data *dd, const gchar *path)
 		}
 	while ((dir = readdir(dp)) != nullptr)
 		{
-		if (!options->file_filter.show_dot_directory
-		    && dir->d_name[0] == '.' && dir->d_name[1] == '\0')
+		if (dir->d_name[0] == '.' && dir->d_name[1] == '\0')
 			continue;
 		if (dir->d_name[0] == '.' && dir->d_name[1] == '.' && dir->d_name[2] == '\0'
 		    && pathl[0] == G_DIR_SEPARATOR && pathl[1] == '\0')

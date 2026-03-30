@@ -324,13 +324,13 @@ void thumb_loader_set_callbacks(ThumbLoader *tl,
 	tl->data = data;
 }
 
-void thumb_loader_set_cache(ThumbLoader *tl, gboolean enable_cache, gboolean local, gboolean retry_failed)
+void thumb_loader_set_cache(ThumbLoader *tl, gboolean enable_cache, gboolean, gboolean retry_failed)
 {
 	if (!tl) return;
 
 	if (tl->standard_loader)
 		{
-		thumb_loader_std_set_cache(reinterpret_cast<ThumbLoaderStd *>(tl), enable_cache, local, retry_failed);
+		thumb_loader_std_set_cache(reinterpret_cast<ThumbLoaderStd *>(tl), enable_cache, FALSE, retry_failed);
 		return;
 		}
 

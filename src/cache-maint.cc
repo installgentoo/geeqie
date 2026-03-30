@@ -62,14 +62,13 @@ struct CMData
 	GtkWidget *spinner;
 	GtkWidget *button_stop;
 	GtkWidget *button_close;
-	gboolean clear;
 	gboolean remote;
 };
 
 constexpr gint PURGE_DIALOG_WIDTH = 400;
 
 /* sorry for complexity (cm->done_list), but need it to remove empty dirs */
-CMData *cache_maintain_data_new(gboolean clear, gboolean, gboolean remote)
+CMData *cache_maintain_data_new(gboolean, gboolean, gboolean remote)
 {
 	const gchar *cache_folder = get_thumbnails_cache_dir();
 	FileData *dir_fd = file_data_new_dir(cache_folder);
@@ -86,7 +85,6 @@ CMData *cache_maintain_data_new(gboolean clear, gboolean, gboolean remote)
 	auto *cm = g_new0(CMData, 1);
 	cm->list = dlist;
 	cm->done_list = nullptr;
-	cm->clear = clear;
 	cm->remote = remote;
 
 	return cm;
@@ -128,11 +126,12 @@ static gboolean cache_maintenance_render_stop_cb(gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
+static void cache_manager_render_remote(const gchar *path, gboolean recurse, gboolean, GSourceFunc destroy_func);
 static void cache_maintenance_clean_stop_cb(gpointer data)
 {
 	cache_maintain_home_close(static_cast<CMData *>(data));
 	gtk_status_icon_set_tooltip_text(status_icon, _("Geeqie: Creating thumbs..."));
-	cache_manager_render_remote(cache_maintenance_path, TRUE, options->thumbnails.cache_into_dirs, cache_maintenance_render_stop_cb);
+	cache_manager_render_remote(cache_maintenance_path, TRUE, FALSE, cache_maintenance_render_stop_cb);
 }
 
 static void cache_maintenance_user_cancel_cb()
@@ -159,7 +158,7 @@ static void cache_maintenance_status_icon_activate_cb(GtkStatusIcon *, gpointer)
 	gtk_menu_popup_at_pointer(GTK_MENU(menu), nullptr);
 }
 
-static void cache_maintain_home_remote(gboolean, gboolean clear, GDestroyNotify func);
+static void cache_maintain_home_remote(gboolean, gboolean, GDestroyNotify func);
 void cache_maintenance(const gchar *path)
 {
 	cache_maintenance_path = g_strdup(path);
@@ -235,9 +234,7 @@ static gboolean cache_maintain_home_cb(gpointer data)
 	const gchar *cache_folder;
 	gboolean filter_disable;
 
-		{
-		cache_folder = get_thumbnails_cache_dir();
-		}
+	cache_folder = get_thumbnails_cache_dir();
 
 	base_length = strlen(cache_folder);
 
@@ -251,7 +248,7 @@ static gboolean cache_maintain_home_cb(gpointer data)
 
 	fd = static_cast<FileData *>(cm->list->data);
 
-	DEBUG_1("purge chk (%d) \"%s\"", cm->clear, fd->path);
+	DEBUG_1("purge chk \"%s\"", fd->path);
 
 /**
  * It is necessary to disable the file filter when clearing the cache,
@@ -280,8 +277,7 @@ static gboolean cache_maintain_home_cb(gpointer data)
 				gchar *dot = strrchr(path_buf, '.');
 
 				if (dot) *dot = '\0';
-				if (cm->clear ||
-				    (strlen(path_buf) > base_length && !isfile(path_buf + base_length)) )
+				if ((strlen(path_buf) > base_length && !isfile(path_buf + base_length)))
 					{
 					if (dot) *dot = '.';
 					if (!unlink_file(path_buf)) log_printf("failed to delete:%s\n", path_buf);
@@ -362,22 +358,15 @@ static void cache_maintain_home_stop_cb(GenericDialog *, gpointer data)
 	cache_maintain_home_stop(cm);
 }
 
-static void cache_maintain_home(gboolean, gboolean clear, GtkWidget *parent)
+static void cache_maintain_home(gboolean, gboolean, GtkWidget *parent)
 {
-	CMData *cm = cache_maintain_data_new(clear, FALSE, FALSE);
+	CMData *cm = cache_maintain_data_new(FALSE, FALSE, FALSE);
 	if (!cm) return;
 
 	const gchar *msg;
 	GtkWidget *hbox;
 
-	if (clear)
-		{
-		msg = _("Clearing cached thumbnails...");
-		}
-	else
-		{
-		msg = _("Removing old thumbnails...");
-		}
+	msg = _("Removing old thumbnails...");
 
 	cm->gd = generic_dialog_new(_("Maintenance"),
 				    "main_maintenance",
@@ -414,15 +403,14 @@ static void cache_maintain_home(gboolean, gboolean clear, GtkWidget *parent)
 }
 
 /**
- * @brief Clears or culls cached data
- * @param clear TRUE - clear cache, FALSE - delete orphaned cached items
+ * @brief culls cached data
  * @param func Function called when idle loop function terminates
  *
  *
  */
-static void cache_maintain_home_remote(gboolean, gboolean clear, GDestroyNotify func)
+static void cache_maintain_home_remote(gboolean, gboolean, GDestroyNotify func)
 {
-	CMData *cm = cache_maintain_data_new(clear, FALSE, TRUE);
+	CMData *cm = cache_maintain_data_new(FALSE, FALSE, TRUE);
 	if (!cm) return;
 
 	cm->idle_id = g_idle_add_full(G_PRIORITY_LOW, cache_maintain_home_cb, cm, func);
@@ -531,7 +519,6 @@ struct CacheOpsData
 	GList *list_dir;
 
 	gint days;
-	gboolean clear;
 
 	GtkWidget *button_close;
 	GtkWidget *button_stop;
@@ -546,7 +533,6 @@ struct CacheOpsData
 	gint count_total;
 	gint count_done;
 
-	gboolean local;
 	gboolean recurse;
 
 	gboolean remote;
@@ -660,7 +646,7 @@ static gboolean cache_manager_render_file(CacheOpsData *cd)
 					   cache_manager_render_thumb_done_cb,
 					   cache_manager_render_thumb_done_cb,
 					   nullptr, cd);
-		thumb_loader_set_cache(reinterpret_cast<ThumbLoader *>(cd->tl), TRUE, cd->local, TRUE);
+		thumb_loader_set_cache(reinterpret_cast<ThumbLoader *>(cd->tl), TRUE, FALSE, TRUE);
 		success = thumb_loader_start(reinterpret_cast<ThumbLoader *>(cd->tl), fd);
 		if (success)
 			{
@@ -792,7 +778,6 @@ static void cache_manager_render_dialog(GtkWidget *widget, const gchar *path)
 	CacheOpsData *cd;
 	GtkWidget *hbox;
 	GtkWidget *label;
-	GtkWidget *button;
 
 	cd = g_new0(CacheOpsData, 1);
 	cd->remote = FALSE;
@@ -826,8 +811,6 @@ static void cache_manager_render_dialog(GtkWidget *widget, const gchar *path)
 	gtk_widget_show(label);
 
 	pref_checkbox_new_int(cd->group, _("Include subfolders"), FALSE, &cd->recurse);
-	button = pref_checkbox_new_int(cd->group, _("Store thumbnails local to source images"), FALSE, &cd->local);
-	gtk_widget_set_sensitive(button, options->thumbnails.spec_standard);
 
 	pref_line(cd->gd->vbox, PREF_PAD_SPACE);
 	hbox = pref_box_new(cd->gd->vbox, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
@@ -861,13 +844,12 @@ static void cache_manager_render_dialog(GtkWidget *widget, const gchar *path)
  *
  *
  */
-void cache_manager_render_remote(const gchar *path, gboolean recurse, gboolean local, GSourceFunc destroy_func)
+static void cache_manager_render_remote(const gchar *path, gboolean recurse, gboolean, GSourceFunc destroy_func)
 {
 	CacheOpsData *cd;
 
 	cd = g_new0(CacheOpsData, 1);
 	cd->recurse = recurse;
-	cd->local = local;
 	cd->remote = TRUE;
 	cd->destroy_func = destroy_func;
 
@@ -915,40 +897,6 @@ static void cache_manager_standard_clean_stop_cb(GenericDialog *, gpointer data)
 	auto cd = static_cast<CacheOpsData *>(data);
 
 	cache_manager_standard_clean_done(cd);
-}
-
-static gint cache_manager_standard_clean_clear_cb(gpointer data)
-{
-	auto cd = static_cast<CacheOpsData *>(data);
-
-	if (cd->list)
-		{
-		FileData *next_fd;
-
-		next_fd = static_cast<FileData *>(cd->list->data);
-		cd->list = g_list_remove(cd->list, next_fd);
-
-		DEBUG_1("thumb removed: %s", next_fd->path);
-
-		unlink_file(next_fd->path);
-		file_data_unref(next_fd);
-
-		cd->count_done++;
-		if (!cd->remote)
-			{
-			if (cd->count_total != 0)
-				{
-				gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(cd->progress),
-							      static_cast<gdouble>(cd->count_done) / cd->count_total);
-				}
-			}
-
-		return G_SOURCE_CONTINUE;
-		}
-
-	cd->idle_id = 0;
-	cache_manager_standard_clean_done(cd);
-	return G_SOURCE_REMOVE;
 }
 
 static void cache_manager_standard_clean_valid_cb(const gchar *path, gboolean valid, gpointer data)
@@ -1026,15 +974,7 @@ static void cache_manager_standard_clean_start(GenericDialog *, gpointer data)
 	cd->count_total = g_list_length(cd->list);
 	cd->count_done = 0;
 
-	/* start iterating */
-	if (cd->clear)
-		{
-		cd->idle_id = g_idle_add(cache_manager_standard_clean_clear_cb, cd);
-		}
-	else
-		{
-		cache_manager_standard_clean_valid_cb(nullptr, TRUE, cd);
-		}
+	cache_manager_standard_clean_valid_cb(nullptr, TRUE, cd);
 }
 
 static void cache_manager_standard_clean_start_cb(GenericDialog *gd, gpointer data)
@@ -1042,26 +982,17 @@ static void cache_manager_standard_clean_start_cb(GenericDialog *gd, gpointer da
 	cache_manager_standard_clean_start(gd, data);
 }
 
-static void cache_manager_standard_process(GtkWidget *widget, gboolean clear)
+static void cache_manager_standard_process(GtkWidget *widget, gboolean)
 {
 	CacheOpsData *cd;
 	const gchar *icon_name;
 	const gchar *msg;
 
 	cd = g_new0(CacheOpsData, 1);
-	cd->clear = clear;
 	cd->remote = FALSE;
 
-	if (clear)
-		{
-		icon_name = GQ_ICON_DELETE;
-		msg = _("Clearing thumbnails...");
-		}
-	else
-		{
-		icon_name = GQ_ICON_CLEAR;
-		msg = _("Removing old thumbnails...");
-		}
+	icon_name = GQ_ICON_CLEAR;
+	msg = _("Removing old thumbnails...");
 
 	cd->gd = generic_dialog_new(_("Maintenance"),
 				    "standard_maintenance",
@@ -1096,46 +1027,11 @@ static void cache_manager_standard_clean_cb(GtkWidget *widget, gpointer)
 	cache_manager_standard_process(widget, FALSE);
 }
 
-static void cache_manager_standard_clear_cb(GtkWidget *widget, gpointer)
-{
-	cache_manager_standard_process(widget, TRUE);
-}
-
-
 static void cache_manager_main_clean_cb(GtkWidget *widget, gpointer)
 {
 	cache_maintain_home(FALSE, FALSE, widget);
 }
 
-
-static void dummy_cancel_cb(GenericDialog *, gpointer)
-{
-	/* no op, only so cancel button appears */
-}
-
-static void cache_manager_main_clear_ok_cb(GenericDialog *, gpointer)
-{
-	cache_maintain_home(FALSE, TRUE, nullptr);
-}
-
-static void cache_manager_main_clear_confirm(GtkWidget *parent)
-{
-	GenericDialog *gd;
-
-	gd = generic_dialog_new(_("Clear cache"),
-				"clear_cache", parent, TRUE,
-				dummy_cancel_cb, nullptr);
-	generic_dialog_add_message(gd, GQ_ICON_DIALOG_QUESTION, _("Clear cache"),
-				   _("This will remove all thumbnails and sim. files\nthat have been saved to disk, continue?"), TRUE);
-	generic_dialog_add_button(gd, GQ_ICON_OK, "OK", cache_manager_main_clear_ok_cb, TRUE);
-
-	gtk_widget_show(gd->dialog);
-}
-
-static void cache_manager_main_clear_cb(GtkWidget *widget, gpointer)
-{
-	cache_manager_main_clear_confirm(widget);
-}
 
 static void cache_manager_render_cb(GtkWidget *widget, gpointer)
 {
@@ -1605,11 +1501,6 @@ void cache_manager_show()
 	gtk_size_group_add_widget(sizegroup, button);
 	pref_table_label(table, 1, 0, _("Remove orphaned or outdated thumbnails and sim. files."), GTK_ALIGN_START);
 
-	button = pref_table_button(table, 0, 1, GQ_ICON_DELETE, _("Clear cache"),
-				   G_CALLBACK(cache_manager_main_clear_cb), cache_manager);
-	gtk_size_group_add_widget(sizegroup, button);
-	pref_table_label(table, 1, 1, _("Delete all cached data."), GTK_ALIGN_START);
-
 	group = pref_group_new(gd->vbox, FALSE, _("Shared thumbnail cache"), GTK_ORIENTATION_VERTICAL);
 
 	path = g_build_filename(get_thumbnails_standard_cache_dir(), NULL);
@@ -1622,11 +1513,6 @@ void cache_manager_show()
 				   G_CALLBACK(cache_manager_standard_clean_cb), cache_manager);
 	gtk_size_group_add_widget(sizegroup, button);
 	pref_table_label(table, 1, 0, _("Remove orphaned or outdated thumbnails."), GTK_ALIGN_START);
-
-	button = pref_table_button(table, 0, 1, GQ_ICON_DELETE, _("Clear cache"),
-				   G_CALLBACK(cache_manager_standard_clear_cb), cache_manager);
-	gtk_size_group_add_widget(sizegroup, button);
-	pref_table_label(table, 1, 1, _("Delete all cached thumbnails."), GTK_ALIGN_START);
 
 	group = pref_group_new(gd->vbox, FALSE, _("Create thumbnails"), GTK_ORIENTATION_VERTICAL);
 

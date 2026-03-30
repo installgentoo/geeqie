@@ -242,8 +242,6 @@ static void config_window_apply()
 	config_entry_to_option(safe_delete_path_entry, &options->file_ops.safe_delete_path, remove_trailing_slash);
 
 	if (options->file_filter.show_hidden_files != c_options->file_filter.show_hidden_files) refresh = TRUE;
-	if (options->file_filter.show_parent_directory != c_options->file_filter.show_parent_directory) refresh = TRUE;
-	if (options->file_filter.show_dot_directory != c_options->file_filter.show_dot_directory) refresh = TRUE;
 	if (options->file_sort.case_sensitive != c_options->file_sort.case_sensitive) refresh = TRUE;
 	if (options->file_filter.disable_file_extension_checks != c_options->file_filter.disable_file_extension_checks) refresh = TRUE;
 	if (options->file_filter.disable != c_options->file_filter.disable) refresh = TRUE;
@@ -271,14 +269,11 @@ static void config_window_apply()
 		options->thumbnails.quality = c_options->thumbnails.quality;
 		}
 	options->thumbnails.enable_caching = c_options->thumbnails.enable_caching;
-	options->thumbnails.cache_into_dirs = c_options->thumbnails.cache_into_dirs;
 	options->thumbnails.use_exif = c_options->thumbnails.use_exif;
 	options->thumbnails.use_color_management = c_options->thumbnails.use_color_management;
 	options->thumbnails.use_ft_metadata = c_options->thumbnails.use_ft_metadata;
 	options->thumbnails.spec_standard = c_options->thumbnails.spec_standard;
 	options->file_filter.show_hidden_files = c_options->file_filter.show_hidden_files;
-	options->file_filter.show_parent_directory = c_options->file_filter.show_parent_directory;
-	options->file_filter.show_dot_directory = c_options->file_filter.show_dot_directory;
 	options->file_filter.disable_file_extension_checks = c_options->file_filter.disable_file_extension_checks;
 
 	options->file_sort.case_sensitive = c_options->file_sort.case_sensitive;
@@ -1366,7 +1361,6 @@ static void cache_standard_cb(GtkWidget *widget, gpointer)
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
 		{
 		c_options->thumbnails.spec_standard =TRUE;
-		c_options->thumbnails.cache_into_dirs = FALSE;
 		}
 }
 
@@ -1374,16 +1368,6 @@ static void cache_geeqie_cb(GtkWidget *widget, gpointer)
 {
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
 		{
-		c_options->thumbnails.spec_standard =FALSE;
-		c_options->thumbnails.cache_into_dirs = FALSE;
-		}
-}
-
-static void cache_local_cb(GtkWidget *widget, gpointer)
-{
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
-		{
-		c_options->thumbnails.cache_into_dirs = TRUE;
 		c_options->thumbnails.spec_standard =FALSE;
 		}
 }
@@ -1419,25 +1403,17 @@ static void config_tab_general(GtkWidget *notebook)
 	pref_checkbox_link_sensitivity(ct_button, subgroup);
 
 	c_options->thumbnails.spec_standard = options->thumbnails.spec_standard;
-	c_options->thumbnails.cache_into_dirs = options->thumbnails.cache_into_dirs;
 	group_frame = pref_frame_new(subgroup, TRUE, _("Use Geeqie thumbnail style and cache"),
 										GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
 	button = pref_radiobutton_new(group_frame, nullptr,  get_thumbnails_cache_dir(),
-							!options->thumbnails.spec_standard && !options->thumbnails.cache_into_dirs,
+							!options->thumbnails.spec_standard,
 							G_CALLBACK(cache_geeqie_cb), nullptr);
-
-	group_frame = pref_frame_new(subgroup, TRUE,
-							_("Store thumbnails local to image folder (non-standard)"),
-							GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
-	pref_radiobutton_new(group_frame, button, "*/.thumbnails",
-							!options->thumbnails.spec_standard && options->thumbnails.cache_into_dirs,
-							G_CALLBACK(cache_local_cb), nullptr);
 
 	group_frame = pref_frame_new(subgroup, TRUE,
 							_("Use standard thumbnail style and cache, shared with other applications"),
 							GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
 	pref_radiobutton_new(group_frame, button, get_thumbnails_standard_cache_dir(),
-							options->thumbnails.spec_standard && !options->thumbnails.cache_into_dirs,
+							options->thumbnails.spec_standard,
 							G_CALLBACK(cache_standard_cb), nullptr);
 
 	pref_checkbox_new_int(group, _("Use EXIF thumbnails when available (EXIF thumbnails may be outdated)"),
@@ -1762,8 +1738,6 @@ static void config_tab_files(GtkWidget *notebook)
 
 	pref_checkbox_new_int(group, _("Show hidden files or folders"),
 			      options->file_filter.show_hidden_files, &c_options->file_filter.show_hidden_files);
-	pref_checkbox_new_int(group, _("Show parent folder (..)"),
-			      options->file_filter.show_parent_directory, &c_options->file_filter.show_parent_directory);
 	pref_checkbox_new_int(group, _("Case sensitive sort (Search and Collection windows, and tab completion)"), options->file_sort.case_sensitive, &c_options->file_sort.case_sensitive);
 	pref_checkbox_new_int(group, _("Disable file extension checks"),
 			      options->file_filter.disable_file_extension_checks, &c_options->file_filter.disable_file_extension_checks);

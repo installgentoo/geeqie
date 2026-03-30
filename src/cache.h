@@ -30,8 +30,6 @@ struct ImageSimilarityData;
 
 #define GQ_CACHE_THUMB		"thumbnails"
 
-#define GQ_CACHE_LOCAL_THUMB    ".thumbnails"
-
 #define GQ_CACHE_EXT_THUMB      ".png"
 #define GQ_CACHE_EXT_SIM        ".sim"
 
