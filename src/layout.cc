@@ -151,14 +151,8 @@ static void layout_path_entry_cb(const gchar *path, gpointer data)
 	gchar *buf;
 
 	buf = g_strdup(path);
-
-	if (!download_web_file(buf, FALSE, lw))
-		{
-		parse_out_relatives(buf);
-
-		layout_set_path(lw, buf);
-		}
-
+	parse_out_relatives(buf);
+	layout_set_path(lw, buf);
 	g_free(buf);
 }
 
@@ -207,30 +201,26 @@ static GtkWidget *layout_tool_setup(LayoutWindow *lw)
 
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
-		{
+	{
 		menu_toolbar_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 		scroll_window = gq_gtk_scrolled_window_new(nullptr, nullptr);
 		gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
 
-			{
-			menu_bar = layout_actions_menu_bar(lw);
-			gq_gtk_box_pack_start(GTK_BOX(menu_toolbar_box), menu_bar, FALSE, FALSE, 0);
-			}
+		menu_bar = layout_actions_menu_bar(lw);
+		gq_gtk_box_pack_start(GTK_BOX(menu_toolbar_box), menu_bar, FALSE, FALSE, 0);
 
 		gq_gtk_container_add(GTK_WIDGET(scroll_window), menu_toolbar_box);
 		gq_gtk_box_pack_start(GTK_BOX(box), scroll_window, FALSE, FALSE, 0);
 
 		gq_gtk_widget_show_all(scroll_window);
-		}
+	}
 
 	tabcomp = tab_completion_new_with_history(&lw->path_entry, nullptr, "path_list", -1, layout_path_entry_cb, lw);
 	DEBUG_NAME(tabcomp);
 	tab_completion_add_tab_func(lw->path_entry, layout_path_entry_tab_cb, lw);
 	tab_completion_add_append_func(lw->path_entry, layout_path_entry_tab_append_cb, lw);
 
-		{
-		gq_gtk_box_pack_start(GTK_BOX(box), tabcomp, FALSE, FALSE, 0);
-		}
+	gq_gtk_box_pack_start(GTK_BOX(box), tabcomp, FALSE, FALSE, 0);
 
 	gtk_widget_show(tabcomp);
 	gtk_widget_set_has_tooltip(GTK_WIDGET(tabcomp), TRUE);

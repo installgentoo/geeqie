@@ -358,9 +358,6 @@ static void parse_command_line(gint argc, gchar *argv[])
 				parse_command_line_process_file(cmd_all, &command_line->path, &command_line->file,
 								&list, &first_dir);
 				}
-			else if (download_web_file(cmd_line, FALSE, nullptr))
-				{
-				}
 			else if (strncmp(cmd_line, "--debug", 7) == 0 && (cmd_line[7] == '\0' || cmd_line[7] == '='))
 				{
 				/* do nothing but do not produce warnings */
