@@ -138,7 +138,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->image_l_click_video = TRUE;
 	options->image_l_click_video_editor = g_strdup("video-player.desktop");
 	options->open_recent_list_maxsize = 10;
-	options->recent_folder_image_list_maxsize = 10;
 	options->place_dialogs_under_mouse = FALSE;
 
 	options->progressive_key_scrolling = TRUE;
@@ -215,17 +214,7 @@ void setup_default_options(ConfOptions *options)
 
 void copy_layout_options(LayoutOptions *dest, const LayoutOptions *src)
 {
-	free_layout_options_content(dest);
-
 	*dest = *src;
-	dest->home_path = g_strdup(src->home_path);
-	dest->last_path = g_strdup(src->last_path);
-}
-
-void free_layout_options_content(LayoutOptions *dest)
-{
-	g_free(dest->home_path);
-	g_free(dest->last_path);
 }
 
 LayoutOptions *init_layout_options(LayoutOptions *options)
@@ -238,7 +227,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->file_view_list_sort.ascend = TRUE;
 	options->file_view_list_sort.case_sensitive = TRUE;
 	options->file_view_list_sort.method = SORT_NAME;
-	options->home_path = nullptr;
 	options->main_window.hdivider_pos = -1;
 	options->main_window.maximized = FALSE;
 	options->main_window.rect = {0, 0, 720, 540};

@@ -600,10 +600,7 @@ static void layout_menu_home_cb(GtkAction *, gpointer data)
 	auto lw = static_cast<LayoutWindow *>(data);
 	const gchar *path;
 
-	if (lw->options.home_path && *lw->options.home_path)
-		path = lw->options.home_path;
-	else
-		path = homedir();
+	path = homedir();
 
 	if (path)
 		{

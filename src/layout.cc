@@ -877,7 +877,6 @@ gboolean layout_set_path(LayoutWindow *lw, const gchar *path)
 gboolean layout_set_fd(LayoutWindow *lw, FileData *fd)
 {
 	gboolean have_file = FALSE;
-	gchar *last_image;
 
 	if (!layout_valid(&lw)) return FALSE;
 
@@ -885,6 +884,12 @@ gboolean layout_set_fd(LayoutWindow *lw, FileData *fd)
 	if (lw->dir_fd && fd == lw->dir_fd)
 		{
 		return TRUE;
+		}
+
+	/* remember current image for this directory (session-only) */
+	if (lw->dir_fd && image_get_fd(lw->image))
+		{
+		history_list_add_to_key("image_list", image_get_fd(lw->image)->path, 20);
 		}
 
 	if (isdir(fd->path))
@@ -897,15 +902,13 @@ gboolean layout_set_fd(LayoutWindow *lw, FileData *fd)
 		lw->dir_fd = file_data_ref(fd);
 		file_data_register_real_time_monitor(fd);
 
-		last_image = get_recent_viewed_folder_image(fd->path);
+		gchar *last_image = get_recent_viewed_folder_image(fd->path);
 		if (last_image)
 			{
 			fd = file_data_new_group(last_image);
 			g_free(last_image);
-
 			if (isfile(fd->path)) have_file = TRUE;
 			}
-
 		}
 	else
 		{
@@ -1174,9 +1177,6 @@ void layout_sync_options_with_current_state(LayoutWindow *lw)
 
 	lw->options.image_overlay.state = image_osd_get(lw->image);
 
-	g_free(lw->options.last_path);
-	lw->options.last_path = g_strdup(layout_get_path(lw));
-
 	layout_geometry_get_log_window(lw, lw->options.log_window);
 }
 
@@ -1270,8 +1270,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_UINT(*layout, dir_view_list_sort.method);
 	WRITE_NL(); WRITE_BOOL(*layout, dir_view_list_sort.ascend);
 	WRITE_NL(); WRITE_BOOL(*layout, dir_view_list_sort.case_sensitive);
-	WRITE_NL(); WRITE_CHAR(*layout, home_path);
-	WRITE_NL(); WRITE_UINT(*layout, startup_path);
 	WRITE_SEPARATOR();
 
 	WRITE_NL(); WRITE_INT_FULL("main_window.x", layout->main_window.rect.x);
@@ -1338,8 +1336,6 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_UINT_ENUM(*layout, dir_view_list_sort.method)) continue;
 		if (READ_BOOL(*layout, dir_view_list_sort.ascend)) continue;
 		if (READ_BOOL(*layout, dir_view_list_sort.case_sensitive)) continue;
-		if (READ_CHAR(*layout, home_path)) continue;
-		if (READ_UINT_ENUM_CLAMP(*layout, startup_path, 0, STARTUP_PATH_HOME)) continue;
 
 		/* window positions */
 
@@ -1380,27 +1376,8 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		}
 }
 
-static void layout_config_startup_path(LayoutOptions *lop, gchar **path)
+static void layout_config_commandline(gchar **path)
 {
-	switch (lop->startup_path)
-		{
-		case STARTUP_PATH_LAST:
-			*path = (history_list_find_last_path_by_key("path_list") && isdir(history_list_find_last_path_by_key("path_list"))) ? g_strdup(history_list_find_last_path_by_key("path_list")) : get_current_dir();
-			break;
-		case STARTUP_PATH_HOME:
-			*path = (lop->home_path && isdir(lop->home_path)) ? g_strdup(lop->home_path) : g_strdup(homedir());
-			break;
-		default:
-			*path = get_current_dir();
-			break;
-		}
-}
-
-
-static void layout_config_commandline(LayoutOptions *lop, gchar **path)
-{
-	gchar *last_image;
-
 	if (command_line->file)
 		{
 		*path = g_strdup(command_line->file);
@@ -1409,16 +1386,9 @@ static void layout_config_commandline(LayoutOptions *lop, gchar **path)
 		{
 		*path = g_strdup(command_line->path);
 		}
-	else layout_config_startup_path(lop, path);
-
-	if (isdir(*path))
+	else
 		{
-		last_image = get_recent_viewed_folder_image(*path);
-		if (last_image)
-			{
-			g_free(*path);
-			*path = last_image;
-			}
+		*path = get_current_dir();
 		}
 }
 
@@ -1434,17 +1404,14 @@ LayoutWindow *layout_new_from_config(const gchar **attribute_names, const gchar 
 
 	if (attribute_names) layout_load_attributes(&lop, attribute_names, attribute_values);
 
-	/* If multiple windows are specified in the config. file,
-	 * use the command line options only in the main window.
-	 */
 	if (use_commandline && !first_found)
 		{
 		first_found = TRUE;
-		layout_config_commandline(&lop, &path);
+		layout_config_commandline(&path);
 		}
 	else
 		{
-		layout_config_startup_path(&lop, &path);
+		path = get_current_dir();
 		}
 
 	lw = layout_new_with_geometry(nullptr, &lop, use_commandline ? command_line->geometry : nullptr);
@@ -1457,7 +1424,6 @@ LayoutWindow *layout_new_from_config(const gchar **attribute_names, const gchar 
 	if (use_commandline && command_line->log_window_show) log_window_new(lw);
 
 	g_free(path);
-	free_layout_options_content(&lop);
 	return lw;
 }
 
@@ -1468,8 +1434,6 @@ void layout_update_from_config(LayoutWindow *, const gchar **attribute_names, co
 	init_layout_options(&lop);
 
 	if (attribute_names) layout_load_attributes(&lop, attribute_names, attribute_values);
-
-	free_layout_options_content(&lop);
 }
 
 LayoutWindow *layout_new_from_default()

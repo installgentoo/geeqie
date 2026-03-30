@@ -337,7 +337,6 @@ static void config_window_apply()
 	options->circular_selection_lists = c_options->circular_selection_lists;
 
 	options->open_recent_list_maxsize = c_options->open_recent_list_maxsize;
-	options->recent_folder_image_list_maxsize = c_options->recent_folder_image_list_maxsize;
 	options->dnd_icon_size = c_options->dnd_icon_size;
 	options->dnd_default_action = c_options->dnd_default_action;
 
@@ -2124,9 +2123,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 
 	pref_spin_new_int(group, _("Recent folder list maximum size"), nullptr,
 			  1, 50, 1, options->open_recent_list_maxsize, &c_options->open_recent_list_maxsize);
-
-	tmp = pref_spin_new_int(group, _("Recent folder-image list maximum size"), nullptr, 0, 50, 1, options->recent_folder_image_list_maxsize, &c_options->recent_folder_image_list_maxsize);
-	gtk_widget_set_tooltip_text(tmp, _("List of the last image viewed in each recent folder.\nRe-opening a folder will set focus to the last image viewed."));
 
 	pref_spin_new_int(group, _("Drag'n drop icon size"), nullptr,
 			  16, 256, 16, options->dnd_icon_size, &c_options->dnd_icon_size);

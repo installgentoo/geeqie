@@ -241,6 +241,12 @@ gboolean history_list_save(const gchar *path)
 		hd = static_cast<HistoryData *>(list->data);
 		list = list->prev;
 
+		/* image_list is session-only, do not persist */
+		if (strcmp(hd->key, "image_list") == 0)
+			{
+			continue;
+			}
+
 		secure_fprintf(ssi, "[%s]\n", hd->key);
 
 		/* save them inverted (oldest to newest)
@@ -253,8 +259,7 @@ gboolean history_list_save(const gchar *path)
 			if ((strcmp(hd->key, "path_list") != 0 || list_count <= options->open_recent_list_maxsize)
 					&&
 					(strcmp(hd->key, "recent") != 0 || !(!isfile(static_cast<const gchar *>(work->data))))
-					&&
-					(strcmp(hd->key, "image_list") != 0 || list_count <= options->recent_folder_image_list_maxsize))
+				)
 				{
 				secure_fprintf(ssi, "\"%s\"\n", static_cast<gchar *>(work->data));
 				}
@@ -433,11 +438,6 @@ gchar *get_recent_viewed_folder_image(gchar *path)
 {
 	HistoryData *hd;
 	GList *work;
-
-	if (options->recent_folder_image_list_maxsize == 0)
-		{
-		return nullptr;
-		}
 
 	hd = history_list_find_by_key("image_list");
 

@@ -74,7 +74,6 @@ struct ConfOptions
 	gboolean sort_totals;
 
 	gint open_recent_list_maxsize;
-	gint recent_folder_image_list_maxsize;
 	gint dnd_icon_size;
 	DnDAction dnd_default_action;
 
@@ -278,12 +277,6 @@ void save_options(ConfOptions *options);
 gboolean load_options(ConfOptions *options);
 
 
-enum StartUpPath {
-	STARTUP_PATH_CURRENT	= 0,
-	STARTUP_PATH_LAST,
-	STARTUP_PATH_HOME,
-};
-
 enum SortActionType {
 	BAR_SORT_COPY = 0,
 	BAR_SORT_MOVE,
@@ -332,11 +325,6 @@ struct LayoutOptions
 
 	GdkRectangle dupe_window;
 
-	gchar *home_path;
-	gchar *last_path;
-
-	StartUpPath startup_path;
-
 	gboolean animate;
 
 	SortActionType action;
@@ -345,7 +333,6 @@ struct LayoutOptions
 };
 
 void copy_layout_options(LayoutOptions *dest, const LayoutOptions *src);
-void free_layout_options_content(LayoutOptions *dest);
 LayoutOptions *init_layout_options(LayoutOptions *options);
 
 #endif /* OPTIONS_H */
