@@ -771,6 +771,8 @@ static void gtkrc_load()
 
 static void exit_program_final()
 {
+	layout_editors_reload_finish();
+
 	save_options(options);
 	keys_save();
 	accel_map_save();
@@ -990,6 +992,8 @@ gint main(gint argc, gchar *argv[])
 		{
 			layout_new_from_default();
 		}
+
+		layout_editors_reload_start();
 
 		if (command_line->log_file)
 			{

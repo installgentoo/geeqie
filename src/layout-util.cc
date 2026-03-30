@@ -821,96 +821,11 @@ static gchar *menu_translate(const gchar *path, gpointer)
 	return static_cast<gchar *>(_(path));
 }
 
-static GList *layout_actions_editor_menu_path(EditorDescription *editor)
-{
-	gchar **split = g_strsplit(editor->menu_path, "/", 0);
-	gint i = 0;
-	GList *ret = nullptr;
-
-	if (split[0] == nullptr)
-		{
-		g_strfreev(split);
-		return nullptr;
-		}
-
-	while (split[i])
-		{
-		ret = g_list_prepend(ret, g_strdup(split[i]));
-		i++;
-		}
-
-	g_strfreev(split);
-
-	ret = g_list_prepend(ret, g_strdup(editor->key));
-
-	return g_list_reverse(ret);
-}
-
-static void layout_actions_editor_add(GString *desc, GList *path, GList *old_path)
-{
-	gint to_open;
-	gint to_close;
-	gint i;
-	while (path && old_path && strcmp(static_cast<gchar *>(path->data), static_cast<gchar *>(old_path->data)) == 0)
-		{
-		path = path->next;
-		old_path = old_path->next;
-		}
-	to_open = g_list_length(path) - 1;
-	to_close = g_list_length(old_path) - 1;
-
-	if (to_close > 0)
-		{
-		old_path = g_list_last(old_path);
-		old_path = old_path->prev;
-		}
-
-	for (i =  0; i < to_close; i++)
-		{
-		auto name = static_cast<gchar *>(old_path->data);
-		if (g_str_has_suffix(name, "Section"))
-			{
-			g_string_append(desc,	"      </placeholder>");
-			}
-		else if (g_str_has_suffix(name, "Menu"))
-			{
-			g_string_append(desc,	"    </menu>");
-			}
-		else
-			{
-			g_warning("invalid menu path item %s", name);
-			}
-		old_path = old_path->prev;
-		}
-
-	for (i =  0; i < to_open; i++)
-		{
-		auto name = static_cast<gchar *>(path->data);
-		if (g_str_has_suffix(name, "Section"))
-			{
-			g_string_append_printf(desc,	"      <placeholder name='%s'>", name);
-			}
-		else if (g_str_has_suffix(name, "Menu"))
-			{
-			g_string_append_printf(desc,	"    <menu action='%s'>", name);
-			}
-		else
-			{
-			g_warning("invalid menu path item %s", name);
-			}
-		path = path->next;
-		}
-
-	if (path)
-		g_string_append_printf(desc, "      <menuitem action='%s'/>", static_cast<gchar *>(path->data));
-}
-
 static void layout_actions_setup_editors(LayoutWindow *lw)
 {
 	GError *error;
 	GList *editors_list;
 	GList *work;
-	GList *old_path;
 	GString *desc;
 
 	if (lw->ui_editors_id)
@@ -927,17 +842,13 @@ static void layout_actions_setup_editors(LayoutWindow *lw)
 	gq_gtk_ui_manager_insert_action_group(lw->ui_manager, lw->action_group_editors, 1);
 
 	/* lw->action_group_editors contains translated entries, no translate func is required */
-	desc = g_string_new(
-				"<ui>"
-				"  <menubar name='MainMenu'>");
+	desc = g_string_new("<ui>");
 
 	editors_list = editor_list_get();
 
-	old_path = nullptr;
 	work = editors_list;
 	while (work)
 		{
-		GList *path;
 		auto editor = static_cast<EditorDescription *>(work->data);
 		GtkActionEntry entry = { editor->key,
 		                         nullptr,
@@ -952,19 +863,12 @@ static void layout_actions_setup_editors(LayoutWindow *lw)
 			}
 		gq_gtk_action_group_add_actions(lw->action_group_editors, &entry, 1, lw);
 
-		path = layout_actions_editor_menu_path(editor);
-		layout_actions_editor_add(desc, path, old_path);
+		g_string_append_printf(desc, "<accelerator action='%s'/>", editor->key);
 
-		g_list_free_full(old_path, g_free);
-		old_path = path;
 		work = work->next;
 		}
 
-	layout_actions_editor_add(desc, nullptr, old_path);
-	g_list_free_full(old_path, g_free);
-
-	g_string_append(desc,"  </menubar>"
-				"</ui>" );
+	g_string_append(desc, "</ui>");
 
 	error = nullptr;
 
@@ -1018,6 +922,65 @@ void layout_actions_setup(LayoutWindow *lw)
 	DEBUG_1("%s layout_actions_setup: actions_add_window", get_exec_time());
 	layout_actions_add_window(lw, lw->window);
 	DEBUG_1("%s layout_actions_setup: end", get_exec_time());
+}
+
+static gint layout_editors_reload_idle_id = -1;
+static GList *layout_editors_desktop_files = nullptr;
+
+static gboolean layout_editors_reload_idle_cb(gpointer)
+{
+	if (!layout_editors_desktop_files)
+		{
+		DEBUG_1("%s layout_editors_reload_idle_cb: get_desktop_files", get_exec_time());
+		layout_editors_desktop_files = editor_get_desktop_files();
+		return G_SOURCE_CONTINUE;
+		}
+
+	editor_read_desktop_file(static_cast<const gchar *>(layout_editors_desktop_files->data));
+	g_free(layout_editors_desktop_files->data);
+	layout_editors_desktop_files = g_list_delete_link(layout_editors_desktop_files, layout_editors_desktop_files);
+
+
+	if (!layout_editors_desktop_files)
+		{
+		DEBUG_1("%s layout_editors_reload_idle_cb: setup_editors", get_exec_time());
+		editor_table_finish();
+
+		layout_actions_setup_editors(main_lw);
+
+		DEBUG_1("%s layout_editors_reload_idle_cb: setup_editors done", get_exec_time());
+
+		layout_editors_reload_idle_id = -1;
+		return G_SOURCE_REMOVE;
+		}
+	return G_SOURCE_CONTINUE;
+}
+
+void layout_editors_reload_start()
+{
+	DEBUG_1("%s layout_editors_reload_start", get_exec_time());
+
+	if (layout_editors_reload_idle_id != -1)
+		{
+		g_source_remove(layout_editors_reload_idle_id);
+		g_list_free_full(layout_editors_desktop_files, g_free);
+		}
+
+	editor_table_clear();
+	layout_editors_reload_idle_id = g_idle_add(layout_editors_reload_idle_cb, nullptr);
+}
+
+void layout_editors_reload_finish()
+{
+	if (layout_editors_reload_idle_id != -1)
+		{
+		DEBUG_1("%s layout_editors_reload_finish", get_exec_time());
+		g_source_remove(layout_editors_reload_idle_id);
+		while (layout_editors_reload_idle_id != -1)
+			{
+			layout_editors_reload_idle_cb(nullptr);
+			}
+		}
 }
 
 void layout_actions_add_window(LayoutWindow *lw, GtkWidget *window)

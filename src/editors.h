@@ -54,7 +54,6 @@ struct EditorDescription {
 	gchar *name; 		/**< Name, localized name presented to user */
 	gchar *icon;		/**< Icon */
 	gchar *exec;		/**< Exec */
-	gchar *menu_path;
 	gchar *hotkey;
 	GList *ext_list;
 	gchar *file;

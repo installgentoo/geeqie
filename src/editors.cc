@@ -103,7 +103,6 @@ static void editor_description_free(EditorDescription *editor)
 	g_free(editor->name);
 	g_free(editor->icon);
 	g_free(editor->exec);
-	g_free(editor->menu_path);
 	g_free(editor->hotkey);
 	g_free(editor->comment);
 	g_list_free_full(editor->ext_list, g_free);
@@ -330,9 +329,6 @@ gboolean editor_read_desktop_file(const gchar *path)
 
 	editor->exec = g_key_file_get_string(key_file, DESKTOP_GROUP, "Exec", nullptr);
 
-	editor->menu_path = g_key_file_get_string(key_file, DESKTOP_GROUP, "X-Geeqie-Menu-Path", nullptr);
-	if (!editor->menu_path) editor->menu_path = g_strdup("PluginsMenu");
-
 	editor->hotkey = g_key_file_get_string(key_file, DESKTOP_GROUP, "X-Geeqie-Hotkey", nullptr);
 
 	editor->comment = g_key_file_get_string(key_file, DESKTOP_GROUP, "Comment", nullptr);
@@ -501,9 +497,6 @@ static gint editor_sort(gconstpointer a, gconstpointer b)
 	gchar *collate_key_ea;
 	gchar *collate_key_eb;
 	gint ret;
-
-	ret = strcmp(ea->menu_path, eb->menu_path);
-	if (ret != 0) return ret;
 
 	caseless_name_ea = g_utf8_casefold(ea->name, -1);
 	caseless_name_eb = g_utf8_casefold(eb->name, -1);
