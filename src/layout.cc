@@ -1185,8 +1185,6 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 {
 	LayoutWindow *lw;
 	GdkGeometry hint;
-	GdkWindowHints hint_mask;
-	gchar *default_path;
 
 	DEBUG_1("%s layout_new: start", get_exec_time());
 	lw = g_new0(LayoutWindow, 1);
@@ -1196,8 +1194,6 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	else
 		init_layout_options(&lw->options);
 
-	default_path = g_build_filename(get_rc_dir(), DEFAULT_WINDOW_LAYOUT, NULL);
-
 	/* window */
 
 	lw->window = window_new(GQ_APPNAME_LC, nullptr, nullptr, nullptr);
@@ -1205,27 +1201,16 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	gtk_window_set_resizable(GTK_WINDOW(lw->window), TRUE);
 	gtk_container_set_border_width(GTK_CONTAINER(lw->window), 0);
 
-	hint_mask = GDK_HINT_USER_POS;
-
 	hint.min_width = 32;
 	hint.min_height = 32;
 	hint.base_width = 0;
 	hint.base_height = 0;
 	gtk_window_set_geometry_hints(GTK_WINDOW(lw->window), nullptr, &hint,
-				      static_cast<GdkWindowHints>(GDK_HINT_MIN_SIZE | GDK_HINT_BASE_SIZE | hint_mask));
+				      static_cast<GdkWindowHints>(GDK_HINT_MIN_SIZE | GDK_HINT_BASE_SIZE | GDK_HINT_USER_POS));
 
-	if (isfile(default_path))
-	{
-		gtk_window_set_default_size(GTK_WINDOW(lw->window), lw->options.main_window.rect.width, lw->options.main_window.rect.height);
-		gq_gtk_window_move(GTK_WINDOW(lw->window), lw->options.main_window.rect.x, lw->options.main_window.rect.y);
-		if (lw->options.main_window.maximized) gtk_window_maximize(GTK_WINDOW(lw->window));
-	}
-	else
-	{
-		gtk_window_set_default_size(GTK_WINDOW(lw->window), lw->options.main_window.rect.width, lw->options.main_window.rect.height);
-	}
-
-	g_free(default_path);
+	gtk_window_set_default_size(GTK_WINDOW(lw->window), lw->options.main_window.rect.width, lw->options.main_window.rect.height);
+	gq_gtk_window_move(GTK_WINDOW(lw->window), lw->options.main_window.rect.x, lw->options.main_window.rect.y);
+	if (lw->options.main_window.maximized) gtk_window_maximize(GTK_WINDOW(lw->window));
 	g_signal_connect(G_OBJECT(lw->window), "delete_event",
 			 G_CALLBACK(exit_program), lw);
 
