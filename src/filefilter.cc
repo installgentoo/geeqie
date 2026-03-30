@@ -432,7 +432,7 @@ void filter_write_list(GString *outstr, gint indent)
 		WRITE_BOOL(*fe, enabled);
 		WRITE_CHAR(*fe, extensions);
 		WRITE_CHAR(*fe, description);
-		WRITE_UINT(*fe, file_class);
+		write_char_option(outstr, indent, "file_class", format_class_list[fe->file_class]);
 		WRITE_STRING("/>");
 		}
 	indent--;
@@ -453,7 +453,22 @@ void filter_load_file_type(const gchar **attribute_names, const gchar **attribut
 		if (READ_BOOL(fe, enabled)) continue;
 		if (READ_CHAR(fe, extensions)) continue;
 		if (READ_CHAR(fe, description)) continue;
-		if (READ_UINT_ENUM(fe, file_class)) continue;
+
+		if (g_strcmp0(option, "file_class") == 0)
+			{
+			gboolean found = FALSE;
+			for (int i = 0; i < FILE_FORMAT_CLASSES; i++)
+				{
+				if (g_strcmp0(value, format_class_list[i]) == 0)
+					{
+					fe.file_class = static_cast<FileFormatClass>(i);
+					found = TRUE;
+					break;
+					}
+				}
+			if (!found) fe.file_class = FORMAT_CLASS_UNKNOWN;
+			continue;
+			}
 
 		log_printf("unknown attribute %s = %s\n", option, value);
 		}
