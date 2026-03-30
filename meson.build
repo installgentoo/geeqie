@@ -491,9 +491,6 @@ endif
 # Generate the executable
 subdir('src')
 
-# Generate the command line auto-complete file
-subdir('auto-complete')
-
 install_data('geeqie.png', install_dir : icondir)
 install_data('geeqie.1', install_dir : mandir1)
 
