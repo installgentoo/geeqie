@@ -1142,6 +1142,10 @@ void layout_image_init(LayoutWindow *lw)
 	image_set_update_func(imd, layout_image_update_cb, lw);
 	layout_image_set_buttons(lw);
 	image_set_drag_func(imd, layout_image_drag_cb, lw);
+
+	imd->top_window = lw->window;
+	g_free(imd->title);
+	imd->title = nullptr;
 }
 
 

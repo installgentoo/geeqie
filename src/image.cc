@@ -164,7 +164,6 @@ static void image_zoom_cb(PixbufRenderer *, gdouble, gpointer data)
 {
 	auto imd = static_cast<ImageWindow *>(data);
 
-	if (imd->title_show_zoom) image_update_title(imd);
 	image_state_set(imd, IMAGE_STATE_IMAGE);
 	image_update_util(imd);
 }
@@ -182,15 +181,6 @@ void image_update_title(ImageWindow *imd)
 	g_autoptr(GString) title = g_string_new(imd->title);
 
 	if (imd->image_fd) title = g_string_append(title, imd->image_fd->name);
-
-	if (imd->title_show_zoom)
-		{
-		g_autofree gchar *buf = image_zoom_get_as_text(imd);
-		g_string_append_printf(title, " [%s]", buf);
-		}
-
-	if (imd->image_fd) title = g_string_append(title, " - ");
-	if (imd->title_right) title = g_string_append(title, imd->title_right);
 
 	gtk_window_set_title(GTK_WINDOW(imd->top_window), title->str);
 }
@@ -1521,7 +1511,6 @@ static void image_free(ImageWindow *imd)
 
 	file_data_unref(imd->image_fd);
 	g_free(imd->title);
-	g_free(imd->title_right);
 	g_free(imd);
 }
 

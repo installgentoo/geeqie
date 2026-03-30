@@ -61,8 +61,6 @@ struct ImageWindow
 	/* top level (not necessarily parent) window */
 	GtkWidget *top_window;	/**< window that gets title, and window to resize when 'fitting' */
 	gchar *title;		/**< window title to display left of file name */
-	gchar *title_right;	/**< window title to display right of file name */
-	gboolean title_show_zoom;	/**< option to include zoom in window title */
 
 	gboolean completed;
 	ImageState state;	/**< mask of IMAGE_STATE_* flags about current image */
