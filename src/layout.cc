@@ -72,8 +72,7 @@ constexpr gint PROGRESS_WIDTH = 150;
 constexpr gint ZOOM_LABEL_WIDTH = 120;
 } // namespace
 
-GList *layout_window_list = nullptr;
-LayoutWindow *current_lw = nullptr;
+LayoutWindow *main_lw = nullptr;
 
 static void layout_list_scroll_to_subpart(LayoutWindow *lw, const gchar *needle);
 
@@ -86,53 +85,8 @@ static void layout_list_scroll_to_subpart(LayoutWindow *lw, const gchar *needle)
 
 gboolean layout_valid(LayoutWindow **lw)
 {
-	if (*lw == nullptr)
-		{
-		if (current_lw) *lw = current_lw;
-		else if (layout_window_list) *lw = static_cast<LayoutWindow *>(layout_window_list->data);
-		return (*lw != nullptr);
-		}
-	return (g_list_find(layout_window_list, *lw) != nullptr);
-}
-
-LayoutWindow *layout_find_by_image(ImageWindow *imd)
-{
-	GList *work;
-
-	work = layout_window_list;
-	while (work)
-		{
-		auto lw = static_cast<LayoutWindow *>(work->data);
-		work = work->next;
-
-		if (lw->image == imd) return lw;
-		}
-
-	return nullptr;
-}
-
-LayoutWindow *layout_find_by_image_fd(ImageWindow *imd)
-{
-	GList *work;
-
-	work = layout_window_list;
-	while (work)
-		{
-		auto lw = static_cast<LayoutWindow *>(work->data);
-		work = work->next;
-
-		if (lw->image->image_fd == imd->image_fd)
-			return lw;
-		}
-
-	return nullptr;
-}
-
-static gboolean layout_set_current_cb(GtkWidget *, GdkEventFocus *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	current_lw = lw;
-	return FALSE;
+	if (main_lw) *lw = main_lw;
+	return (*lw != nullptr);
 }
 
 /*
@@ -894,11 +848,6 @@ void layout_select_list(LayoutWindow *lw, GList *list)
 		}
 }
 
-guint layout_window_count()
-{
-	return g_list_length(layout_window_list);
-}
-
 /*
  *-----------------------------------------------------------------------------
  * access
@@ -1240,11 +1189,6 @@ void layout_sync_options_with_current_state(LayoutWindow *lw)
 	layout_geometry_get_log_window(lw, lw->options.log_window);
 }
 
-LayoutWindow *layout_new(FileData *dir_fd, LayoutOptions *lop)
-{
-	return layout_new_with_geometry(dir_fd, lop, nullptr);
-}
-
 LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 				       const gchar *geometry)
 {
@@ -1290,9 +1234,6 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	g_signal_connect(G_OBJECT(lw->window), "delete_event",
 			 G_CALLBACK(exit_program), lw);
 
-	g_signal_connect(G_OBJECT(lw->window), "focus-in-event",
-			 G_CALLBACK(layout_set_current_cb), lw);
-
 	lw->main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 	DEBUG_NAME(lw->main_box);
 	gq_gtk_container_add(GTK_WIDGET(lw->window), lw->main_box);
@@ -1331,7 +1272,7 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 
 	image_osd_set(lw->image, static_cast<OsdShowFlags>(lw->options.image_overlay.state));
 
-	layout_window_list = g_list_append(layout_window_list, lw);
+	main_lw = lw;
 
 	file_data_register_notify_func(layout_image_notify_cb, lw, NOTIFY_PRIORITY_LOW);
 
@@ -1349,7 +1290,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_UINT(*layout, dir_view_list_sort.method);
 	WRITE_NL(); WRITE_BOOL(*layout, dir_view_list_sort.ascend);
 	WRITE_NL(); WRITE_BOOL(*layout, dir_view_list_sort.case_sensitive);
-	WRITE_NL(); WRITE_BOOL(*layout, show_file_filter);
 	WRITE_NL(); WRITE_CHAR(*layout, home_path);
 	WRITE_NL(); WRITE_UINT(*layout, startup_path);
 	WRITE_SEPARATOR();
@@ -1361,16 +1301,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_BOOL(*layout, main_window.maximized);
 	WRITE_NL(); WRITE_INT(*layout, main_window.hdivider_pos);
 	WRITE_NL(); WRITE_INT(*layout, main_window.vdivider_pos);
-	WRITE_SEPARATOR();
-
-	WRITE_NL(); WRITE_INT(*layout, folder_window.vdivider_pos);
-	WRITE_SEPARATOR();
-
-	WRITE_NL(); WRITE_INT_FULL("float_window.x", layout->float_window.rect.x);
-	WRITE_NL(); WRITE_INT_FULL("float_window.y", layout->float_window.rect.y);
-	WRITE_NL(); WRITE_INT_FULL("float_window.w", layout->float_window.rect.width);
-	WRITE_NL(); WRITE_INT_FULL("float_window.h", layout->float_window.rect.height);
-	WRITE_NL(); WRITE_INT(*layout, float_window.vdivider_pos);
 	WRITE_SEPARATOR();
 
 	WRITE_NL(); WRITE_UINT(*layout, image_overlay.state);
@@ -1428,7 +1358,6 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_UINT_ENUM(*layout, dir_view_list_sort.method)) continue;
 		if (READ_BOOL(*layout, dir_view_list_sort.ascend)) continue;
 		if (READ_BOOL(*layout, dir_view_list_sort.case_sensitive)) continue;
-		if (READ_BOOL(*layout, show_file_filter)) continue;
 		if (READ_CHAR(*layout, home_path)) continue;
 		if (READ_UINT_ENUM_CLAMP(*layout, startup_path, 0, STARTUP_PATH_HOME)) continue;
 
@@ -1441,14 +1370,6 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_BOOL(*layout, main_window.maximized)) continue;
 		if (READ_INT(*layout, main_window.hdivider_pos)) continue;
 		if (READ_INT(*layout, main_window.vdivider_pos)) continue;
-
-		if (READ_INT_CLAMP(*layout, folder_window.vdivider_pos, 1, 1000)) continue;
-
-		if (READ_INT_FULL("float_window.x", layout->float_window.rect.x)) continue;
-		if (READ_INT_FULL("float_window.y", layout->float_window.rect.y)) continue;
-		if (READ_INT_FULL("float_window.w", layout->float_window.rect.width)) continue;
-		if (READ_INT_FULL("float_window.h", layout->float_window.rect.height)) continue;
-		if (READ_INT(*layout, float_window.vdivider_pos)) continue;
 
 		if (READ_UINT(*layout, image_overlay.state)) continue;
 
@@ -1573,8 +1494,6 @@ void layout_update_from_config(LayoutWindow *, const gchar **attribute_names, co
 
 LayoutWindow *layout_new_from_default()
 {
-	LayoutWindow *lw;
-	GList *work;
 	gboolean success;
 	gchar *default_path;
 
@@ -1582,17 +1501,12 @@ LayoutWindow *layout_new_from_default()
 	success = load_config_from_file(default_path, TRUE);
 	g_free(default_path);
 
-	if (success)
+	if (!success)
 		{
-		work = g_list_last(layout_window_list);
-		lw = static_cast<LayoutWindow *>(work->data);
-		}
-	else
-		{
-		lw = layout_new_from_config(nullptr, nullptr, TRUE);
+		main_lw = layout_new_from_config(nullptr, nullptr, TRUE);
 		}
 
-	return lw;
+	return main_lw;
 }
 
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

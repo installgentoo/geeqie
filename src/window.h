@@ -29,7 +29,5 @@ GtkWidget *window_new(const gchar *role, const gchar *icon,
 void window_set_icon(GtkWidget *window, const gchar *icon, const gchar *file);
 gboolean window_maximized(GtkWidget *window);
 
-void help_pdf();
-
 #endif /* WINDOW_H */
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

@@ -404,19 +404,16 @@ static gboolean config_window_delete(GtkWidget *, GdkEventAny *, gpointer)
 
 static void config_window_ok_cb(GtkWidget *widget, gpointer data)
 {
-	LayoutWindow *lw;
 	auto notebook = static_cast<GtkNotebook *>(data);
 	GdkWindow *window;
 
-	lw = static_cast<LayoutWindow *>(layout_window_list->data);
-
 	window = gtk_widget_get_window(widget);
 
-	lw->options.preferences_window.rect = window_get_root_origin_geometry(window);
-	lw->options.preferences_window.page_number = gtk_notebook_get_current_page(notebook);
+	main_lw->options.preferences_window.rect = window_get_root_origin_geometry(window);
+	main_lw->options.preferences_window.page_number = gtk_notebook_get_current_page(notebook);
 
 	config_window_apply();
-	layout_util_sync(lw);
+	layout_util_sync(main_lw);
 	save_options(options);
 	config_window_close_cb(nullptr, nullptr);
 }
@@ -1146,7 +1143,6 @@ static void image_overlay_set_background_color_cb(GtkWidget *widget, gpointer)
 
 static void accel_store_populate()
 {
-	LayoutWindow *lw;
 	GList *groups;
 	GList *actions;
 	GtkAction *action;
@@ -1155,13 +1151,12 @@ static void accel_store_populate()
 	GtkAccelKey key;
 	GtkTreeIter iter;
 
-	if (!accel_store || !layout_window_list || !layout_window_list->data) return;
+	if (!accel_store || !main_lw) return;
 
 	gtk_tree_store_clear(accel_store);
-	lw = static_cast<LayoutWindow *>(layout_window_list->data); /* get the actions from the first window, it should not matter, they should be the same in all windows */
 
-	g_assert(lw && lw->ui_manager);
-	groups = gq_gtk_ui_manager_get_action_groups(lw->ui_manager);
+	g_assert(main_lw && main_lw->ui_manager);
+	groups = gq_gtk_ui_manager_get_action_groups(main_lw->ui_manager);
 	while (groups)
 		{
 		actions = gq_gtk_action_group_list_actions(GTK_ACTION_GROUP(groups->data));

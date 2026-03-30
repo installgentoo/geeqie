@@ -35,18 +35,8 @@ struct ImageWindow;
 struct ViewDir;
 struct ViewFile;
 
-#define LAYOUT_ID_CURRENT "_current_"
-
-extern GList *layout_window_list;
-
-
-enum LayoutLocation {
-	LAYOUT_HIDE   = 0,
-	LAYOUT_LEFT   = 1 << 0,
-	LAYOUT_RIGHT  = 1 << 1,
-	LAYOUT_TOP    = 1 << 2,
-	LAYOUT_BOTTOM = 1 << 3
-};
+struct LayoutWindow;
+extern LayoutWindow *main_lw;
 
 struct LayoutWindow
 {
@@ -103,7 +93,6 @@ struct LayoutWindow
 	GtkWidget *log_window;
 };
 
-LayoutWindow *layout_new(FileData *dir_fd, LayoutOptions *lop);
 LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 				       const gchar *geometry);
 LayoutWindow *layout_new_from_config(const gchar **attribute_names, const gchar **attribute_values, gboolean use_commandline);
@@ -120,8 +109,6 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 void layout_write_config(LayoutWindow *lw, GString *outstr, gint indent);
 
 
-LayoutWindow *layout_find_by_image(ImageWindow *imd);
-LayoutWindow *layout_find_by_image_fd(ImageWindow *imd);
 gint layout_compare_options_id(const LayoutWindow *lw, const gchar *id);
 
 const gchar *layout_get_path(LayoutWindow *lw);
@@ -167,7 +154,6 @@ void layout_menu_update_edit();
 void layout_styles_update();
 
 gchar *layout_get_unique_id();
-guint layout_window_count();
 
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

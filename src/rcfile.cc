@@ -620,7 +620,6 @@ gboolean save_config_to_file(const gchar *utf8_path, ConfOptions *, LayoutWindow
 	gchar *rc_pathl;
 	GString *outstr;
 	gint indent = 0;
-	GList *work;
 
 	rc_pathl = path_from_utf8(utf8_path);
 	ssi = secure_open(rc_pathl);
@@ -676,13 +675,7 @@ gboolean save_config_to_file(const gchar *utf8_path, ConfOptions *, LayoutWindow
 	/* Layout Options */
 	if (!lw)
 		{
-			work = layout_window_list;
-			while (work)
-				{
-				auto lw = static_cast<LayoutWindow *>(work->data);
-				layout_write_config(lw, outstr, indent);
-				work = work->next;
-				}
+		layout_write_config(main_lw, outstr, indent);
 		}
 	else
 		{

@@ -73,20 +73,16 @@ static void image_click_cb(PixbufRenderer *, GdkEventButton *event, gpointer dat
 		}
 }
 
-static void image_press_cb(PixbufRenderer *, GdkEventButton *event, gpointer data)
+static void image_press_cb(PixbufRenderer *, GdkEventButton *event, gpointer)
 {
-	auto imd = static_cast<ImageWindow *>(data);
-	LayoutWindow *lw;
-
-	lw = layout_find_by_image(imd);
-	if (!lw)
+	if (!main_lw)
 		{
-		layout_valid(&lw);
+		layout_valid(&main_lw);
 		}
 
-	if (lw && event->button == MOUSE_BUTTON_LEFT && event->type == GDK_2BUTTON_PRESS)
+	if (main_lw && event->button == MOUSE_BUTTON_LEFT && event->type == GDK_2BUTTON_PRESS)
 		{
-		layout_image_full_screen_toggle(lw);
+		layout_image_full_screen_toggle(main_lw);
 		}
 }
 
@@ -998,7 +994,6 @@ GdkPixbuf *image_get_pixbuf(ImageWindow *imd)
 
 void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboolean lazy)
 {
-	LayoutWindow *lw;
 	/* read_exif and similar functions can actually notice that the file has changed and trigger
 	   a notification that removes the pixbuf from cache and unrefs it. Therefore we must ref it
 	   here before it is taken over by the renderer. */
@@ -1045,9 +1040,7 @@ void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboo
 
 	if (pixbuf) g_object_unref(pixbuf);
 
-	/* Color correction takes too much time for an animated gif */
-	lw = layout_find_by_image(imd);
-	if (imd->color_profile_enable && lw && !lw->animation)
+	if (imd->color_profile_enable && main_lw && !main_lw->animation)
 		{
 		image_post_process_color(imd, 0, FALSE); /** @todo error handling */
 		}

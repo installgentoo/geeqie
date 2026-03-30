@@ -238,8 +238,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->file_view_list_sort.ascend = TRUE;
 	options->file_view_list_sort.case_sensitive = TRUE;
 	options->file_view_list_sort.method = SORT_NAME;
-	options->float_window.rect = {0, 0, 260, 450};
-	options->float_window.vdivider_pos = -1;
 	options->home_path = nullptr;
 	options->main_window.hdivider_pos = -1;
 	options->main_window.maximized = FALSE;
@@ -247,7 +245,6 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->main_window.vdivider_pos = 200;
 	options->search_window = {100, 100, 700, 650};
 	options->dupe_window = {100, 100, 800, 400};
-	options->folder_window.vdivider_pos = 100;
 	options->show_file_filter = FALSE;
 	options->image_overlay.state = OSD_SHOW_NOTHING;
 	options->animate = TRUE;

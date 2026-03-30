@@ -182,12 +182,11 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 		vars = g_hash_table_new_full(g_str_hash, g_str_equal, nullptr, g_free);
 
 			{
-			LayoutWindow *lw = layout_find_by_image(imd);
-			if (lw)
+			if (main_lw)
 				{
 					{
-					t = layout_list_count(lw, nullptr);
-					n = layout_list_get_index(lw, image_get_fd(lw->image)) + 1;
+					t = layout_list_count(main_lw, nullptr);
+					n = layout_list_get_index(main_lw, image_get_fd(main_lw->image)) + 1;
 					}
 				}
 			else

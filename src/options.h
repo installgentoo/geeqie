@@ -318,15 +318,6 @@ struct LayoutOptions
 	} main_window;
 
 	struct {
-		GdkRectangle rect;
-		gint vdivider_pos;
-	} float_window;
-
-	struct {
-		gint vdivider_pos;
-	} folder_window;
-
-	struct {
 		guint state;
 	} image_overlay;
 

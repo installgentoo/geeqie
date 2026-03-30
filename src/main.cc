@@ -780,76 +780,9 @@ static void exit_program_final()
 	gtk_main_quit();
 }
 
-static GenericDialog *exit_dialog = nullptr;
-
-static void exit_confirm_cancel_cb(GenericDialog *gd, gpointer)
-{
-	exit_dialog = nullptr;
-	generic_dialog_close(gd);
-}
-
-static void exit_confirm_exit_cb(GenericDialog *gd, gpointer)
-{
-	exit_dialog = nullptr;
-	generic_dialog_close(gd);
-	exit_program_final();
-}
-
-static gint exit_confirm_dlg()
-{
-	GtkWidget *parent;
-	LayoutWindow *lw;
-	gchar *msg;
-	GString *message;
-
-	if (exit_dialog)
-		{
-		gtk_window_present(GTK_WINDOW(exit_dialog->dialog));
-		return TRUE;
-		}
-
-	if (layout_window_count() == 1) return FALSE;
-
-	parent = nullptr;
-	lw = nullptr;
-	if (layout_valid(&lw))
-		{
-		parent = lw->window;
-		}
-
-	msg = g_strdup_printf("%s - %s", GQ_APPNAME, _("exit"));
-	exit_dialog = generic_dialog_new(msg,
-				"exit", parent, FALSE,
-				exit_confirm_cancel_cb, nullptr);
-	g_free(msg);
-	msg = g_strdup_printf(_("Quit %s"), GQ_APPNAME);
-
-	message = g_string_new(nullptr);
-
-	if (layout_window_count() > 1)
-		{
-		g_string_append_printf(message, _("%d windows are open.\n\n"), layout_window_count());
-		}
-
-	message = g_string_append(message, _("Quit anyway?"));
-
-	generic_dialog_add_message(exit_dialog, GQ_ICON_DIALOG_QUESTION, msg, message->str, TRUE);
-	g_free(msg);
-	generic_dialog_add_button(exit_dialog, GQ_ICON_QUIT, _("Quit"), exit_confirm_exit_cb, TRUE);
-
-	gtk_widget_show(exit_dialog->dialog);
-
-	g_string_free(message, TRUE);
-
-	return TRUE;
-}
-
 void exit_program()
 {
 	layout_image_full_screen_stop(nullptr);
-
-	if (exit_confirm_dlg()) return;
-
 	exit_program_final();
 }
 
@@ -875,27 +808,17 @@ static void set_theme_bg_color()
 	GdkRGBA bg_color;
 	GdkRGBA theme_color;
 	GtkStyleContext *style_context;
-	GList *work;
-	LayoutWindow *lw;
 
 	if (!options->image.use_custom_border_color)
 		{
-		work = layout_window_list;
-		lw = static_cast<LayoutWindow *>(work->data);
-
-		style_context = gtk_widget_get_style_context(lw->window);
+		style_context = gtk_widget_get_style_context(main_lw->window);
 		gtk_style_context_get_background_color(style_context, GTK_STATE_FLAG_NORMAL, &bg_color);
 
 		theme_color.red = bg_color.red  ;
 		theme_color.green = bg_color.green  ;
 		theme_color.blue = bg_color.blue ;
 
-		while (work)
-			{
-			lw = static_cast<LayoutWindow *>(work->data);
-			image_background_set_color(lw->image, &theme_color);
-			work = work->next;
-			}
+		image_background_set_color(main_lw->image, &theme_color);
 		}
 }
 
@@ -1063,11 +986,10 @@ gint main(gint argc, gchar *argv[])
 		editor_table_finish();
 
 		/* handle missing config file and commandline additions*/
-		if (!layout_window_list)
-			{
-			/* broken or no config file or no <layout> section */
+		if (!main_lw)
+		{
 			layout_new_from_default();
-			}
+		}
 
 		if (command_line->log_file)
 			{
