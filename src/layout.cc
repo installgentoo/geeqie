@@ -959,7 +959,8 @@ gboolean layout_set_fd(LayoutWindow *lw, FileData *fd)
 		}
 	else if (!options->lazy_image_sync)
 		{
-		layout_image_set_index(lw, 0);
+		gint count = layout_list_count(lw, nullptr);
+		layout_image_set_index(lw, count > 0 ? count - 1 : 0);
 		}
 
 	if (lw->vf && (lw->options.file_view_list_sort.method == SORT_EXIFTIME || lw->options.file_view_list_sort.method == SORT_EXIFTIMEDIGITIZED))
@@ -1218,6 +1219,10 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 		gtk_window_set_default_size(GTK_WINDOW(lw->window), lw->options.main_window.rect.width, lw->options.main_window.rect.height);
 		gq_gtk_window_move(GTK_WINDOW(lw->window), lw->options.main_window.rect.x, lw->options.main_window.rect.y);
 		if (lw->options.main_window.maximized) gtk_window_maximize(GTK_WINDOW(lw->window));
+	}
+	else
+	{
+		gtk_window_set_default_size(GTK_WINDOW(lw->window), lw->options.main_window.rect.width, lw->options.main_window.rect.height);
 	}
 
 	g_free(default_path);
