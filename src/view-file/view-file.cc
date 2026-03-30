@@ -31,7 +31,6 @@
 #include "dupe.h"
 #include "filedata.h"
 #include "history-list.h"
-#include "img-view.h"
 #include "intl.h"
 #include "layout.h"
 #include "main-defines.h"

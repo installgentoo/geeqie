@@ -42,17 +42,12 @@
 
 static GList *filter_list = nullptr;
 static GList *extension_list = nullptr;
-static GList *sidecar_ext_list = nullptr;
 
 static GList *file_class_extension_list[FILE_FORMAT_CLASSES];
 
-static GList *file_writable_list = nullptr; /* writable files */
-static GList *file_sidecar_list = nullptr; /* files with allowed sidecar */
-
-
 static FilterEntry *filter_entry_new(const gchar *key, const gchar *description,
 				     const gchar *extensions, FileFormatClass file_class,
-				     gboolean writable, gboolean allow_sidecar, gboolean enabled)
+				     gboolean, gboolean, gboolean enabled)
 {
 	FilterEntry *fe;
 
@@ -62,8 +57,6 @@ static FilterEntry *filter_entry_new(const gchar *key, const gchar *description,
 	fe->extensions = g_strdup(extensions);
 	fe->enabled = enabled;
 	fe->file_class = file_class;
-	fe->writable = writable;
-	fe->allow_sidecar = allow_sidecar;
 
 	return fe;
 }
@@ -109,12 +102,12 @@ static gboolean filter_key_exists(const gchar *key)
 	return (filter_get_by_key(key) != nullptr);
 }
 
-void filter_add(const gchar *key, const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean writable, gboolean allow_sidecar, gboolean enabled)
+void filter_add(const gchar *key, const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean, gboolean, gboolean enabled)
 {
-	filter_list = g_list_append(filter_list, filter_entry_new(key, description, extensions, file_class, writable, allow_sidecar, enabled));
+	filter_list = g_list_append(filter_list, filter_entry_new(key, description, extensions, file_class, FALSE, FALSE, enabled));
 }
 
-void filter_add_unique(const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean writable, gboolean allow_sidecar, gboolean enabled)
+void filter_add_unique(const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean, gboolean, gboolean enabled)
 {
 	gchar *key;
 	guint n;
@@ -129,11 +122,11 @@ void filter_add_unique(const gchar *description, const gchar *extensions, FileFo
 		n++;
 		}
 
-	filter_add(key, description, extensions, file_class, writable, allow_sidecar, enabled);
+	filter_add(key, description, extensions, file_class, FALSE, FALSE, enabled);
 	g_free(key);
 }
 
-static void filter_add_if_missing(const gchar *key, const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean writable, gboolean allow_sidecar, gboolean enabled)
+static void filter_add_if_missing(const gchar *key, const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean, gboolean, gboolean enabled)
 {
 	if (!key) return;
 
@@ -143,15 +136,10 @@ static void filter_add_if_missing(const gchar *key, const gchar *description, co
 		if (fe->file_class == FORMAT_CLASS_UNKNOWN)
 			fe->file_class = file_class;	/* for compatibility */
 
-		if (fe->writable && fe->allow_sidecar)
-			{
-			fe->writable = writable;
-			fe->allow_sidecar = allow_sidecar;
-			}
 		return;
 		}
 
-	filter_add(key, description, extensions, file_class, writable, allow_sidecar, enabled);
+	filter_add(key, description, extensions, file_class, FALSE, FALSE, enabled);
 }
 
 void filter_reset()
@@ -334,12 +322,6 @@ void filter_rebuild()
 	g_list_free_full(extension_list, g_free);
 	extension_list = nullptr;
 
-	g_list_free_full(file_writable_list, g_free);
-	file_writable_list = nullptr;
-
-	g_list_free_full(file_sidecar_list, g_free);
-	file_sidecar_list = nullptr;
-
 	for (i = 0; i < FILE_FORMAT_CLASSES; i++)
 		{
 		g_list_free_full(file_class_extension_list[i], g_free);
@@ -370,19 +352,6 @@ void filter_rebuild()
 				{
 				log_printf("WARNING: invalid file class %d\n", fe->file_class);
 				}
-
-			if (fe->writable)
-				{
-				ext = filter_to_list(fe->extensions);
-				if (ext) file_writable_list = g_list_concat(file_writable_list, ext);
-				}
-
-			if (fe->allow_sidecar)
-				{
-				ext = filter_to_list(fe->extensions);
-				if (ext) file_sidecar_list = g_list_concat(file_sidecar_list, ext);
-				}
-
 			}
 		}
 
@@ -445,16 +414,6 @@ FileFormatClass filter_file_get_class(const gchar *name)
 	return FORMAT_CLASS_UNKNOWN;
 }
 
-gboolean filter_name_is_writable(const gchar *name)
-{
-	return !!filter_name_find(file_writable_list, name);
-}
-
-gboolean filter_name_allow_sidecar(const gchar *name)
-{
-	return !!filter_name_find(file_sidecar_list, name);
-}
-
 void filter_write_list(GString *outstr, gint indent)
 {
 	GList *work;
@@ -474,8 +433,6 @@ void filter_write_list(GString *outstr, gint indent)
 		WRITE_CHAR(*fe, extensions);
 		WRITE_CHAR(*fe, description);
 		WRITE_UINT(*fe, file_class);
-		WRITE_BOOL(*fe, writable);
-		WRITE_BOOL(*fe, allow_sidecar);
 		WRITE_STRING("/>");
 		}
 	indent--;
@@ -497,8 +454,6 @@ void filter_load_file_type(const gchar **attribute_names, const gchar **attribut
 		if (READ_CHAR(fe, extensions)) continue;
 		if (READ_CHAR(fe, description)) continue;
 		if (READ_UINT_ENUM(fe, file_class)) continue;
-		if (READ_BOOL(fe, writable)) continue;
-		if (READ_BOOL(fe, allow_sidecar)) continue;
 
 		log_printf("unknown attribute %s = %s\n", option, value);
 		}
@@ -509,38 +464,9 @@ void filter_load_file_type(const gchar **attribute_names, const gchar **attribut
 		old_fe = filter_get_by_key(fe.key);
 
 		if (old_fe != nullptr) filter_remove_entry(old_fe);
-		filter_add(fe.key, fe.description, fe.extensions, fe.file_class, fe.writable, fe.allow_sidecar, fe.enabled);
+		filter_add(fe.key, fe.description, fe.extensions, fe.file_class, FALSE, FALSE, fe.enabled);
 		}
 	g_free(fe.key);
 	g_free(fe.extensions);
 	g_free(fe.description);
 }
-
-
-/*
- *-----------------------------------------------------------------------------
- * sidecar extension list
- *-----------------------------------------------------------------------------
- */
-
-GList *sidecar_ext_get_list()
-{
-	return sidecar_ext_list;
-}
-
-static void sidecar_ext_free_list()
-{
-	g_list_free_full(sidecar_ext_list, g_free);
-	sidecar_ext_list = nullptr;
-}
-
-void sidecar_ext_parse(const gchar *text)
-{
-	sidecar_ext_free_list();
-	if (text == nullptr) return;
-
-	sidecar_ext_list = filter_to_list(text);
-}
-
-
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

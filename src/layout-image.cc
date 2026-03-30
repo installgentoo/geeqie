@@ -42,7 +42,6 @@
 #include "history-list.h"
 #include "image-overlay.h"
 #include "image.h"
-#include "img-view.h"
 #include "intl.h"
 #include "layout-util.h"
 #include "layout.h"

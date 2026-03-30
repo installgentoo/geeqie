@@ -1500,11 +1500,7 @@ static void layout_config_commandline(LayoutOptions *lop, gchar **path)
 {
 	gchar *last_image;
 
-	if (command_line->startup_blank)
-		{
-		*path = nullptr;
-		}
-	else if (command_line->file)
+	if (command_line->file)
 		{
 		*path = g_strdup(command_line->file);
 		}

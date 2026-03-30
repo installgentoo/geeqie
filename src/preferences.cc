@@ -57,7 +57,6 @@
 #include "fullscreen.h"
 #include "image-overlay.h"
 #include "image.h"
-#include "img-view.h"
 #include "intl.h"
 #include "layout-util.h"
 #include "layout.h"
@@ -121,9 +120,7 @@ enum {
 	FE_ENABLE,
 	FE_EXTENSION,
 	FE_DESCRIPTION,
-	FE_CLASS,
-	FE_WRITABLE,
-	FE_ALLOW_SIDECAR
+	FE_CLASS
 };
 
 enum {
@@ -139,8 +136,6 @@ enum {
 	FILETYPES_COLUMN_FILTER,
 	FILETYPES_COLUMN_DESCRIPTION,
 	FILETYPES_COLUMN_CLASS,
-	FILETYPES_COLUMN_WRITABLE,
-	FILETYPES_COLUMN_SIDECAR,
 	FILETYPES_COLUMN_COUNT
 };
 
@@ -780,24 +775,6 @@ static void filter_store_enable_cb(GtkCellRendererToggle *, gchar *path_str, gpo
 	filter_rebuild();
 }
 
-static void filter_store_writable_cb(GtkCellRendererToggle *, gchar *path_str, gpointer data)
-{
-	auto model = static_cast<GtkWidget *>(data);
-	FilterEntry *fe;
-	GtkTreePath *tpath;
-	GtkTreeIter iter;
-
-	tpath = gtk_tree_path_new_from_string(path_str);
-	gtk_tree_model_get_iter(GTK_TREE_MODEL(model), &iter, tpath);
-	gtk_tree_model_get(GTK_TREE_MODEL(model), &iter, 0, &fe, -1);
-
-	fe->writable = !fe->writable;
-	if (fe->writable) fe->allow_sidecar = FALSE;
-
-	gtk_tree_path_free(tpath);
-	filter_rebuild();
-}
-
 static void filter_set_func(GtkTreeViewColumn *, GtkCellRenderer *cell,
 			    GtkTreeModel *tree_model, GtkTreeIter *iter, gpointer data)
 {
@@ -822,14 +799,6 @@ static void filter_set_func(GtkTreeViewColumn *, GtkCellRenderer *cell,
 		case FE_CLASS:
 			g_object_set(GTK_CELL_RENDERER(cell),
 				     "text", _(format_class_list[fe->file_class]), NULL);
-			break;
-		case FE_WRITABLE:
-			g_object_set(GTK_CELL_RENDERER(cell),
-				     "active", fe->writable, NULL);
-			break;
-		case FE_ALLOW_SIDECAR:
-			g_object_set(GTK_CELL_RENDERER(cell),
-				     "active", fe->allow_sidecar, NULL);
 			break;
 		default:
 			break;
@@ -1757,16 +1726,6 @@ static gint filter_table_sort_cb(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIte
 			ret = g_strcmp0(format_class_list[filter_a->file_class], format_class_list[filter_b->file_class]);
 			break;
 			}
-		case FILETYPES_COLUMN_WRITABLE:
-			{
-			ret = filter_a->writable - filter_b->writable;
-			break;
-			}
-		case FILETYPES_COLUMN_SIDECAR:
-			{
-			ret = filter_a->allow_sidecar - filter_b->allow_sidecar;
-			break;
-			}
 		default:
 			g_return_val_if_reached(0);
 		}
@@ -1908,19 +1867,6 @@ static void config_tab_files(GtkWidget *notebook)
 	gtk_tree_view_append_column(GTK_TREE_VIEW(filter_view), column);
 	gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(filter_store), FILETYPES_COLUMN_CLASS, filter_table_sort_cb, GINT_TO_POINTER(FILETYPES_COLUMN_CLASS), nullptr);
 	gtk_tree_view_column_set_sort_column_id(column, FILETYPES_COLUMN_CLASS);
-
-	column = gtk_tree_view_column_new();
-	gtk_tree_view_column_set_title(column, _("Writable"));
-	gtk_tree_view_column_set_resizable(column, FALSE);
-	renderer = gtk_cell_renderer_toggle_new();
-	g_signal_connect(G_OBJECT(renderer), "toggled",
-			 G_CALLBACK(filter_store_writable_cb), filter_store);
-	gtk_tree_view_column_pack_start(column, renderer, FALSE);
-	gtk_tree_view_column_set_cell_data_func(column, renderer, filter_set_func,
-						GINT_TO_POINTER(FE_WRITABLE), nullptr);
-	gtk_tree_view_append_column(GTK_TREE_VIEW(filter_view), column);
-	gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(filter_store), FILETYPES_COLUMN_WRITABLE, filter_table_sort_cb, GINT_TO_POINTER(FILETYPES_COLUMN_WRITABLE), nullptr);
-	gtk_tree_view_column_set_sort_column_id(column, FILETYPES_COLUMN_WRITABLE);
 
 	filter_store_populate();
 	gq_gtk_container_add(GTK_WIDGET(scrolled), filter_view);

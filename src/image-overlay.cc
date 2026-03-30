@@ -32,7 +32,6 @@
 #include "filedata.h"
 #include "image-load.h"
 #include "image.h"
-#include "img-view.h"
 #include "intl.h"
 #include "layout.h"
 #include "main-defines.h"
@@ -190,10 +189,6 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 					t = layout_list_count(lw, nullptr);
 					n = layout_list_get_index(lw, image_get_fd(lw->image)) + 1;
 					}
-				}
-			else if (view_window_find_image(imd, &n, &t))
-				{
-				n++;
 				}
 			else
 				{

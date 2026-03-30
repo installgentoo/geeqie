@@ -61,7 +61,6 @@
 #include "glua.h"
 #include "history-list.h"
 #include "image.h"
-#include "img-view.h"
 #include "intl.h"
 #include "layout-image.h"
 #include "layout-util.h"
@@ -371,16 +370,6 @@ static void parse_command_line(gint argc, gchar *argv[])
 				{
 				command_line->startup_full_screen = TRUE;
 				}
-			else if (strcmp(cmd_line, "-s") == 0 ||
-				 strcmp(cmd_line, "--slideshow") == 0)
-				{
-				command_line->startup_in_slideshow = TRUE;
-				}
-			else if (strcmp(cmd_line, "-l") == 0 ||
-				 strcmp(cmd_line, "--list") == 0)
-				{
-				command_line->startup_command_line_collection = TRUE;
-				}
 			else if (strncmp(cmd_line, "--geometry=", 11) == 0)
 				{
 				if (!command_line->geometry) command_line->geometry = g_strdup(cmd_line + 11);
@@ -406,18 +395,6 @@ static void parse_command_line(gint argc, gchar *argv[])
 				{
 				set_regexp(g_strdup(cmd_line + 7));
 				}
-			else if (strncmp(cmd_line, "-n", 2) == 0)
-				{
-				command_line->new_instance = TRUE;
-				}
-			else if (strncmp(cmd_line, "--new-instance", 14) == 0)
-				{
-				command_line->new_instance = TRUE;
-				}
-			else if (strcmp(cmd_line, "--blank") == 0)
-				{
-				command_line->startup_blank = TRUE;
-				}
 			else if (strcmp(cmd_line, "-v") == 0 ||
 				 strcmp(cmd_line, "--version") == 0)
 				{
@@ -430,18 +407,11 @@ static void parse_command_line(gint argc, gchar *argv[])
 				printf_term(FALSE, "%s %s\n", GQ_APPNAME, VERSION);
 				printf_term(FALSE, _("Usage: %s [options] [path]\n\n"), GQ_APPNAME_LC);
 				print_term(FALSE, _("Valid options:\n"));
-				print_term(FALSE, _("      --blank                      start with blank file list\n"));
 				print_term(FALSE, _("      --cache-maintenance=<path>   run cache maintenance in non-GUI mode\n"));
 				print_term(FALSE, _("  -f, --fullscreen                 start in full screen mode\n"));
 				print_term(FALSE, _("      --geometry=WxH+XOFF+YOFF     set main window location\n"));
 				print_term(FALSE, _("  -h, --help                       show this message\n"));
-				print_term(FALSE, _("  -l, --list [files] [collections] open collection window for command line\n"));
-				print_term(FALSE, _("  -n, --new-instance               open a new instance of Geeqie *\n"));
 				print_term(FALSE, _("  -o, --log-file=<file>            save log data to file\n"));
-				print_term(FALSE, _("  -r, --remote                     send following commands to open window\n"));
-				print_term(FALSE, _("  -s, --slideshow                  start in slideshow mode\n"));
-				print_term(FALSE, _("  -T, --with-tools                 force show of tools\n"));
-				print_term(FALSE, _("  -t, --without-tools              force hide of tools\n"));
 				print_term(FALSE, _("  -v, --version                    print version info\n"));
 				print_term(FALSE, _("  -w, --show-log-window            show log window\n"));
 #ifdef DEBUG
@@ -495,18 +465,6 @@ static void parse_command_line(gint argc, gchar *argv[])
 		{
 		g_list_free_full(list, g_free);
 		command_line->cmd_list = nullptr;
-		}
-
-	if (command_line->startup_blank)
-		{
-		g_free(command_line->path);
-		command_line->path = nullptr;
-		g_free(command_line->file);
-		command_line->file = nullptr;
-		filelist_free(command_line->cmd_list);
-		command_line->cmd_list = nullptr;
-		g_list_free_full(command_line->collection_list, g_free);
-		command_line->collection_list = nullptr;
 		}
 }
 
@@ -1123,7 +1081,7 @@ gint main(gint argc, gchar *argv[])
 		/* If there is a files list on the command line and no --list option,
 		 * check if they are all in the same folder
 		 */
-		if (command_line->cmd_list && !(command_line->startup_command_line_collection))
+		if (command_line->cmd_list)
 			{
 			GList *work;
 			gchar *path = nullptr;
@@ -1162,24 +1120,6 @@ gint main(gint argc, gchar *argv[])
 		 */
 		lw = nullptr;
 		layout_valid(&lw);
-
-		if (single_dir && command_line->cmd_list && !command_line->startup_command_line_collection)
-			{
-			GList *work;
-			GList *selected;
-			FileData *fd;
-
-			selected = nullptr;
-			work = command_line->cmd_list;
-			while (work)
-				{
-				fd = file_data_new_simple(static_cast<gchar *>(work->data));
-				selected = g_list_append(selected, fd);
-				file_data_unref(fd);
-				work = work->next;
-				}
-			layout_select_list(lw, selected);
-			}
 
 		default_settings = gtk_settings_get_default();
 		g_signal_connect(default_settings, "notify::gtk-theme-name", G_CALLBACK(theme_change_cb), NULL);

@@ -40,7 +40,6 @@
 #include "filedata.h"
 #include "history-list.h"
 #include "image-load.h"
-#include "img-view.h"
 #include "intl.h"
 #include "layout-image.h"
 #include "layout-util.h"

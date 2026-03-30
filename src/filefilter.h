@@ -32,8 +32,6 @@ struct FilterEntry {
 	gchar *extensions;
 	FileFormatClass file_class;
 	gboolean enabled;
-	gboolean writable;
-	gboolean allow_sidecar;
 };
 
 /**
@@ -43,8 +41,8 @@ struct FilterEntry {
 GList *filter_get_list();
 void filter_remove_entry(FilterEntry *fe);
 
-void filter_add(const gchar *key, const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean writable, gboolean allow_sidecar, gboolean enabled);
-void filter_add_unique(const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean writable, gboolean allow_sidecar, gboolean enabled);
+void filter_add(const gchar *key, const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean, gboolean, gboolean enabled);
+void filter_add_unique(const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean, gboolean, gboolean enabled);
 void filter_add_defaults();
 void filter_reset();
 void filter_rebuild();
@@ -54,16 +52,9 @@ const gchar *registered_extension_from_path(const gchar *name);
 gboolean filter_name_exists(const gchar *name);
 gboolean filter_file_class(const gchar *name, FileFormatClass file_class);
 FileFormatClass filter_file_get_class(const gchar *name);
-gboolean filter_name_is_writable(const gchar *name);
-gboolean filter_name_allow_sidecar(const gchar *name);
 
 void filter_write_list(GString *outstr, gint indent);
 void filter_load_file_type(const gchar **attribute_names, const gchar **attribute_values);
-
-
-void sidecar_ext_parse(const gchar *text);
-gchar *sidecar_ext_to_string();
-GList *sidecar_ext_get_list();
 
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

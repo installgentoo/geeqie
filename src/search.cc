@@ -40,7 +40,6 @@
 #include "editors.h"
 #include "filedata.h"
 #include "image-load.h"
-#include "img-view.h"
 #include "intl.h"
 #include "layout-util.h"
 #include "layout.h"
