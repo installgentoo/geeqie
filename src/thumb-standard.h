@@ -58,8 +58,8 @@ struct ThumbLoaderStd
 	gchar *thumb_path;
 	gchar *thumb_uri;
 
-	gint requested_width;
-	gint requested_height;
+	gint save_width;
+	gint display_width;
 
 	gboolean cache_enable;
 	gboolean cache_hit;
@@ -76,7 +76,7 @@ struct ThumbLoaderStd
 };
 
 
-ThumbLoaderStd *thumb_loader_std_new(gint width, gint height);
+ThumbLoaderStd *thumb_loader_std_new(gint save_width, gint display_width);
 void thumb_loader_std_set_callbacks(ThumbLoaderStd *tl,
 				    ThumbLoaderStd::Func func_done,
 				    ThumbLoaderStd::Func func_error,

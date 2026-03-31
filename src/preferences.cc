@@ -104,15 +104,10 @@ static ThumbSize thumb_size_list[] =
 	{ 32, 32 },
 	{ 48, 48 },
 	{ 64, 64 },
-	{ 96, 72 },
 	{ 96, 96 },
-	{ 128, 96 },
 	{ 128, 128 },
-	{ 160, 120 },
 	{ 160, 160 },
-	{ 192, 144 },
 	{ 192, 192 },
-	{ 256, 192 },
 	{ 256, 256 }
 };
 
@@ -258,14 +253,14 @@ static void config_window_apply()
 	options->progressive_key_scrolling = c_options->progressive_key_scrolling;
 	options->keyboard_scroll_step = c_options->keyboard_scroll_step;
 
-	if (options->thumbnails.max_width != c_options->thumbnails.max_width
-	    || options->thumbnails.max_height != c_options->thumbnails.max_height
+	if (options->thumbnails.save_width != c_options->thumbnails.save_width
+	    || options->thumbnails.display_width != c_options->thumbnails.display_width
 	    || options->thumbnails.quality != c_options->thumbnails.quality)
 		{
 		thumb_format_changed = TRUE;
 		refresh = TRUE;
-		options->thumbnails.max_width = c_options->thumbnails.max_width;
-		options->thumbnails.max_height = c_options->thumbnails.max_height;
+		options->thumbnails.save_width = c_options->thumbnails.save_width;
+		options->thumbnails.display_width = c_options->thumbnails.display_width;
 		options->thumbnails.quality = c_options->thumbnails.quality;
 		}
 	options->thumbnails.enable_caching = c_options->thumbnails.enable_caching;
@@ -561,13 +556,7 @@ static void thumb_size_menu_cb(GtkWidget *combo, gpointer)
 
 	if (static_cast<guint>(n) < sizeof(thumb_size_list) / sizeof(ThumbSize))
 		{
-		c_options->thumbnails.max_width = thumb_size_list[n].w;
-		c_options->thumbnails.max_height = thumb_size_list[n].h;
-		}
-	else
-		{
-		c_options->thumbnails.max_width = options->thumbnails.max_width;
-		c_options->thumbnails.max_height = options->thumbnails.max_height;
+		c_options->thumbnails.save_width = thumb_size_list[n].w;
 		}
 }
 
@@ -577,39 +566,25 @@ static void add_thumb_size_menu(GtkWidget *table, gint column, gint row, gchar *
 	gint current;
 	gint i;
 
-	c_options->thumbnails.max_width = options->thumbnails.max_width;
-	c_options->thumbnails.max_height = options->thumbnails.max_height;
+	c_options->thumbnails.save_width = options->thumbnails.save_width;
 
 	pref_table_label(table, column, row, text, GTK_ALIGN_START);
 
 	combo = gtk_combo_box_text_new();
 
-	current = -1;
+	current = 5;
 	for (i = 0; static_cast<guint>(i) < sizeof(thumb_size_list) / sizeof(ThumbSize); i++)
 		{
 		gint w;
-		gint h;
 		gchar *buf;
 
 		w = thumb_size_list[i].w;
-		h = thumb_size_list[i].h;
 
-		buf = g_strdup_printf("%d x %d", w, h);
+		buf = g_strdup_printf("%d x %d", w, w);
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), buf);
 		g_free(buf);
 
-		if (w == options->thumbnails.max_width && h == options->thumbnails.max_height) current = i;
-		}
-
-	if (current == -1)
-		{
-		gchar *buf;
-
-		buf = g_strdup_printf("%s %d x %d", _("Custom"), options->thumbnails.max_width, options->thumbnails.max_height);
-		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), buf);
-		g_free(buf);
-
-		current = i;
+		if (w == options->thumbnails.save_width) current = i;
 		}
 
 	gtk_combo_box_set_active(GTK_COMBO_BOX(combo), current);
@@ -1388,13 +1363,12 @@ static void config_tab_general(GtkWidget *notebook)
 	group = pref_group_new(vbox, FALSE, _("Thumbnails"), GTK_ORIENTATION_VERTICAL);
 
 	table = pref_table_new(group, 2, 2, FALSE, FALSE);
-	add_thumb_size_menu(table, 0, 0, _("Size:"));
+	add_thumb_size_menu(table, 0, 0, _("Saved size:"));
 	add_quality_menu(table, 0, 1, _("Quality:"), options->thumbnails.quality, &c_options->thumbnails.quality);
 
 	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
-	pref_label_new(hbox, _("Custom size: "));
-	pref_spin_new_int(hbox, _("Width:"), nullptr, 1, 512, 1, options->thumbnails.max_width, &c_options->thumbnails.max_width);
-	pref_spin_new_int(hbox, _("Height:"), nullptr, 1, 512, 1, options->thumbnails.max_height, &c_options->thumbnails.max_height);
+	pref_label_new(hbox, _("Displayed size: "));
+	pref_spin_new_int(hbox, _("Width:"), nullptr, 1, 512, 1, options->thumbnails.display_width, &c_options->thumbnails.display_width);
 
 	ct_button = pref_checkbox_new_int(group, _("Cache thumbnails and sim. files"),
 					  options->thumbnails.enable_caching, &c_options->thumbnails.enable_caching);

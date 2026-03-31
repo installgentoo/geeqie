@@ -142,7 +142,6 @@ static void image_loader_init(GTypeInstance *instance, gpointer)
 	il->requested_height = 0;
 	il->actual_width = 0;
 	il->actual_height = 0;
-	il->shrunk = FALSE;
 
 	il->can_destroy = TRUE;
 
@@ -610,7 +609,6 @@ static void image_loader_size_cb(gpointer,
 		il->actual_width = nw;
 		il->actual_height = nh;
 		il->backend->set_size(nw, nh);
-		il->shrunk = TRUE;
 		}
 
 	g_mutex_unlock(il->data_mutex);
@@ -1333,17 +1331,6 @@ FileData *image_loader_get_fd(ImageLoader *il)
 	ret = il->fd;
 	g_mutex_unlock(il->data_mutex);
 
-	return ret;
-}
-
-gboolean image_loader_get_shrunk(ImageLoader *il)
-{
-	gboolean ret;
-	if (!il) return FALSE;
-
-	g_mutex_lock(il->data_mutex);
-	ret = il->shrunk;
-	g_mutex_unlock(il->data_mutex);
 	return ret;
 }
 

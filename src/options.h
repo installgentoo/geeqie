@@ -121,8 +121,8 @@ struct ConfOptions
 
 	/* thumbnails */
 	struct {
-		gint max_width;
-		gint max_height;
+		gint save_width;
+		gint display_width;
 		gboolean enable_caching;
 		gboolean use_xvpics;
 		gboolean spec_standard;

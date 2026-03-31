@@ -47,9 +47,6 @@ namespace
 {
 
 /* between these, the icon width is increased by thumb_max_width / 2 */
-constexpr gint THUMB_MIN_ICON_WIDTH = 128;
-constexpr gint THUMB_MAX_ICON_WIDTH = 160;
-
 constexpr gint VFICON_MAX_COLUMNS = 32;
 
 constexpr gint THUMB_BORDER_PADDING = 2;
@@ -161,19 +158,6 @@ static void vficon_toggle_filenames(ViewFile *vf)
 
 	gtk_widget_get_allocation(vf->listview, &allocation);
 	vficon_populate_at_new_size(vf, allocation.width, allocation.height, TRUE);
-}
-
-static gint vficon_get_icon_width(ViewFile *vf)
-{
-	gint width;
-
-	if (!VFICON(vf)->show_text ) return options->thumbnails.max_width;
-
-	width = options->thumbnails.max_width + options->thumbnails.max_width / 2;
-	if (width < THUMB_MIN_ICON_WIDTH) width = THUMB_MIN_ICON_WIDTH;
-	if (width > THUMB_MAX_ICON_WIDTH) width = options->thumbnails.max_width;
-
-	return width;
 }
 
 /*
@@ -919,8 +903,8 @@ static gint page_height(ViewFile *vf)
 	adj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(vf->listview));
 	page_size = static_cast<gint>(gtk_adjustment_get_page_increment(adj));
 
-	row_height = options->thumbnails.max_height + THUMB_BORDER_PADDING * 2;
-	if (VFICON(vf)->show_text) row_height += options->thumbnails.max_height / 3;
+	row_height = options->thumbnails.display_width + THUMB_BORDER_PADDING * 2;
+	if (VFICON(vf)->show_text) row_height += options->thumbnails.display_width / 3;
 
 	ret = page_size / row_height;
 	if (ret < 1) ret = 1;
@@ -1281,7 +1265,7 @@ static void vficon_populate(ViewFile *vf, gboolean resize, gboolean keep_positio
 
 		vficon_clear_store(vf);
 
-		thumb_width = vficon_get_icon_width(vf);
+		thumb_width = options->thumbnails.display_width;
 
 		for (i = 0; i < VFICON_MAX_COLUMNS; i++)
 			{
@@ -1300,7 +1284,7 @@ static void vficon_populate(ViewFile *vf, gboolean resize, gboolean keep_positio
 			if (cell && GQV_IS_CELL_RENDERER_ICON(cell))
 				{
 				g_object_set(G_OBJECT(cell), "fixed_width", thumb_width,
-							     "fixed_height", options->thumbnails.max_height,
+							     "fixed_height", thumb_width,
 							     "show_text", VFICON(vf)->show_text,
 							     NULL);
 				}
@@ -1386,7 +1370,7 @@ static void vficon_populate_at_new_size(ViewFile *vf, gint w, gint, gboolean for
 	gint new_cols;
 	gint thumb_width;
 
-	thumb_width = vficon_get_icon_width(vf);
+	thumb_width = options->thumbnails.display_width;
 
 	new_cols = w / (thumb_width + (THUMB_BORDER_PADDING * 6));
 	if (new_cols < 1) new_cols = 1;

@@ -67,11 +67,7 @@ struct ExifData;
  */
 
 
-enum {
-	THUMB_SIZE_NORMAL = 128,
-	THUMB_SIZE_LARGE =  128
-};
-
+#define THUMB_SIZE_NORMAL   128
 #define THUMB_MARKER_URI    "tEXt::Thumb::URI"
 #define THUMB_MARKER_MTIME  "tEXt::Thumb::MTime"
 #define THUMB_MARKER_SIZE   "tEXt::Thumb::Size"
@@ -90,15 +86,15 @@ static void thumb_loader_std_error_cb(ImageLoader *il, gpointer data);
 static gint thumb_loader_std_setup(ThumbLoaderStd *tl, FileData *fd);
 
 
-ThumbLoaderStd *thumb_loader_std_new(gint width, gint height)
+ThumbLoaderStd *thumb_loader_std_new(gint save_width, gint display_width)
 {
 	ThumbLoaderStd *tl;
 
 	tl = g_new0(ThumbLoaderStd, 1);
 
 	tl->standard_loader = TRUE;
-	tl->requested_width = width;
-	tl->requested_height = height;
+	tl->save_width = save_width;
+	tl->display_width = display_width;
 	tl->cache_enable = options->thumbnails.enable_caching;
 
 	return tl;
@@ -179,8 +175,8 @@ static gchar *thumb_loader_std_cache_path(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 		}
 	else
 		{
-		w = tl->requested_width;
-		h = tl->requested_height;
+		w = tl->save_width;
+		h = tl->save_width;
 		}
 
 	if (w > THUMB_SIZE_NORMAL || h > THUMB_SIZE_NORMAL)
@@ -209,8 +205,7 @@ static gboolean thumb_loader_std_validate(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 	w = gdk_pixbuf_get_width(pixbuf);
 	h = gdk_pixbuf_get_height(pixbuf);
 
-	if (w != THUMB_SIZE_NORMAL && w != THUMB_SIZE_LARGE &&
-	    h != THUMB_SIZE_NORMAL && h != THUMB_SIZE_LARGE) return FALSE;
+	if (w != tl->save_width && h != tl->save_width) return FALSE;
 
 	valid_uri = tl->thumb_uri;
 
@@ -303,7 +298,7 @@ static void thumb_loader_std_save(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 static void thumb_loader_std_set_fallback(ThumbLoaderStd *tl)
 {
 	if (tl->fd->thumb_pixbuf) g_object_unref(tl->fd->thumb_pixbuf);
-	tl->fd->thumb_pixbuf = pixbuf_fallback(tl->fd, tl->requested_width, tl->requested_height);
+	tl->fd->thumb_pixbuf = pixbuf_fallback(tl->fd, tl->display_width, tl->display_width);
 }
 
 
@@ -414,14 +409,11 @@ void thumb_loader_std_calibrate_pixbuf(FileData *fd, GdkPixbuf *pixbuf) {
 		}
 }
 
-static GdkPixbuf *thumb_loader_std_finish(ThumbLoaderStd *tl, GdkPixbuf *pixbuf, gboolean shrunk)
+static GdkPixbuf *thumb_loader_std_finish(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 {
 	GdkPixbuf *pixbuf_thumb = nullptr;
 	GdkPixbuf *result;
 	GdkPixbuf *rotated = nullptr;
-	gint sw;
-	gint sh;
-
 
 	if (!tl->cache_hit && options->image.exif_rotate_enable)
 		{
@@ -444,32 +436,22 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoaderStd *tl, GdkPixbuf *pixbuf,
 			}
 		}
 
-	sw = gdk_pixbuf_get_width(pixbuf);
-	sh = gdk_pixbuf_get_height(pixbuf);
+	gint sw = gdk_pixbuf_get_width(pixbuf);
+	gint sh = gdk_pixbuf_get_height(pixbuf);
+	gint thumb_w;
+	gint thumb_h;
 
 	if (tl->cache_enable)
 		{
 		if (!tl->cache_hit)
 			{
-			gint cache_w;
-			gint cache_h;
+			gint cache_w = tl->save_width;
 
-			if (tl->requested_width > THUMB_SIZE_NORMAL || tl->requested_height > THUMB_SIZE_NORMAL)
+			if (sw > cache_w || sh > cache_w)
 				{
-				cache_w = cache_h = THUMB_SIZE_LARGE;
-				}
-			else
-				{
-				cache_w = cache_h = THUMB_SIZE_NORMAL;
-				}
-
-			if (sw > cache_w || sh > cache_h || shrunk)
-				{
-				gint thumb_w;
-				gint thumb_h;
 				struct stat st;
 
-				if (pixbuf_scale_aspect(cache_w, cache_h, sw, sh,
+				if (pixbuf_scale_aspect(cache_w, cache_w, sw, sh,
 				                        thumb_w, thumb_h))
 					{
 					pixbuf_thumb = gdk_pixbuf_scale_simple(pixbuf, thumb_w, thumb_h,
@@ -493,28 +475,24 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoaderStd *tl, GdkPixbuf *pixbuf,
 			}
 		}
 
+	if (pixbuf_thumb)
 		{
-		gint thumb_w;
-		gint thumb_h;
+		pixbuf = pixbuf_thumb;
+		sw = gdk_pixbuf_get_width(pixbuf);
+		sh = gdk_pixbuf_get_height(pixbuf);
+		}
 
-		if (pixbuf_thumb)
-			{
-			pixbuf = pixbuf_thumb;
-			sw = gdk_pixbuf_get_width(pixbuf);
-			sh = gdk_pixbuf_get_height(pixbuf);
-			}
-
-		if (pixbuf_scale_aspect(tl->requested_width, tl->requested_height, sw, sh,
-		                        thumb_w, thumb_h))
-			{
-			result = gdk_pixbuf_scale_simple(pixbuf, thumb_w, thumb_h,
-							 static_cast<GdkInterpType>(options->thumbnails.quality));
-			}
-		else
-			{
-			result = pixbuf;
-			g_object_ref(result);
-			}
+	gint req_w = tl->display_width;
+	if (pixbuf_scale_aspect(req_w, req_w, sw, sh,
+	                        thumb_w, thumb_h))
+		{
+		result = gdk_pixbuf_scale_simple(pixbuf, thumb_w, thumb_h,
+										static_cast<GdkInterpType>(options->thumbnails.quality));
+		}
+	else
+		{
+		result = pixbuf;
+		g_object_ref(result);
 		}
 
 	if (pixbuf_thumb) g_object_unref(pixbuf_thumb);
@@ -565,7 +543,7 @@ static void thumb_loader_std_done_cb(ImageLoader *il, gpointer data)
 	if (tl->fd)
 		{
 		if (tl->fd->thumb_pixbuf) g_object_unref(tl->fd->thumb_pixbuf);
-		tl->fd->thumb_pixbuf = thumb_loader_std_finish(tl, pixbuf, image_loader_get_shrunk(il));
+		tl->fd->thumb_pixbuf = thumb_loader_std_finish(tl, pixbuf);
 		}
 
 	if (tl->func_done) tl->func_done(tl, tl->data);
@@ -604,15 +582,10 @@ static gboolean thumb_loader_std_setup(ThumbLoaderStd *tl, FileData *fd)
 	image_loader_set_priority(tl->il, G_PRIORITY_LOW);
 
 	/* this will speed up jpegs by up to 3x in some cases */
-	if (tl->requested_width <= THUMB_SIZE_NORMAL &&
-	    tl->requested_height <= THUMB_SIZE_NORMAL)
-		{
-		image_loader_set_requested_size(tl->il, THUMB_SIZE_NORMAL, THUMB_SIZE_NORMAL);
-		}
+	if (tl->cache_enable)
+		image_loader_set_requested_size(tl->il, tl->save_width, tl->save_width);
 	else
-		{
-		image_loader_set_requested_size(tl->il, THUMB_SIZE_LARGE, THUMB_SIZE_LARGE);
-		}
+		image_loader_set_requested_size(tl->il, tl->display_width, tl->display_width);
 
 	g_signal_connect(G_OBJECT(tl->il), "error", (GCallback)thumb_loader_std_error_cb, tl);
 	if (tl->func_progress)
@@ -726,7 +699,7 @@ GdkPixbuf *thumb_loader_std_get_pixbuf(ThumbLoaderStd *tl)
 		}
 	else
 		{
-		pixbuf = pixbuf_fallback(nullptr, tl->requested_width, tl->requested_height);
+		pixbuf = pixbuf_fallback(nullptr, tl->display_width, tl->display_width);
 		}
 
 	return pixbuf;
@@ -864,7 +837,7 @@ ThumbLoaderStd *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gi
 
 	tv = g_new0(ThumbValidate, 1);
 
-	tv->tl = thumb_loader_std_new(THUMB_SIZE_LARGE, THUMB_SIZE_LARGE);
+	tv->tl = thumb_loader_std_new(tv->tl->save_width, tv->tl->display_width);
 	thumb_loader_std_set_callbacks(tv->tl,
 				       thumb_loader_std_thumb_file_validate_done_cb,
 				       thumb_loader_std_thumb_file_validate_error_cb,

@@ -36,14 +36,6 @@
 #include "ui-bookmark.h"
 #include "ui-fileops.h"
 
-namespace
-{
-
-constexpr gint DEFAULT_THUMB_WIDTH = 96;
-constexpr gint DEFAULT_THUMB_HEIGHT = 72;
-
-} // namespace
-
 ConfOptions *options;
 CommandLine *command_line;
 
@@ -144,8 +136,8 @@ ConfOptions *init_options(ConfOptions *options)
 	options->show_icon_names = TRUE;
 
 	options->thumbnails.enable_caching = TRUE;
-	options->thumbnails.max_width = DEFAULT_THUMB_WIDTH;
-	options->thumbnails.max_height = DEFAULT_THUMB_HEIGHT;
+	options->thumbnails.save_width = 128;
+	options->thumbnails.display_width = 128;
 	options->thumbnails.quality = GDK_INTERP_TILES;
 	options->thumbnails.spec_standard = TRUE;
 	options->thumbnails.use_xvpics = TRUE;

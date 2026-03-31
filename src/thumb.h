@@ -41,8 +41,8 @@ struct ThumbLoader
 	gboolean cache_hit;
 	gdouble percent_done;
 
-	gint max_w;
-	gint max_h;
+	gint save_width;
+	gint display_width;
 
 	using Func = void (*)(ThumbLoader *, gpointer);
 	Func func_done;
@@ -55,7 +55,7 @@ struct ThumbLoader
 };
 
 
-ThumbLoader *thumb_loader_new(gint width, gint height);
+ThumbLoader *thumb_loader_new(gint save_width, gint display_width);
 void thumb_loader_set_callbacks(ThumbLoader *tl,
 				ThumbLoader::Func func_done,
 				ThumbLoader::Func func_error,
