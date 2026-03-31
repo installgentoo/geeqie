@@ -857,7 +857,7 @@ gboolean layout_set_path(LayoutWindow *lw, const gchar *path)
 
 	if (!path) return FALSE;
 
-	fd = file_data_new_group(path);
+	fd = file_data_new(path);
 	ret = layout_set_fd(lw, fd);
 	file_data_unref(fd);
 	return ret;
@@ -895,7 +895,7 @@ gboolean layout_set_fd(LayoutWindow *lw, FileData *fd)
 		gchar *last_image = get_recent_viewed_folder_image(fd->path);
 		if (last_image)
 			{
-			fd = file_data_new_group(last_image);
+			fd = file_data_new(last_image);
 			g_free(last_image);
 			if (isfile(fd->path)) have_file = TRUE;
 			}

@@ -400,7 +400,7 @@ gboolean thumb_loader_start(ThumbLoader *tl, FileData *fd)
 
 	if (cache_path)
 		{
-		FileData *fd = file_data_new_no_grouping(cache_path);
+		FileData *fd = file_data_new(cache_path);
 		thumb_loader_setup(tl, fd);
 		file_data_unref(fd);
 		g_free(cache_path);

@@ -133,20 +133,6 @@ TEST_F(FileDataTest, FileDataNewSimpleAndFree)
 	ASSERT_EQ(0, context.global_file_data_count);
 }
 
-TEST_F(FileDataTest, FileDataNewGroupAndFree)
-{
-	ASSERT_EQ(0, context.global_file_data_count);
-
-	auto *_fd = FileData::file_data_new_group("/does/not/exist/file.jpg", &context);
-	ASSERT_NE(_fd, nullptr);
-	EXPECT_EQ(1, context.global_file_data_count);
-	ASSERT_EQ(1, _fd->ref);
-
-	_fd->file_data_unref();
-	_fd = nullptr;
-	ASSERT_EQ(0, context.global_file_data_count);
-}
-
 TEST_F(FileDataTest, BasicIncrementVersion)
 {
 	fd = g_new0(FileData, 1);

@@ -37,24 +37,16 @@ const gchar *text_from_time(time_t t)
 }
 
 /**
- * @brief Scan for sidecar files - expensive
- */
-FileData *file_data_new_group(const gchar *path_utf8)
-{
-	return FileData::file_data_new_group(path_utf8);
-}
-
-/**
  * @brief Should be used on helper files which can't have sidecars
  */
-FileData *file_data_new_no_grouping(const gchar *path_utf8)
+FileData *file_data_new(const gchar *path_utf8)
 {
-	return FileData::file_data_new_no_grouping(path_utf8);
+	return FileData::file_data_new(path_utf8);
 }
 
 FileData *file_data_new(const gchar *path_utf8, struct stat *st)
 {
-	return FileData::file_data_new(path_utf8, st, TRUE);
+	return FileData::file_data_new(path_utf8, st);
 }
 
 /**

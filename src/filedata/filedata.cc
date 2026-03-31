@@ -329,7 +329,7 @@ GlobalFileDataContext &GlobalFileDataContext::get_instance()
  * create or reuse Filedata
  *-----------------------------------------------------------------------------
  */
-FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, gboolean, FileDataContext *context)
+FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileDataContext *context)
 {
 	if (context == nullptr)
 		{
@@ -398,10 +398,10 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, gbool
 	return fd;
 }
 
-FileData *FileData::file_data_new_local(const gchar *path, struct stat *st, gboolean, FileDataContext *context)
+FileData *FileData::file_data_new_local(const gchar *path, struct stat *st, FileDataContext *context)
 {
 	gchar *path_utf8 = path_to_utf8(path);
-	FileData *ret = file_data_new(path_utf8, st, FALSE, context);
+	FileData *ret = file_data_new(path_utf8, st, context);
 
 	g_free(path_utf8);
 	return ret;
@@ -425,7 +425,7 @@ FileData *FileData::file_data_new_simple(const gchar *path_utf8, FileDataContext
 	auto *fd = static_cast<FileData *>(g_hash_table_lookup(context->file_data_pool, path_utf8));
 	if (!fd)
 		{
-		fd = file_data_new(path_utf8, &st, TRUE, context);
+		fd = file_data_new(path_utf8, &st, context);
 		}
 	else
 		{
@@ -491,7 +491,7 @@ void FileData::read_exif_time_digitized_data(FileData *file)
 		}
 }
 
-FileData *FileData::file_data_new_no_grouping(const gchar *path_utf8, FileDataContext *context)
+FileData *FileData::file_data_new(const gchar *path_utf8, FileDataContext *context)
 {
 	struct stat st;
 
@@ -501,7 +501,7 @@ FileData *FileData::file_data_new_no_grouping(const gchar *path_utf8, FileDataCo
 		st.st_mtime = 0;
 		}
 
-	return file_data_new(path_utf8, &st, TRUE, context);
+	return file_data_new(path_utf8, &st, context);
 }
 
 FileData *FileData::file_data_new_dir(const gchar *path_utf8, FileDataContext *context)
@@ -517,7 +517,7 @@ FileData *FileData::file_data_new_dir(const gchar *path_utf8, FileDataContext *c
 		/* dir or non-existing yet */
 		g_assert(S_ISDIR(st.st_mode));
 
-	return file_data_new(path_utf8, &st, TRUE, context);
+	return file_data_new(path_utf8, &st, context);
 }
 
 /*
@@ -667,50 +667,6 @@ void FileData::file_data_unref()
 
 	// Free FileData if it's no longer ref'd
 	file_data_consider_free(fd);
-}
-
-/*
- *-----------------------------------------------------------------------------
- * basename hash - grouping of sidecars in filelist
- *-----------------------------------------------------------------------------
- */
-
-
-FileData *FileData::file_data_new_group(const gchar *path_utf8, FileDataContext *context)
-{
-	if (context == nullptr)
-		{
-		context = FileData::DefaultFileDataContext();
-		}
-
-	struct stat st{};
-	if (!stat_utf8(path_utf8, &st))
-		{
-		st.st_size = 0;
-		st.st_mtime = 0;
-		}
-
-	if (S_ISDIR(st.st_mode))
-		return file_data_new(path_utf8, &st, TRUE, context);
-
-	gchar *dir = remove_level_from_path(path_utf8);
-
-        GList *files;
-	FileList::read_list_real(dir, &files, nullptr, TRUE);
-
-	auto *fd = static_cast<FileData *>(g_hash_table_lookup(context->file_data_pool, path_utf8));
-	if (!fd)
-		{
-		fd = file_data_new(path_utf8, &st, TRUE, context);
-		}
-	else
-		{
-		::file_data_ref(fd);
-		}
-
-	filelist_free(files);
-	g_free(dir);
-	return fd;
 }
 
 /*

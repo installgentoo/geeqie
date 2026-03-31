@@ -472,7 +472,7 @@ static void generic_dialog_image_set(UtilityData *ud, FileData *fd)
 			{
 			if (isfile(fd->change->dest))
 				{
-				fd2 = file_data_new_group(fd->change->dest);
+				fd2 = file_data_new(fd->change->dest);
 				image_change_fd(imd, fd2, 0.0);
 				buf = g_strjoin("\n", text_from_time(fd2->date), text_from_size(fd2->size), NULL);
 				if (label && fd->change->dest) gtk_label_set_text(GTK_LABEL(label), buf);

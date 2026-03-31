@@ -877,7 +877,7 @@ ThumbLoaderStd *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gi
 	tv->func_valid = func_valid;
 	tv->data = data;
 
-	FileData *fd = file_data_new_no_grouping(thumb_path);
+	FileData *fd = file_data_new(thumb_path);
 	if (!thumb_loader_std_setup(tv->tl, fd))
 		{
 		tv->idle_id = g_idle_add(thumb_loader_std_thumb_file_validate_idle_cb, tv);

@@ -128,14 +128,14 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 				if (dirs &&
 				    (name[0] != '.' || (name[1] != '\0' && (name[1] != '.' || name[2] != '\0'))))
 					{
-					dlist = g_list_prepend(dlist, file_data_new_local(filepath, &ent_sbuf, TRUE));
+					dlist = g_list_prepend(dlist, file_data_new_local(filepath, &ent_sbuf));
 					}
 				}
 			else
 				{
 				if (files && filter_name_exists(name))
 					{
-					FileData *fd = file_data_new_local(filepath, &ent_sbuf, FALSE);
+					FileData *fd = file_data_new_local(filepath, &ent_sbuf);
 					flist = g_list_prepend(flist, fd);
 					}
 				}
@@ -316,7 +316,7 @@ GList *FileData::FileList::from_path_list(GList *list)
 		path = static_cast<gchar *>(work->data);
 		work = work->next;
 
-		new_list = g_list_prepend(new_list, file_data_new_group(path));
+		new_list = g_list_prepend(new_list, file_data_new(path));
 		}
 
 	return g_list_reverse(new_list);

@@ -173,16 +173,11 @@ class FileData {
 	static const gchar *text_from_time(time_t t);
 
 	/**
-	 * @headerfile file_data_new_group
-	 * scan for sidecar files - expensive
-	 */
-	static FileData *file_data_new_group(const gchar *path_utf8, FileDataContext *context = nullptr);
-
-	/**
-	 * @headerfile file_data_new_no_grouping
+	 * @headerfile file_data_new
 	 * should be used on helper files which can't have sidecars
 	 */
-	static FileData *file_data_new_no_grouping(const gchar *path_utf8, FileDataContext *context = nullptr);
+	static FileData *file_data_new(const gchar *path_utf8, FileDataContext *context = nullptr);
+	static FileData *file_data_new(const gchar *path_utf8, struct stat *st, FileDataContext *context = nullptr);
 
 	/**
 	 * @headerfile file_data_new_dir
@@ -278,9 +273,8 @@ class FileData {
 
 	static void file_data_dump();
 
-	static FileData *file_data_new(const gchar *path_utf8, struct stat *st, gboolean, FileDataContext *context = nullptr);
     protected:
-	static FileData *file_data_new_local(const gchar *path, struct stat *st, gboolean, FileDataContext *context = nullptr);
+	static FileData *file_data_new_local(const gchar *path, struct stat *st, FileDataContext *context = nullptr);
 
 	static void file_data_free(FileData *fd);
 	static void file_data_consider_free(FileData *fd);
@@ -356,8 +350,7 @@ gchar *text_from_size(gint64 size);
 gchar *text_from_size_abrev(gint64 size);
 const gchar *text_from_time(time_t t);
 
-FileData *file_data_new_no_grouping(const gchar *path_utf8);
-
+FileData *file_data_new(const gchar *path_utf8);
 FileData *file_data_new(const gchar *path_utf8, struct stat *st);
 
 FileData *file_data_new_dir(const gchar *path_utf8);
