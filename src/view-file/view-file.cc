@@ -38,16 +38,13 @@
 #include "menu.h"
 #include "misc.h"
 #include "options.h"
-#include "pixbuf-util.h"
 #include "thumb-standard.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
 #include "ui-misc.h"
-#include "ui-utildlg.h"
 #include "uri-utils.h"
 #include "utilops.h"
 #include "view-file/view-file-icon.h"
-#include "window.h"
 
 /*
  *-----------------------------------------------------------------------------

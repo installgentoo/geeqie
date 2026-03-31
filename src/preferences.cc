@@ -52,7 +52,6 @@
 #include "compat.h"
 #include "debug.h"
 #include "editors.h"
-#include "filedata.h"
 #include "filefilter.h"
 #include "fullscreen.h"
 #include "image-overlay.h"
@@ -66,14 +65,10 @@
 #include "options.h"
 #include "osd.h"
 #include "pixbuf-util.h"
-#include "rcfile.h"
-#include "trash.h"
 #include "typedefs.h"
-#include "ui-fileops.h"
 #include "ui-misc.h"
 #include "ui-tabcomp.h"
 #include "ui-utildlg.h"
-#include "utilops.h"
 #include "window.h"
 
 namespace
@@ -83,7 +78,6 @@ constexpr gint PRE_FORMATTED_COLUMNS = 5;
 
 } // namespace
 
-struct ZoneDetect;
 
 enum {
 	EDITOR_NAME_MAX_LENGTH = 32,

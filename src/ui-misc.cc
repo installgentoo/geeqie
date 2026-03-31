@@ -35,13 +35,8 @@
 
 #include "compat.h"
 #include "debug.h"
-#include "history-list.h"
-#include "layout.h"
 #include "main-defines.h"
 #include "misc.h"
-#include "options.h"
-#include "typedefs.h"
-#include "utilops.h"
 
 /*
  *-----------------------------------------------------------------------------

@@ -36,7 +36,6 @@
 #include "intl.h"
 #include "misc.h"
 #include "options.h"
-#include "ui-fileops.h"
 #include "ui-misc.h"
 #include "window.h"
 

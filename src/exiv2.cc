@@ -42,7 +42,6 @@
 #include "filedata.h"
 #include "filefilter.h"
 #include "misc.h"
-#include "options.h"
 #include "typedefs.h"
 #include "ui-fileops.h"
 

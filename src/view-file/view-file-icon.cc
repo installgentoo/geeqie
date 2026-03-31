@@ -38,7 +38,6 @@
 #include "options.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
-#include "ui-misc.h"
 #include "ui-tree-edit.h"
 #include "utilops.h"
 #include "view-file.h"

@@ -34,7 +34,6 @@
 #include "debug.h"
 #include "editors.h"
 #include "intl.h"
-#include "layout-util.h"
 #include "main-defines.h"
 #include "main.h"
 #include "misc.h"

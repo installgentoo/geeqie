@@ -37,16 +37,12 @@
 
 #include <config.h>
 
-#include "cache.h"
 #include "debug.h"
 #include "exif.h"
 #include "filefilter.h"
 #include "intl.h"
-#include "main-defines.h"
 #include "metadata.h"
-#include "misc.h"
 #include "options.h"
-#include "secure-save.h"
 #include "trash.h"
 #include "ui-fileops.h"
 

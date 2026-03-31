@@ -46,7 +46,6 @@
 #include "ui-misc.h"
 #include "ui-tabcomp.h"
 #include "ui-utildlg.h"
-#include "window.h"
 
 namespace
 {

@@ -33,7 +33,6 @@
 #include "exif.h"
 #include "filecache.h"
 #include "filedata.h"
-#include "history-list.h"
 #include "image-load.h"
 #include "intl.h"
 #include "layout-image.h"
@@ -43,7 +42,6 @@
 #include "pixbuf-renderer.h"
 #include "pixbuf-util.h"
 #include "ui-fileops.h"
-#include "ui-misc.h"
 
 struct ExifData;
 struct FileCacheData;

@@ -34,13 +34,10 @@
 #include <utility>
 
 #include <glib.h>
-
-#include "cache.h"
 #include "debug.h"
 #include "filefilter.h"
 #include "main.h"
 #include "options.h"
-#include "thumb-standard.h"
 #include "typedefs.h"
 #include "ui-fileops.h"
 

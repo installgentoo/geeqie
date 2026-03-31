@@ -27,9 +27,7 @@
 
 #include <config.h>
 
-#include "cache.h"
 #include "debug.h"
-#include "main-defines.h"
 #include "options.h"
 #include "rcfile.h"
 #include "ui-fileops.h"

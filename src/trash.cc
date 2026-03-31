@@ -37,7 +37,6 @@
 #include "ui-fileops.h"
 #include "ui-utildlg.h"
 #include "utilops.h"
-#include "window.h"
 
 /*
  *--------------------------------------------------------------------------

@@ -42,7 +42,6 @@
 #  endif
 #endif
 
-#include "cache.h"
 #include "debug.h"
 #include "exif.h"
 #include "filecache.h"
@@ -50,10 +49,7 @@
 #include "glua.h"
 #include "intl.h"
 #include "jpeg-parser.h"
-#include "main-defines.h"
-#include "misc.h"
-#include "typedefs.h"
-#include "ui-fileops.h"
+
 struct ExifData;
 struct ExifItem;
 struct FileCacheData;

@@ -33,7 +33,6 @@
 #include <config.h>
 
 #include "cache.h"
-#include "color-man.h"
 #include "debug.h"
 #include "exif.h"
 #include "filedata.h"
@@ -43,8 +42,6 @@
 #include "options.h"
 #include "pixbuf-util.h"
 #include "ui-fileops.h"
-
-struct ExifData;
 
 /**
  * @file

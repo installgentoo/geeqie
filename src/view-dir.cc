@@ -38,7 +38,6 @@
 #include "editors.h"
 #include "filedata.h"
 #include "intl.h"
-#include "layout-image.h"
 #include "layout.h"
 #include "main-defines.h"
 #include "menu.h"

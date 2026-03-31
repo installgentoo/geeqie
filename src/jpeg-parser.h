@@ -27,7 +27,6 @@
 #define JPEG_MARKER		0xFF
 #define JPEG_MARKER_SOI		0xD8
 #define JPEG_MARKER_EOI		0xD9
-#define JPEG_MARKER_APP1	0xE1
 #define JPEG_MARKER_APP2	0xE2
 
 /* jpeg container format:
@@ -47,43 +46,6 @@ gboolean is_jpeg_container(const guchar *data, guint size);
 gboolean jpeg_segment_find(const guchar *data, guint size,
 			    guchar app_marker, const gchar *magic, guint magic_len,
 			    guint *seg_offset, guint *seg_length);
-
-
-struct MPOEntry {
-	guint type_code;
-	gboolean representative;
-	gboolean dependent_child;
-	gboolean dependent_parent;
-	guint offset;
-	guint length;
-	guint dep1;
-	guint dep2;
-
-	guint MPFVersion;
-	guint MPIndividualNum;
-	guint PanOrientation;
-	double PanOverlap_H;
-	double PanOverlap_V;
-	guint BaseViewpointNum;
-	double ConvergenceAngle;
-	double BaselineLength;
-	double VerticalDivergence;
-	double AxisDistance_X;
-	double AxisDistance_Y;
-	double AxisDistance_Z;
-	double YawAngle;
-	double PitchAngle;
-	double RollAngle;
-};
-
-
-struct MPOData {
-	guint mpo_offset;
-
-	guint version;
-	guint num_images;
-	MPOEntry *images;
-};
 
 #endif
 

@@ -37,7 +37,6 @@
 
 #include <config.h>
 
-#include "compat.h"
 #include "debug.h"
 #include "filefilter.h"
 #include "intl.h"
@@ -48,7 +47,6 @@
 #include "secure-save.h"
 #include "typedefs.h"
 #include "ui-utildlg.h"
-#include "utilops.h"
 
 /*
  *-----------------------------------------------------------------------------

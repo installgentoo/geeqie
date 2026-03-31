@@ -39,10 +39,7 @@
 #include <jpeglib.h>
 
 #include "debug.h"
-#include "image-load.h"
 #include "intl.h"
-#include "jpeg-parser.h"
-#include "typedefs.h"
 
 /* error handler data */
 struct error_handler_data {

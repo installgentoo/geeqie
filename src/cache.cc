@@ -36,7 +36,6 @@
 #include "intl.h"
 #include "main-defines.h"
 #include "md5-util.h"
-#include "options.h"
 #include "secure-save.h"
 #include "similar.h"
 #include "thumb-standard.h"

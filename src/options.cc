@@ -25,7 +25,6 @@
 
 #include "debug.h"
 #include "image-overlay.h" /* OSD_SHOW_NOTHING */
-#include "image.h" /* RECTANGLE_DRAW_ASPECT_RATIO_NONE */
 #include "intl.h"
 #include "layout-image.h"
 #include "layout.h"

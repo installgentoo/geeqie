@@ -37,7 +37,6 @@
 #include "intl.h"
 #include "main-defines.h"
 #include "misc.h"
-#include "options.h"
 #include "rcfile.h"
 #include "ui-fileops.h"
 #include "ui-misc.h"

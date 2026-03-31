@@ -33,13 +33,8 @@
 #include "debug.h"
 #include "intl.h"
 #include "main-defines.h"
-#include "main.h"
-#include "misc.h"
 #include "options.h"
 #include "pixbuf-util.h"
-#include "ui-fileops.h"
-#include "ui-misc.h"
-#include "ui-utildlg.h"
 
 GtkWidget *window_new(const gchar *role, const gchar *icon, const gchar *icon_file, const gchar *subtitle)
 {

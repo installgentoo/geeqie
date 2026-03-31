@@ -35,7 +35,6 @@
 #include "intl.h"
 #include "main-defines.h"
 #include "misc.h"
-#include "options.h"
 #include "typedefs.h"
 #include "ui-bookmark.h"
 #include "ui-fileops.h"

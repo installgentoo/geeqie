@@ -66,7 +66,6 @@
 #include "layout-util.h"
 #include "layout.h"
 #include "main-defines.h"
-#include "metadata.h"
 #include "misc.h"
 #include "options.h"
 #include "pixbuf-util.h"
@@ -75,7 +74,6 @@
 #include "third-party/whereami.h"
 #include "thumb-standard.h"
 #include "ui-fileops.h"
-#include "ui-utildlg.h"
 
 #if ENABLE_UNIT_TESTS
 #  include "gtest/gtest.h"

@@ -35,19 +35,11 @@
 
 #include <config.h>
 
-#include "cache.h"
 #include "debug.h"
 #include "exif.h"
 #include "filedata.h"
 #include "intl.h"
-#include "layout-util.h"
-#include "main-defines.h"
-#include "misc.h"
-#include "options.h"
-#include "rcfile.h"
-#include "secure-save.h"
 #include "ui-fileops.h"
-#include "utilops.h"
 
 struct ExifData;
 
