@@ -49,7 +49,7 @@
 #include "options.h"
 #include "print.h"
 #include "similar.h"
-#include "thumb.h"
+#include "thumb-standard.h"
 #include "typedefs.h"
 #include "ui-bookmark.h"
 #include "ui-fileops.h"

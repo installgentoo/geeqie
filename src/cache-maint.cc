@@ -42,7 +42,6 @@
 #include "options.h"
 #include "pixbuf-util.h"
 #include "thumb-standard.h"
-#include "thumb.h"
 #include "ui-fileops.h"
 #include "ui-misc.h"
 #include "ui-tabcomp.h"

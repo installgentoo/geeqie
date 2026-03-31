@@ -42,7 +42,6 @@
 #include "metadata.h"
 #include "options.h"
 #include "pixbuf-util.h"
-#include "typedefs.h"
 #include "ui-fileops.h"
 
 struct ExifData;
@@ -86,7 +85,7 @@ static void thumb_loader_std_error_cb(ImageLoader *il, gpointer data);
 static gint thumb_loader_std_setup(ThumbLoader *tl, FileData *fd);
 
 
-ThumbLoader *thumb_loader_std_new(gint save_width, gint display_width)
+ThumbLoader *thumb_loader_new(gint save_width, gint display_width)
 {
 	ThumbLoader *tl;
 
@@ -100,7 +99,7 @@ ThumbLoader *thumb_loader_std_new(gint save_width, gint display_width)
 	return tl;
 }
 
-void thumb_loader_std_set_callbacks(ThumbLoader *tl,
+void thumb_loader_set_callbacks(ThumbLoader *tl,
 				    ThumbLoader::Func func_done,
 				    ThumbLoader::Func func_error,
 				    ThumbLoader::Func func_progress,
@@ -496,14 +495,14 @@ static gboolean thumb_loader_std_setup(ThumbLoader *tl, FileData *fd)
 	return FALSE;
 }
 
-void thumb_loader_std_set_cache(ThumbLoader *tl)
+void thumb_loader_set_cache(ThumbLoader *tl)
 {
 	if (!tl) return;
 
 	tl->cache_enable = TRUE;
 }
 
-gboolean thumb_loader_std_start(ThumbLoader *tl, FileData *fd)
+gboolean thumb_loader_start(ThumbLoader *tl, FileData *fd)
 {
 	struct stat st;
 
@@ -567,7 +566,7 @@ gboolean thumb_loader_std_start(ThumbLoader *tl, FileData *fd)
 	return TRUE;
 }
 
-void thumb_loader_std_free(ThumbLoader *tl)
+void thumb_loader_free(ThumbLoader *tl)
 {
 	if (!tl) return;
 
@@ -575,7 +574,7 @@ void thumb_loader_std_free(ThumbLoader *tl)
 	g_free(tl);
 }
 
-GdkPixbuf *thumb_loader_std_get_pixbuf(ThumbLoader *tl)
+GdkPixbuf *thumb_loader_get_pixbuf(ThumbLoader *tl)
 {
 	GdkPixbuf *pixbuf;
 
@@ -607,7 +606,7 @@ struct ThumbValidate
 
 static void thumb_loader_std_thumb_file_validate_free(ThumbValidate *tv)
 {
-	thumb_loader_std_free(tv->tl);
+	thumb_loader_free(tv->tl);
 	g_free(tv->path);
 	g_free(tv);
 }
@@ -724,8 +723,8 @@ ThumbLoader *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gint 
 
 	tv = g_new0(ThumbValidate, 1);
 
-	tv->tl = thumb_loader_std_new(tv->tl->save_width, tv->tl->display_width);
-	thumb_loader_std_set_callbacks(tv->tl,
+	tv->tl = thumb_loader_new(tv->tl->save_width, tv->tl->display_width);
+	thumb_loader_set_callbacks(tv->tl,
 				       thumb_loader_std_thumb_file_validate_done_cb,
 				       thumb_loader_std_thumb_file_validate_error_cb,
 				       nullptr,
@@ -863,6 +862,17 @@ static gboolean thumb_std_maint_move_idle(gpointer)
 	return G_SOURCE_REMOVE;
 }
 
+/* release thumb_pixbuf on file change - this forces reload. */
+void thumb_notify_cb(FileData *fd, NotifyType type, gpointer)
+{
+	if ((type & (NOTIFY_REREAD | NOTIFY_CHANGE)) && fd->thumb_pixbuf)
+		{
+		DEBUG_1("Notify thumb: %s %04x", fd->path, type);
+		g_object_unref(fd->thumb_pixbuf);
+		fd->thumb_pixbuf = nullptr;
+		}
+}
+
 /* This will schedule a move of the thumbnail for source image to dest when idle.
  * We do this so that file renaming or moving speed is not sacrificed by
  * moving the thumbnails at the same time because:
@@ -898,4 +908,3 @@ void thumb_std_maint_moved(const gchar *source, const gchar *dest)
 		thumb_std_maint_move_tail = thumb_std_maint_move_list;
 		}
 }
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

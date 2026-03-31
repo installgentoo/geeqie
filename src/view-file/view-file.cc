@@ -39,7 +39,7 @@
 #include "misc.h"
 #include "options.h"
 #include "pixbuf-util.h"
-#include "thumb.h"
+#include "thumb-standard.h"
 #include "ui-fileops.h"
 #include "ui-menu.h"
 #include "ui-misc.h"

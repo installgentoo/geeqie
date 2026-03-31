@@ -113,8 +113,6 @@ main_sources = files(
 'secure-save.h',
 'similar.cc',
 'similar.h',
-'thumb.cc',
-'thumb.h',
 'thumb-standard.cc',
 'thumb-standard.h',
 'trash.cc',

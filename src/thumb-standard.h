@@ -30,6 +30,7 @@
 #include <config.h>
 
 #include "main-defines.h"
+#include "typedefs.h"
 
 class FileData;
 struct ImageLoader;
@@ -75,17 +76,17 @@ struct ThumbLoader
 };
 
 
-ThumbLoader *thumb_loader_std_new(gint save_width, gint display_width);
-void thumb_loader_std_set_callbacks(ThumbLoader *tl,
+ThumbLoader *thumb_loader_new(gint save_width, gint display_width);
+void thumb_loader_set_callbacks(ThumbLoader *tl,
 				    ThumbLoader::Func func_done,
 				    ThumbLoader::Func func_error,
 				    ThumbLoader::Func func_progress,
 				    gpointer data);
-void thumb_loader_std_set_cache(ThumbLoader *tl);
-gboolean thumb_loader_std_start(ThumbLoader *tl, FileData *fd);
-void thumb_loader_std_free(ThumbLoader *tl);
+void thumb_loader_set_cache(ThumbLoader *tl);
+gboolean thumb_loader_start(ThumbLoader *tl, FileData *fd);
+void thumb_loader_free(ThumbLoader *tl);
 
-GdkPixbuf *thumb_loader_std_get_pixbuf(ThumbLoader *tl);
+GdkPixbuf *thumb_loader_get_pixbuf(ThumbLoader *tl);
 
 ThumbLoader *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gint allowed_days,
 						     void (*func_valid)(const gchar *path, gboolean valid, gpointer data),
@@ -96,6 +97,6 @@ void thumb_loader_std_thumb_file_validate_cancel(ThumbLoader *tl);
 void thumb_std_maint_removed(const gchar *source);
 void thumb_std_maint_moved(const gchar *source, const gchar *dest);
 
+void thumb_notify_cb(FileData *fd, NotifyType type, gpointer data);
 
 #endif
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
