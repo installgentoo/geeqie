@@ -494,6 +494,8 @@ void rt_overlay_init_window(RendererTiles *rt, OverlayData *od)
 	GdkWindowAttr attributes;
 	gint attributes_mask;
 
+	if (!gtk_widget_get_realized(GTK_WIDGET(pr))) return;
+
 	GdkRectangle od_rect = rt_overlay_get_position(rt, od);
 
 	attributes.window_type = GDK_WINDOW_CHILD;
