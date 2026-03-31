@@ -77,11 +77,8 @@
   </menubar>
 
   <accelerator action="PrevImageAlt1"/>
-  <accelerator action="PrevImageAlt2"/>
   <accelerator action="NextImageAlt1"/>
-  <accelerator action="NextImageAlt2"/>
   <accelerator action="FullScreenAlt1"/>
-  <accelerator action="FullScreenAlt2"/>
   <accelerator action="Escape"/>
   <accelerator action="EscapeAlt1"/>
 

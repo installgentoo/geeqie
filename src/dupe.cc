@@ -3832,7 +3832,7 @@ static void dupe_window_custom_threshold_cb(GtkWidget *widget, gpointer data)
 static gboolean dupe_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data)
 {
 	auto dw = static_cast<DupeWindow *>(data);
-	gboolean stop_signal = FALSE;
+	gboolean stop_signal = TRUE;
 	gboolean on_second;
 	GtkWidget *listview;
 	GtkTreeModel *store;
@@ -3868,137 +3868,97 @@ static gboolean dupe_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, g
 		}
 	g_list_free_full(slist, reinterpret_cast<GDestroyNotify>(gtk_tree_path_free));
 
-	if (event->state & GDK_CONTROL_MASK)
+	/* file operations — primary list only */
+	if (!on_second)
 		{
-		if (!on_second)
+		if (accel_action_matches("Copy", event))
 			{
-			stop_signal = TRUE;
-			switch (event->keyval)
-				{
-				case '1':
-				case '2':
-				case '3':
-				case '4':
-				case '5':
-				case '6':
-				case '7':
-				case '8':
-				case '9':
-				case '0':
-					break;
-				case 'C': case 'c':
-					file_util_copy(nullptr, dupe_listview_get_selection(dw, listview),
-						       nullptr, dw->window);
-					break;
-				case 'M': case 'm':
-					file_util_move(nullptr, dupe_listview_get_selection(dw, listview),
-						       nullptr, dw->window);
-					break;
-				case 'R': case 'r':
-					file_util_rename(nullptr, dupe_listview_get_selection(dw, listview), dw->window);
-					break;
-				case 'D': case 'd':
-					file_util_delete(nullptr, dupe_listview_get_selection(dw, listview), dw->window);
-					break;
-				default:
-					stop_signal = FALSE;
-					break;
-				}
+			file_util_copy(nullptr, dupe_listview_get_selection(dw, listview),
+				       nullptr, dw->window);
 			}
-
-		if (!stop_signal)
+		else if (accel_action_matches("Move", event))
 			{
-			stop_signal = TRUE;
-			switch (event->keyval)
-				{
-				case 'A': case 'a':
-					if (event->state & GDK_SHIFT_MASK)
-						{
-						gtk_tree_selection_unselect_all(selection);
-						}
-					else
-						{
-						gtk_tree_selection_select_all(selection);
-						}
-					break;
-				case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
-					if (on_second)
-						{
-						dupe_second_clear(dw);
-						dupe_window_recompare(dw);
-						}
-					else
-						{
-						dupe_window_clear(dw);
-						}
-					break;
-				case 'T': case 't':
-					gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(dw->button_thumbs),
-						!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(dw->button_thumbs)));
-					break;
-				case 'W': case 'w':
-					dupe_window_close(dw);
-					break;
-				default:
-					stop_signal = FALSE;
-					break;
-				}
+			file_util_move(nullptr, dupe_listview_get_selection(dw, listview),
+				       nullptr, dw->window);
+			}
+		else if (accel_action_matches("Rename", event))
+			{
+			file_util_rename(nullptr, dupe_listview_get_selection(dw, listview), dw->window);
+			}
+		else if (accel_action_matches("Delete", event))
+			{
+			file_util_delete(nullptr, dupe_listview_get_selection(dw, listview), dw->window);
+			}
+		else
+			{
+			stop_signal = FALSE;
 			}
 		}
-	else if (event->state & GDK_SHIFT_MASK)
+
+	/* window-level actions — both lists */
+	if (!stop_signal)
 		{
 		stop_signal = TRUE;
-		switch (event->keyval)
+		if (accel_action_matches("SelectAll", event))
 			{
-			case GDK_KEY_Delete:
-			case GDK_KEY_KP_Delete:
-				file_util_delete_notify_done(nullptr, dupe_listview_get_selection(dw, dw->listview), dw->window, delete_finished_cb, dw);
-				break;
-			default:
-				stop_signal = FALSE;
-				break;
+			gtk_tree_selection_select_all(selection);
 			}
-		}
-	else
-		{
-		stop_signal = TRUE;
-		switch (event->keyval)
+		else if (accel_action_matches("SelectNone", event))
 			{
-			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
-				dupe_window_remove_selection(dw, listview, FALSE);
-				break;
-			case '0':
-				options->duplicates_select_type = DUPE_SELECT_NONE;
-				dupe_listview_select_dupes(dw, DUPE_SELECT_NONE);
-				break;
-			case '1':
-				options->duplicates_select_type = DUPE_SELECT_GROUP1;
-				dupe_listview_select_dupes(dw, DUPE_SELECT_GROUP1);
-				break;
-			case '2':
-				options->duplicates_select_type = DUPE_SELECT_GROUP2;
-				dupe_listview_select_dupes(dw, DUPE_SELECT_GROUP2);
-				break;
-			case GDK_KEY_Menu:
-			case GDK_KEY_F10:
-				if (!on_second)
-					{
-					GtkWidget *menu;
-
-					menu = dupe_menu_popup_main(dw, di);
-					gtk_menu_popup_at_widget(GTK_MENU(menu), widget, GDK_GRAVITY_CENTER, GDK_GRAVITY_CENTER, nullptr);
-					}
-				else
-					{
-					GtkWidget *menu;
-
-					menu = dupe_menu_popup_second(dw, di);
-					gtk_menu_popup_at_widget(GTK_MENU(menu), widget, GDK_GRAVITY_CENTER, GDK_GRAVITY_CENTER, nullptr);
-					}
-				break;
-			default:
-				stop_signal = FALSE;
-				break;
+			gtk_tree_selection_unselect_all(selection);
+			}
+		else if (accel_action_matches("SubClear", event))
+			{
+			if (on_second)
+				{
+				dupe_second_clear(dw);
+				dupe_window_recompare(dw);
+				}
+			else
+				{
+				dupe_window_clear(dw);
+				}
+			}
+		else if (accel_action_matches("SubToggleThumbs", event))
+			{
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(dw->button_thumbs),
+				!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(dw->button_thumbs)));
+			}
+		else if (accel_action_matches("SubCloseWindow", event))
+			{
+			dupe_window_close(dw);
+			}
+		else if (accel_action_matches("SubRemove", event))
+			{
+			dupe_window_remove_selection(dw, listview, FALSE);
+			}
+		else if (accel_action_matches("DupeSelectNone", event))
+			{
+			options->duplicates_select_type = DUPE_SELECT_NONE;
+			dupe_listview_select_dupes(dw, DUPE_SELECT_NONE);
+			}
+		else if (accel_action_matches("DupeSelectGroup1", event))
+			{
+			options->duplicates_select_type = DUPE_SELECT_GROUP1;
+			dupe_listview_select_dupes(dw, DUPE_SELECT_GROUP1);
+			}
+		else if (accel_action_matches("DupeSelectGroup2", event))
+			{
+			options->duplicates_select_type = DUPE_SELECT_GROUP2;
+			dupe_listview_select_dupes(dw, DUPE_SELECT_GROUP2);
+			}
+		else if (event->keyval == GDK_KEY_Menu || event->keyval == GDK_KEY_F10)
+			{
+			GtkWidget *menu;
+			if (!on_second)
+				menu = dupe_menu_popup_main(dw, di);
+			else
+				menu = dupe_menu_popup_second(dw, di);
+			gtk_menu_popup_at_widget(GTK_MENU(menu), widget, GDK_GRAVITY_CENTER, GDK_GRAVITY_CENTER, nullptr);
+			}
+		else
+			{
+			stop_signal = FALSE;
 			}
 		}
 

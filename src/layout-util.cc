@@ -743,7 +743,6 @@ static GtkActionEntry menu_entries[] = {
   { "FirstPage",             GQ_ICON_PREV_PAGE,                 N_("_First Page"),                                      "<control>Home",       N_( "First Page of multi-page image"),                 CB(layout_menu_page_first_cb) },
   { "Forward",               GQ_ICON_GO_NEXT,                   N_("_Forward"),                                         nullptr,               N_("Forward in folder history"),                       CB(layout_menu_forward_cb) },
   { "FullScreenAlt1",        GQ_ICON_FULLSCREEN,                N_("F_ull screen"),                                     "V",                   N_("Full screen"),                                     CB(layout_menu_fullscreen_cb) },
-  { "FullScreenAlt2",        GQ_ICON_FULLSCREEN,                N_("F_ull screen"),                                     "F11",                 N_("Full screen"),                                     CB(layout_menu_fullscreen_cb) },
   { "FullScreen",            GQ_ICON_FULLSCREEN,                N_("F_ull screen"),                                     "F",                   N_("Full screen"),                                     CB(layout_menu_fullscreen_cb) },
   { "HelpMenu",              nullptr,                           N_("_Help"),                                            nullptr,               nullptr,                                               nullptr },
   { "Home",                  GQ_ICON_HOME,                      N_("_Home"),                                            nullptr,               N_("Home"),                                            CB(layout_menu_home_cb) },
@@ -755,7 +754,6 @@ static GtkActionEntry menu_entries[] = {
   { "Move",                  PIXBUF_INLINE_ICON_MOVE,           N_("_Move..."),                                         "<control>M",          N_("Move..."),                                         CB(layout_menu_move_cb) },
   { "NewFolder",             GQ_ICON_DIRECTORY,                 N_("N_ew folder..."),                                   "<control>F",          N_("New folder..."),                                   CB(layout_menu_dir_cb) },
   { "NextImageAlt1",         GQ_ICON_GO_DOWN,                   N_("_Next Image"),                                      "Page_Down",           N_("Next Image"),                                      CB(layout_menu_image_next_cb) },
-  { "NextImageAlt2",         GQ_ICON_GO_DOWN,                   N_("_Next Image"),                                      "KP_Page_Down",        N_("Next Image"),                                      CB(layout_menu_image_next_cb) },
   { "NextImage",             GQ_ICON_GO_DOWN,                   N_("_Next Image"),                                      "space",               N_("Next Image"),                                      CB(layout_menu_image_next_cb) },
   { "NextPage",              GQ_ICON_FORWARD_PAGE,              N_("_Next Page"),                                       "<control>Page_Down",  N_("Next Page of multi-page image"),                   CB(layout_menu_page_next_cb) },
   { "OpenWith",              GQ_ICON_OPEN_WITH,                 N_("Open With..."),                                     nullptr,               N_("Open With..."),                                    CB(layout_menu_open_with_cb) },
@@ -765,7 +763,6 @@ static GtkActionEntry menu_entries[] = {
   { "Preferences",           GQ_ICON_PREFERENCES,               N_("P_references..."),                                  "<control>O",          N_("Preferences..."),                                  CB(layout_menu_config_cb) },
   { "PreferencesMenu",       nullptr,                           N_("P_references"),                                     nullptr,               nullptr,                                               nullptr },
   { "PrevImageAlt1",         GQ_ICON_GO_UP,                     N_("_Previous Image"),                                  "Page_Up",             N_("Previous Image"),                                  CB(layout_menu_image_prev_cb) },
-  { "PrevImageAlt2",         GQ_ICON_GO_UP,                     N_("_Previous Image"),                                  "KP_Page_Up",          N_("Previous Image"),                                  CB(layout_menu_image_prev_cb) },
   { "PrevImage",             GQ_ICON_GO_UP,                     N_("_Previous Image"),                                  "BackSpace",           N_("Previous Image"),                                  CB(layout_menu_image_prev_cb) },
   { "PrevPage",              GQ_ICON_BACK_PAGE,                 N_("_Previous Page"),                                   "<control>Page_Up",    N_("Previous Page of multi-page image"),               CB(layout_menu_page_previous_cb) },
   { "Print",                 GQ_ICON_PRINT,                     N_("_Print..."),                                        "<shift>P",            N_("Print..."),                                        CB(layout_menu_print_cb) },
@@ -916,6 +913,46 @@ void layout_actions_setup(LayoutWindow *lw)
 	DEBUG_1("%s layout_actions_setup: editors", get_exec_time());
 	layout_actions_setup_editors(lw);
 
+	/* Register sub-window shortcuts as accelerator-only actions.
+	 * These don't trigger callbacks — the actual work is done in
+	 * each window's keypress handler via accel_action_matches().
+	 * They exist so the accels appear in preferences and are remappable.
+	 */
+	{
+	GtkActionEntry subwindow_entries[] = {
+		/* shared across sub-windows */
+		{ "SubRemove",           nullptr, N_("Remove from list"),          "Delete",          N_("Remove selected from list"),       nullptr },
+		{ "SubClear",            nullptr, N_("Clear list"),                "<control>Delete", N_("Clear all results"),               nullptr },
+		{ "SubToggleThumbs",     nullptr, N_("Toggle thumbnails"),         "<control>T",      N_("Toggle thumbnail display"),        nullptr },
+		{ "SubCloseWindow",      nullptr, N_("Close window"),              "<control>W",      N_("Close sub-window"),                nullptr },
+		/* dupe-specific */
+		{ "DupeSelectGroup1",    nullptr, N_("Select group 1 duplicates"), "1",               N_("Dupe: select group 1 duplicates"), nullptr },
+		{ "DupeSelectGroup2",    nullptr, N_("Select group 2 duplicates"), "2",               N_("Dupe: select group 2 duplicates"), nullptr },
+		{ "DupeSelectNone",      nullptr, N_("Select none (dupes)"),       "0",               N_("Dupe: select none"),               nullptr },
+		/* search-specific */
+		{ "SearchStart",         nullptr, N_("Start search"),              "<control>Return", N_("Search: start search"),            nullptr },
+	};
+
+	GtkActionGroup *subwindow_group = gq_gtk_action_group_new("SubWindowActions");
+	gq_gtk_action_group_add_actions(subwindow_group, subwindow_entries, G_N_ELEMENTS(subwindow_entries), lw);
+	gq_gtk_ui_manager_insert_action_group(lw->ui_manager, subwindow_group, 2);
+
+	GString *sub_desc = g_string_new("<ui>");
+	for (guint i = 0; i < G_N_ELEMENTS(subwindow_entries); i++)
+		{
+		g_string_append_printf(sub_desc, "<accelerator action='%s'/>", subwindow_entries[i].name);
+		}
+	g_string_append(sub_desc, "</ui>");
+
+	GError *sub_error = nullptr;
+	if (!gq_gtk_ui_manager_add_ui_from_string(lw->ui_manager, sub_desc->str, -1, &sub_error))
+		{
+		g_message("building sub-window accels failed: %s", sub_error->message);
+		g_error_free(sub_error);
+		}
+	g_string_free(sub_desc, TRUE);
+	}
+
 	DEBUG_1("%s layout_actions_setup: actions_add_window", get_exec_time());
 	layout_actions_add_window(lw, lw->window);
 	DEBUG_1("%s layout_actions_setup: end", get_exec_time());
@@ -988,6 +1025,40 @@ void layout_actions_add_window(LayoutWindow *lw, GtkWidget *window)
 
 	group = gq_gtk_ui_manager_get_accel_group(lw->ui_manager);
 	gtk_window_add_accel_group(GTK_WINDOW(window), group);
+}
+
+gboolean accel_action_matches(const gchar *action_name, const GdkEventKey *event)
+{
+	gchar *paths[] = {
+		g_strdup_printf("<Actions>/MenuActions/%s", action_name),
+		g_strdup_printf("<Actions>/MenuActionsExternal/%s", action_name),
+		g_strdup_printf("<Actions>/SubWindowActions/%s", action_name),
+		nullptr
+	};
+	GtkAccelKey key;
+	gboolean result = FALSE;
+	guint event_mods = event->state & gtk_accelerator_get_default_mod_mask();
+
+	for (int i = 0; paths[i]; i++)
+		{
+		if (gtk_accel_map_lookup_entry(paths[i], &key) && key.accel_key != 0)
+			{
+			if (gdk_keyval_to_lower(event->keyval) == gdk_keyval_to_lower(key.accel_key) &&
+			    event_mods == key.accel_mods)
+				{
+				result = TRUE;
+				}
+			}
+		g_free(paths[i]);
+		/* free remaining paths if we matched early */
+		if (result)
+			{
+			for (int j = i + 1; paths[j]; j++) g_free(paths[j]);
+			break;
+			}
+		}
+
+	return result;
 }
 
 GtkWidget *layout_actions_menu_bar(LayoutWindow *lw)

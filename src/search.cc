@@ -1145,7 +1145,7 @@ static gboolean search_result_release_cb(GtkWidget *widget, GdkEventButton *beve
 static gboolean search_result_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
-	gboolean stop_signal = FALSE;
+	gboolean stop_signal = TRUE;
 	GtkTreeModel *store;
 	GtkTreeSelection *selection;
 	GList *slist;
@@ -1168,76 +1168,50 @@ static gboolean search_result_keypress_cb(GtkWidget *widget, GdkEventKey *event,
 		}
 	g_list_free_full(slist, reinterpret_cast<GDestroyNotify>(gtk_tree_path_free));
 
-	if (event->state & GDK_CONTROL_MASK)
+	/* file operations */
+	if (accel_action_matches("Copy", event))
 		{
-		stop_signal = TRUE;
-		switch (event->keyval)
-			{
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-			case '0':
-				break;
-			case 'C': case 'c':
-				file_util_copy(nullptr, search_result_selection_list(sd), nullptr, widget);
-				break;
-			case 'M': case 'm':
-				file_util_move(nullptr, search_result_selection_list(sd), nullptr, widget);
-				break;
-			case 'R': case 'r':
-				file_util_rename(nullptr, search_result_selection_list(sd), widget);
-				break;
-			case 'A': case 'a':
-				if (event->state & GDK_SHIFT_MASK)
-					{
-					gtk_tree_selection_unselect_all(selection);
-					}
-				else
-					{
-					gtk_tree_selection_select_all(selection);
-					}
-				break;
-			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
-				search_result_clear(sd);
-				break;
-			default:
-				stop_signal = FALSE;
-				break;
-			}
+		file_util_copy(nullptr, search_result_selection_list(sd), nullptr, widget);
+		}
+	else if (accel_action_matches("Move", event))
+		{
+		file_util_move(nullptr, search_result_selection_list(sd), nullptr, widget);
+		}
+	else if (accel_action_matches("Rename", event))
+		{
+		file_util_rename(nullptr, search_result_selection_list(sd), widget);
+		}
+	else if (accel_action_matches("SelectAll", event))
+		{
+		gtk_tree_selection_select_all(selection);
+		}
+	else if (accel_action_matches("SelectNone", event))
+		{
+		gtk_tree_selection_unselect_all(selection);
+		}
+	else if (accel_action_matches("SubClear", event))
+		{
+		search_result_clear(sd);
+		}
+	else if (accel_action_matches("SubRemove", event))
+		{
+		search_result_remove_selection(sd);
+		}
+	else if (event->keyval == GDK_KEY_Menu || event->keyval == GDK_KEY_F10)
+		{
+		GtkWidget *menu;
+
+		if (mfd)
+			sd->click_fd = mfd->fd;
+		else
+			sd->click_fd = nullptr;
+
+		menu = search_result_menu(sd, (mfd != nullptr), (search_result_count(sd, nullptr) > 0));
+		gtk_menu_popup_at_widget(GTK_MENU(menu), widget, GDK_GRAVITY_EAST, GDK_GRAVITY_CENTER, nullptr);
 		}
 	else
 		{
-		stop_signal = TRUE;
-		switch (event->keyval)
-			{
-			case GDK_KEY_Delete: case GDK_KEY_KP_Delete:
-				search_result_remove_selection(sd);
-				break;
-			case GDK_KEY_Menu:
-			case GDK_KEY_F10:
-				{
-				GtkWidget *menu;
-
-				if (mfd)
-					sd->click_fd = mfd->fd;
-				else
-					sd->click_fd = nullptr;
-
-				menu = search_result_menu(sd, (mfd != nullptr), (search_result_count(sd, nullptr) > 0));
-
-				gtk_menu_popup_at_widget(GTK_MENU(menu), widget, GDK_GRAVITY_EAST, GDK_GRAVITY_CENTER, nullptr);
-				}
-				break;
-			default:
-				stop_signal = FALSE;
-				break;
-			}
+		stop_signal = FALSE;
 		}
 
 	return stop_signal;
@@ -1246,27 +1220,24 @@ static gboolean search_result_keypress_cb(GtkWidget *widget, GdkEventKey *event,
 static gboolean search_window_keypress_cb(GtkWidget *, GdkEventKey *event, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
-	gboolean stop_signal = FALSE;
+	gboolean stop_signal = TRUE;
 
-	if (event->state & GDK_CONTROL_MASK)
+	if (accel_action_matches("SubToggleThumbs", event))
 		{
-		stop_signal = TRUE;
-		switch (event->keyval)
-			{
-			case 'T': case 't':
-				gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(sd->button_thumbs),
-					!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(sd->button_thumbs)));
-				break;
-			case 'W': case 'w':
-				search_window_close(sd);
-				break;
-			case GDK_KEY_Return: case GDK_KEY_KP_Enter:
-				search_start_cb(nullptr, sd);
-				break;
-			default:
-				stop_signal = FALSE;
-				break;
-			}
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(sd->button_thumbs),
+			!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(sd->button_thumbs)));
+		}
+	else if (accel_action_matches("SubCloseWindow", event))
+		{
+		search_window_close(sd);
+		}
+	else if (accel_action_matches("SearchStart", event))
+		{
+		search_start_cb(nullptr, sd);
+		}
+	else
+		{
+		stop_signal = FALSE;
 		}
 
 	return stop_signal;

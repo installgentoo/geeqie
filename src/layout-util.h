@@ -46,5 +46,7 @@ void layout_actions_setup(LayoutWindow *lw);
 void layout_actions_add_window(LayoutWindow *lw, GtkWidget *window);
 GtkWidget *layout_actions_menu_bar(LayoutWindow *lw);
 
+gboolean accel_action_matches(const gchar *action_name, const GdkEventKey *event);
+
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
