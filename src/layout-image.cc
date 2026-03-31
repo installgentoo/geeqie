@@ -135,7 +135,7 @@ void layout_image_full_screen_toggle(LayoutWindow *lw)
 		}
 }
 
-gboolean layout_image_full_screen_active(LayoutWindow *lw)
+static gboolean layout_image_full_screen_active(LayoutWindow *lw)
 {
 	if (!layout_valid(&lw)) return FALSE;
 
@@ -495,6 +495,13 @@ static GList *layout_image_get_fd_list(LayoutWindow *lw)
 	return list;
 }
 
+static const gchar *layout_image_get_path(LayoutWindow *lw)
+{
+	if (!layout_valid(&lw)) return nullptr;
+
+	return image_get_path(lw->image);
+}
+
 static GtkWidget *layout_image_pop_menu(LayoutWindow *lw)
 {
 	GtkWidget *menu;
@@ -559,14 +566,6 @@ static GtkWidget *layout_image_pop_menu(LayoutWindow *lw)
 	return menu;
 }
 
-void layout_image_menu_popup(LayoutWindow *lw)
-{
-	GtkWidget *menu;
-
-	menu = layout_image_pop_menu(lw);
-	gtk_menu_popup_at_widget(GTK_MENU(menu), lw->image->widget, GDK_GRAVITY_EAST, GDK_GRAVITY_CENTER, nullptr);
-}
-
 /*
  *----------------------------------------------------------------------------
  * misc
@@ -583,21 +582,6 @@ void layout_image_to_root(LayoutWindow *lw)
  * manipulation + accessors
  *----------------------------------------------------------------------------
  */
-
-void layout_image_scroll(LayoutWindow *lw, gint x, gint y, gboolean connect_scroll)
-{
-	if (!layout_valid(&lw)) return;
-
-	image_scroll(lw->image, x, y);
-
-	if (lw->full_screen && lw->image != lw->full_screen->imd)
-		{
-		image_scroll(lw->full_screen->imd, x, y);
-		}
-
-	if (!connect_scroll) return;
-
-}
 
 void layout_image_zoom_adjust(LayoutWindow *lw, gdouble increment)
 {
@@ -689,13 +673,6 @@ void layout_image_set_overunderexposed(LayoutWindow *lw, gboolean overunderexpos
 	image_set_overunderexposed(lw->image, overunderexposed);
 }
 
-const gchar *layout_image_get_path(LayoutWindow *lw)
-{
-	if (!layout_valid(&lw)) return nullptr;
-
-	return image_get_path(lw->image);
-}
-
 FileData *layout_image_get_fd(LayoutWindow *lw)
 {
 	if (!layout_valid(&lw)) return nullptr;
@@ -703,7 +680,7 @@ FileData *layout_image_get_fd(LayoutWindow *lw)
 	return image_get_fd(lw->image);
 }
 
-gint layout_image_get_index(LayoutWindow *lw)
+static gint layout_image_get_index(LayoutWindow *lw)
 {
 	return layout_list_get_index(lw, image_get_fd(lw->image));
 }

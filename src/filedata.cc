@@ -58,11 +58,6 @@ FileData *file_data_new_dir(const gchar *path_utf8)
 }
 
 
-FileData *file_data_new_simple(const gchar *path_utf8)
-{
-	return FileData::file_data_new_simple(path_utf8);
-}
-
 #ifdef DEBUG_FILEDATA
 
 FileData *file_data_ref(FileData *fd, const gchar *file, gint line)
@@ -110,11 +105,6 @@ void file_data_change_info_free(FileDataChangeInfo *fdci, FileData *fd)
 	fd->file_data_change_info_free(fdci, fd);
 }
 
-
-gint filelist_sort_compare_filedata(const FileData *fa, const FileData *fb, FileData::FileList::SortSettings *settings)
-{
-	return FileData::FileList::sort_compare_filedata(fa, fb, settings);
-}
 
 gint filelist_sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend)
 {
@@ -412,11 +402,3 @@ void file_data_set_page_num(FileData *fd, gint page_num)
 {
 	fd->file_data_set_page_num(fd, page_num);
 }
-
-
-void file_data_dump()
-{
-	FileData::file_data_dump();
-}
-
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

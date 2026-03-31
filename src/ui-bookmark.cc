@@ -835,53 +835,6 @@ GtkWidget *bookmark_list_new(const gchar *key,
 	return scrolled;
 }
 
-void bookmark_list_set_key(GtkWidget *list, const gchar *key)
-{
-	BookMarkData *bm;
-
-	if (!list || !key) return;
-
-	bm = static_cast<BookMarkData *>(g_object_get_data(G_OBJECT(list), BOOKMARK_DATA_KEY));
-	if (!bm) return;
-
-	if (bm->key && strcmp(bm->key, key) == 0) return;
-
-	g_free(const_cast<gchar *>(bm->key));
-	bm->key = g_strdup(key);
-
-	bookmark_populate(bm);
-}
-
-void bookmark_list_set_no_defaults(GtkWidget *list, gboolean no_defaults)
-{
-	BookMarkData *bm;
-
-	bm = static_cast<BookMarkData *>(g_object_get_data(G_OBJECT(list), BOOKMARK_DATA_KEY));
-	if (!bm) return;
-
-	bm->no_defaults = no_defaults;
-}
-
-void bookmark_list_set_editable(GtkWidget *list, gboolean editable)
-{
-	BookMarkData *bm;
-
-	bm = static_cast<BookMarkData *>(g_object_get_data(G_OBJECT(list), BOOKMARK_DATA_KEY));
-	if (!bm) return;
-
-	bm->editable = editable;
-}
-
-void bookmark_list_set_only_directories(GtkWidget *list, gboolean only_directories)
-{
-	BookMarkData *bm;
-
-	bm = static_cast<BookMarkData *>(g_object_get_data(G_OBJECT(list), BOOKMARK_DATA_KEY));
-	if (!bm) return;
-
-	bm->only_directories = only_directories;
-}
-
 void bookmark_list_add(GtkWidget *list, const gchar *name, const gchar *path)
 {
 	BookMarkData *bm;

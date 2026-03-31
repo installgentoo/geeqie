@@ -45,7 +45,5 @@ extern const std::array<GtkTargetEntry, 2> dnd_file_drop_types;
 
 void dnd_set_drag_icon(GtkWidget *widget, GdkDragContext *context, GdkPixbuf *pixbuf, gint items);
 
-void dnd_set_drag_label(GtkWidget *widget, GdkDragContext *context, const gchar *text);
-
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

@@ -96,7 +96,6 @@ struct LayoutWindow
 LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 				       const gchar *geometry);
 LayoutWindow *layout_new_from_config(const gchar **attribute_names, const gchar **attribute_values, gboolean use_commandline);
-void layout_update_from_config(LayoutWindow *lw, const gchar **attribute_names, const gchar **attribute_values);
 LayoutWindow *layout_new_from_default();
 
 gboolean layout_valid(LayoutWindow **lw);
@@ -118,7 +117,6 @@ gboolean layout_set_fd(LayoutWindow *lw, FileData *fd);
 void layout_status_update_progress(LayoutWindow *lw, gdouble val, const gchar *text);
 void layout_status_update_info(LayoutWindow *lw, const gchar *text);
 void layout_status_update_image(LayoutWindow *lw);
-void layout_status_update_all(LayoutWindow *lw);
 
 GList *layout_list(LayoutWindow *lw);
 guint layout_list_count(LayoutWindow *lw, gint64 *bytes);
@@ -139,7 +137,6 @@ void layout_refresh(LayoutWindow *lw);
 void layout_file_filter_set(LayoutWindow *lw, gboolean enable);
 
 void layout_sort_set_files(LayoutWindow *lw, SortType type, gboolean ascend, gboolean case_sensitive);
-gboolean layout_sort_get(LayoutWindow *lw, SortType *type, gboolean *ascend, gboolean *case_sensitive);
 
 gboolean layout_geometry_get_dividers(LayoutWindow *lw, gint *h, gint *v);
 

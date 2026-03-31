@@ -30,13 +30,9 @@
 
 struct LayoutWindow;
 
-void keyboard_scroll_calc(gint &x, gint &y, const GdkEventKey *event);
-
 void layout_util_sync_file_filter(LayoutWindow *lw);
 void layout_util_sync_color(LayoutWindow *lw);
 void layout_util_sync(LayoutWindow *lw);
-
-void layout_recent_add_path(const gchar *path);
 
 void layout_copy_path_update_all();
 

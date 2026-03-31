@@ -32,7 +32,6 @@ void write_indent(GString *str, gint indent);
 void write_char_option(GString *str, gint indent, const gchar *label, const gchar *text);
 gboolean read_dummy_option(const gchar *option, const gchar *label, const gchar *message);
 gboolean read_char_option(const gchar *option, const gchar *label, const gchar *value, gchar **text);
-void write_color_option(GString *str, gint indent, const gchar *label, GdkRGBA *color);
 gboolean read_color_option(const gchar *option, const gchar *label, const gchar *value, GdkRGBA *color);
 void write_int_option(GString *str, gint indent, const gchar *label, gint n);
 gboolean read_int_option(const gchar *option, const gchar *label, const gchar *value, gint *n);

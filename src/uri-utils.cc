@@ -65,7 +65,7 @@ gchar **uris_from_pathlist(GList *list)
 	return uris;
 }
 
-gchar **uris_from_filelist(GList *list)
+static gchar **uris_from_filelist(GList *list)
 {
 	GList *path_list = filelist_to_path_list(list);
 	gchar **ret = uris_from_pathlist(path_list);
@@ -133,7 +133,7 @@ GList *uri_pathlist_from_uris(gchar **uris, GList **uri_error_list)
 	return g_list_reverse(list);
 }
 
-GList *uri_filelist_from_uris(gchar **uris, GList **uri_error_list)
+static GList *uri_filelist_from_uris(gchar **uris, GList **uri_error_list)
 {
 	GList *path_list = uri_pathlist_from_uris(uris, uri_error_list);
 	GList *filelist = filelist_from_path_list(path_list);

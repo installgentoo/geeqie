@@ -29,10 +29,6 @@
 
 GtkWidget *bookmark_list_new(const gchar *key,
 			     void (*select_func)(const gchar *path, gpointer data), gpointer select_data);
-void bookmark_list_set_key(GtkWidget *list, const gchar *key);
-void bookmark_list_set_no_defaults(GtkWidget *list, gint no_defaults);
-void bookmark_list_set_editable(GtkWidget *list, gint editable);
-void bookmark_list_set_only_directories(GtkWidget *list, gint only_directories);
 void bookmark_list_add(GtkWidget *list, const gchar *name, const gchar *path);
 
 void bookmark_add_default(const gchar *name, const gchar *path);

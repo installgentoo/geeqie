@@ -175,7 +175,6 @@ void image_zoom_adjust(ImageWindow *imd, gdouble increment);
 void image_zoom_adjust_at_point(ImageWindow *imd, gdouble increment, gint x, gint y);
 void image_zoom_set(ImageWindow *imd, gdouble zoom);
 gdouble image_zoom_get(ImageWindow *imd);
-gdouble image_zoom_get_real(ImageWindow *imd);
 gchar *image_zoom_get_as_text(ImageWindow *imd);
 gdouble image_zoom_get_default(ImageWindow *imd);
 

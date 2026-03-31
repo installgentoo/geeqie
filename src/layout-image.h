@@ -45,13 +45,8 @@ void layout_image_color_profile_set_use(LayoutWindow *lw, gint enable);
 gboolean layout_image_color_profile_get_use(LayoutWindow *lw);
 gboolean layout_image_color_profile_get_status(LayoutWindow *lw, gchar **image_profile, gchar **screen_profile);
 
-
-const gchar *layout_image_get_path(LayoutWindow *lw);
 FileData *layout_image_get_fd(LayoutWindow *lw);
-gint layout_image_get_index(LayoutWindow *lw);
 
-
-void layout_image_scroll(LayoutWindow *lw, gint x, gint y, gboolean connect_scroll);
 void layout_image_zoom_adjust(LayoutWindow *lw, gdouble increment);
 void layout_image_zoom_adjust_at_point(LayoutWindow *lw, gdouble increment, gint x, gint y);
 void layout_image_zoom_set(LayoutWindow *lw, gdouble zoom);
@@ -64,14 +59,11 @@ void layout_image_prev(LayoutWindow *lw);
 void layout_image_first(LayoutWindow *lw);
 void layout_image_last(LayoutWindow *lw);
 
-void layout_image_menu_popup(LayoutWindow *lw);
-
 void layout_image_to_root(LayoutWindow *lw);
 
 void layout_image_full_screen_start(LayoutWindow *lw);
 void layout_image_full_screen_stop(LayoutWindow *lw);
 void layout_image_full_screen_toggle(LayoutWindow *lw);
-gboolean layout_image_full_screen_active(LayoutWindow *lw);
 
 void layout_image_animate_toggle(LayoutWindow *lw);
 

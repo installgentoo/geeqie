@@ -159,22 +159,3 @@ static void dnd_set_drag_label_end_cb(GtkWidget *widget, GdkDragContext *, gpoin
 	g_signal_handlers_disconnect_by_func(widget, (gpointer)dnd_set_drag_label_end_cb, data);
 	gq_gtk_widget_destroy(window);
 }
-
-void dnd_set_drag_label(GtkWidget *widget, GdkDragContext *context, const gchar *text)
-{
-	GtkWidget *window;
-	GtkWidget *label;
-
-	window = gtk_window_new(GTK_WINDOW_POPUP);
-	gtk_widget_realize (window);
-
-	label = gtk_label_new(text);
-	gq_gtk_container_add(GTK_WIDGET (window), label);
-	gtk_widget_show(label);
-	gtk_drag_set_icon_widget(context, window, -15, 10);
-	g_signal_connect(G_OBJECT(widget), "drag_end",
-			 G_CALLBACK(dnd_set_drag_label_end_cb), window);
-}
-
-
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

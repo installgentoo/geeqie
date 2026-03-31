@@ -25,9 +25,7 @@
 #include <gtk/gtk.h>
 
 void warning_dialog_dnd_uri_error(GList *uri_error_list);
-GList *uri_filelist_from_uris(gchar **uris, GList **uri_error_list);
 gchar **uris_from_pathlist(GList *list);
-gchar **uris_from_filelist(GList *list);
 GList *uri_pathlist_from_uris(gchar **uris, GList **uri_error_list);
 gboolean uri_selection_data_set_uris_from_filelist(GtkSelectionData *selection_data, GList *list);
 GList *uri_filelist_from_gtk_selection_data(GtkSelectionData *selection_data);

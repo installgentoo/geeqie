@@ -575,7 +575,7 @@ void layout_status_update_image(LayoutWindow *lw)
 	layout_util_sync_color(lw); /* update color button */
 }
 
-void layout_status_update_all(LayoutWindow *lw)
+static void layout_status_update_all(LayoutWindow *lw)
 {
 	layout_status_update_progress(lw, 0.0, nullptr);
 	layout_status_update_info(lw, nullptr);
@@ -1011,17 +1011,6 @@ void layout_sort_set_files(LayoutWindow *lw, SortType type, gboolean ascend, gbo
 	layout_list_sync_sort(lw);
 }
 
-gboolean layout_sort_get(LayoutWindow *lw, SortType *type, gboolean *ascend, gboolean *case_sensitive)
-{
-	if (!layout_valid(&lw)) return FALSE;
-
-	if (type) *type = lw->options.file_view_list_sort.method;
-	if (ascend) *ascend = lw->options.file_view_list_sort.ascend;
-	if (case_sensitive) *case_sensitive = lw->options.file_view_list_sort.case_sensitive;
-
-	return TRUE;
-}
-
 static gboolean layout_geometry_get(LayoutWindow *lw, GdkRectangle &rect)
 {
 	GdkWindow *window;
@@ -1415,15 +1404,6 @@ LayoutWindow *layout_new_from_config(const gchar **attribute_names, const gchar 
 
 	g_free(path);
 	return lw;
-}
-
-void layout_update_from_config(LayoutWindow *, const gchar **attribute_names, const gchar **attribute_values)
-{
-	LayoutOptions lop;
-
-	init_layout_options(&lop);
-
-	if (attribute_names) layout_load_attributes(&lop, attribute_names, attribute_values);
 }
 
 LayoutWindow *layout_new_from_default()

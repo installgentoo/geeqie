@@ -102,7 +102,7 @@ static gboolean filter_key_exists(const gchar *key)
 	return (filter_get_by_key(key) != nullptr);
 }
 
-void filter_add(const gchar *key, const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean, gboolean, gboolean enabled)
+static void filter_add(const gchar *key, const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean, gboolean, gboolean enabled)
 {
 	filter_list = g_list_append(filter_list, filter_entry_new(key, description, extensions, file_class, FALSE, FALSE, enabled));
 }

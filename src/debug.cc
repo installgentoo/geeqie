@@ -360,7 +360,7 @@ void log_print_file_data_dump(const gchar *file, gint line, const gchar *functio
 	log_printf("FileData dump start");
 	log_printf("%s/../%s:%d %s\n", exe_path, file, line, function);
 
-	file_data_dump();
+	FileData::file_data_dump();
 
 	log_printf("FileData dump end");
 

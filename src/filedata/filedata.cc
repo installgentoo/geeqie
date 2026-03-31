@@ -1053,19 +1053,6 @@ void FileData::file_data_update_ci_dest(FileData *fd, const gchar *dest_path)
 	g_free(old_path);
 }
 
-void FileData::file_data_update_ci_dest_preserve_ext(FileData *fd, const gchar *dest_path)
-{
-	const gchar *extension = registered_extension_from_path(fd->change->source);
-	gchar *base = remove_extension_from_path(dest_path);
-	gchar *old_path = fd->change->dest;
-
-	fd->change->dest = g_strconcat(base, fd->extended_extension ? fd->extended_extension : extension, NULL);
-	fd->update_planned_change_hash(old_path, fd->change->dest);
-
-	g_free(old_path);
-	g_free(base);
-}
-
 void FileData::file_data_sc_update_ci(FileData *fd, const gchar *dest_path)
 {
 	gchar *dest_path_full = nullptr;
@@ -1095,10 +1082,10 @@ void FileData::file_data_sc_update_ci(FileData *fd, const gchar *dest_path)
 	g_free(dest_path_full);
 }
 
-gboolean FileData::file_data_sc_check_update_ci(FileData *fd, const gchar *dest_path, FileDataChangeType type)
+static gboolean file_data_sc_check_update_ci(FileData *fd, const gchar *dest_path, FileDataChangeType type)
 {
 	if (!file_data_sc_check_ci(fd, type)) return FALSE;
-	file_data_sc_update_ci(fd, dest_path);
+	FileData::file_data_sc_update_ci(fd, dest_path);
 	return TRUE;
 }
 

@@ -74,57 +74,6 @@ static void layout_util_sync_views(LayoutWindow *lw);
 
 /*
  *-----------------------------------------------------------------------------
- * keyboard handler
- *-----------------------------------------------------------------------------
- */
-
-void keyboard_scroll_calc(gint &x, gint &y, const GdkEventKey *event)
-{
-	static gint delta = 0;
-	static guint32 time_old = 0;
-	static guint keyval_old = 0;
-
-	if (event->state & GDK_SHIFT_MASK)
-		{
-		x *= 3;
-		y *= 3;
-		}
-
-	if (event->state & GDK_CONTROL_MASK)
-		{
-		if (x < 0) x = G_MININT / 2;
-		if (x > 0) x = G_MAXINT / 2;
-		if (y < 0) y = G_MININT / 2;
-		if (y > 0) y = G_MAXINT / 2;
-
-		return;
-		}
-
-	if (options->progressive_key_scrolling)
-		{
-		guint32 time_diff;
-
-		time_diff = event->time - time_old;
-
-		/* key pressed within 125ms ? (1/8 second) */
-		if (time_diff > 125 || event->keyval != keyval_old) delta = 0;
-
-		time_old = event->time;
-		keyval_old = event->keyval;
-
-		delta += 2;
-		}
-	else
-		{
-		delta = 8;
-		}
-
-	x *= delta * options->keyboard_scroll_step;
-	y *= delta * options->keyboard_scroll_step;
-}
-
-/*
- *-----------------------------------------------------------------------------
  * menu callbacks
  *-----------------------------------------------------------------------------
  */
@@ -707,13 +656,6 @@ static void layout_color_menu_input_cb()
 {
 }
 #endif
-
-void layout_recent_add_path(const gchar *path)
-{
-	if (!path) return;
-
-	history_list_add_to_key("recent", path, options->open_recent_list_maxsize);
-}
 
 /*
  *-----------------------------------------------------------------------------

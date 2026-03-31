@@ -219,6 +219,16 @@ static void image_loader_class_init(ImageLoaderClass *loader_class)
 
 }
 
+static const gchar *image_loader_get_error(ImageLoader *il)
+{
+	const gchar *ret = nullptr;
+	if (!il) return nullptr;
+	g_mutex_lock(il->data_mutex);
+	if (il->error) ret = il->error->message;
+	g_mutex_unlock(il->data_mutex);
+	return ret;
+}
+
 static void image_loader_finalize(GObject *object)
 {
 	auto il = reinterpret_cast<ImageLoader *>(object);
@@ -332,6 +342,24 @@ static gboolean image_loader_emit_error_cb(gpointer data)
 	auto il = static_cast<ImageLoader *>(data);
 	g_signal_emit(il, signals[SIGNAL_ERROR], 0);
 	return G_SOURCE_REMOVE;
+}
+
+static gdouble image_loader_get_percent(ImageLoader *il)
+{
+	gdouble ret;
+	if (!il) return 0.0;
+
+	g_mutex_lock(il->data_mutex);
+	if (il->bytes_total == 0)
+		{
+		ret = 0.0;
+		}
+	else
+		{
+		ret = static_cast<gdouble>(il->bytes_read) / il->bytes_total;
+		}
+	g_mutex_unlock(il->data_mutex);
+	return ret;
 }
 
 static gboolean image_loader_emit_percent_cb(gpointer data)
@@ -1144,6 +1172,17 @@ static void image_loader_thread_wait_high()
 	g_mutex_unlock(image_loader_prio_mutex);
 }
 
+static gboolean image_loader_get_is_done(ImageLoader *il)
+{
+	gboolean ret;
+	if (!il) return FALSE;
+
+	g_mutex_lock(il->data_mutex);
+	ret = il->done;
+	g_mutex_unlock(il->data_mutex);
+
+	return ret;
+}
 
 static void image_loader_thread_run(gpointer data, gpointer)
 {
@@ -1291,37 +1330,6 @@ void image_loader_set_priority(ImageLoader *il, gint priority)
 	il->idle_priority = priority;
 }
 
-
-gdouble image_loader_get_percent(ImageLoader *il)
-{
-	gdouble ret;
-	if (!il) return 0.0;
-
-	g_mutex_lock(il->data_mutex);
-	if (il->bytes_total == 0)
-		{
-		ret = 0.0;
-		}
-	else
-		{
-		ret = static_cast<gdouble>(il->bytes_read) / il->bytes_total;
-		}
-	g_mutex_unlock(il->data_mutex);
-	return ret;
-}
-
-gboolean image_loader_get_is_done(ImageLoader *il)
-{
-	gboolean ret;
-	if (!il) return FALSE;
-
-	g_mutex_lock(il->data_mutex);
-	ret = il->done;
-	g_mutex_unlock(il->data_mutex);
-
-	return ret;
-}
-
 FileData *image_loader_get_fd(ImageLoader *il)
 {
 	FileData *ret;
@@ -1331,16 +1339,6 @@ FileData *image_loader_get_fd(ImageLoader *il)
 	ret = il->fd;
 	g_mutex_unlock(il->data_mutex);
 
-	return ret;
-}
-
-const gchar *image_loader_get_error(ImageLoader *il)
-{
-	const gchar *ret = nullptr;
-	if (!il) return nullptr;
-	g_mutex_lock(il->data_mutex);
-	if (il->error) ret = il->error->message;
-	g_mutex_unlock(il->data_mutex);
 	return ret;
 }
 

@@ -54,8 +54,6 @@ struct CacheData
 	gboolean similarity;
 };
 
-gboolean cache_time_valid(const gchar *cache, const gchar *path);
-
 
 CacheData *cache_sim_data_new();
 void cache_sim_data_free(CacheData *cd);

@@ -273,16 +273,13 @@ class FileData {
 
 	static void file_data_dump();
 
+	static void file_data_sc_update_ci(FileData *fd, const gchar *dest_path);
     protected:
 	static FileData *file_data_new_local(const gchar *path, struct stat *st, FileDataContext *context = nullptr);
 
 	static void file_data_free(FileData *fd);
 	static void file_data_consider_free(FileData *fd);
 	static void file_data_update_ci_dest(FileData *fd, const gchar *dest_path);
-	static void file_data_update_ci_dest_preserve_ext(FileData *fd, const gchar *dest_path);
-	static void file_data_sc_update_ci(FileData *fd, const gchar *dest_path);
-	static gboolean file_data_sc_check_update_ci(FileData *fd, const gchar *dest_path, FileDataChangeType type);
-
 
 	// static methods that have already been switched to C++-style.
 	void set_path(const gchar *new_path);
@@ -355,8 +352,6 @@ FileData *file_data_new(const gchar *path_utf8, struct stat *st);
 
 FileData *file_data_new_dir(const gchar *path_utf8);
 
-FileData *file_data_new_simple(const gchar *path_utf8);
-
 #ifdef DEBUG_FILEDATA
 FileData *file_data_ref(FileData *fd, const gchar *file = __builtin_FILE(), gint line = __builtin_LINE());
 void file_data_unref(FileData *fd, const gchar *file = __builtin_FILE(), gint line = __builtin_LINE());
@@ -376,7 +371,6 @@ void file_data_increment_version(FileData *fd);
 
 void file_data_change_info_free(FileDataChangeInfo *fdci, FileData *fd);
 
-gint filelist_sort_compare_filedata(const FileData *fa, const FileData *fb, FileData::FileList::SortSettings *settings);
 gint filelist_sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend);
 GList *filelist_sort(GList *list, SortType method, gboolean ascending, gboolean case_sensitive);
 
@@ -458,8 +452,6 @@ void file_data_inc_page_num(FileData *fd);
 void file_data_dec_page_num(FileData *fd);
 void file_data_set_page_total(FileData *fd, gint page_total);
 void file_data_set_page_num(FileData *fd, gint page_num);
-
-void file_data_dump();
 
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

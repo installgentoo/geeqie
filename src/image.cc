@@ -1209,7 +1209,7 @@ gdouble image_zoom_get(ImageWindow *imd)
 	return pixbuf_renderer_zoom_get(PIXBUF_RENDERER(imd->pr));
 }
 
-gdouble image_zoom_get_real(ImageWindow *imd)
+static gdouble image_zoom_get_real(ImageWindow *imd)
 {
 	return pixbuf_renderer_zoom_get_scale(PIXBUF_RENDERER(imd->pr));
 }

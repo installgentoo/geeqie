@@ -501,7 +501,7 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 	return result;
 }
 
-static void thumb_loader_std_done_cb(ImageLoader *il, gpointer data)
+static void thumb_loader_std_done_cb(ImageLoader *, gpointer data)
 {
 	auto tl = static_cast<ThumbLoaderStd *>(data);
 	GdkPixbuf *pixbuf;

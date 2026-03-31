@@ -156,7 +156,7 @@ gboolean read_char_option(const gchar *option, const gchar *label, const gchar *
 	return TRUE;
 }
 
-void write_color_option(GString *str, gint indent, const gchar *label, GdkRGBA *color)
+static void write_color_option(GString *str, gint indent, const gchar *label, GdkRGBA *color)
 {
 	if (color)
 		{

@@ -41,7 +41,6 @@ struct FilterEntry {
 GList *filter_get_list();
 void filter_remove_entry(FilterEntry *fe);
 
-void filter_add(const gchar *key, const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean, gboolean, gboolean enabled);
 void filter_add_unique(const gchar *description, const gchar *extensions, FileFormatClass file_class, gboolean, gboolean, gboolean enabled);
 void filter_add_defaults();
 void filter_reset();

@@ -633,46 +633,6 @@ gchar *cache_find_location(CacheType type, const gchar *source)
 	return path;
 }
 
-gboolean cache_time_valid(const gchar *cache, const gchar *path)
-{
-	struct stat cache_st;
-	struct stat path_st;
-	gchar *cachel;
-	gchar *pathl;
-	gboolean ret = FALSE;
-
-	if (!cache || !path) return FALSE;
-
-	cachel = path_from_utf8(cache);
-	pathl = path_from_utf8(path);
-
-	if (stat(cachel, &cache_st) == 0 &&
-	    stat(pathl, &path_st) == 0)
-		{
-		if (cache_st.st_mtime == path_st.st_mtime)
-			{
-			ret = TRUE;
-			}
-		else if (cache_st.st_mtime > path_st.st_mtime)
-			{
-			struct utimbuf ut;
-
-			ut.actime = ut.modtime = cache_st.st_mtime;
-			if (utime(cachel, &ut) < 0 &&
-			    errno == EPERM)
-				{
-				DEBUG_1("cache permission workaround: %s", cachel);
-				ret = TRUE;
-				}
-			}
-		}
-
-	g_free(pathl);
-	g_free(cachel);
-
-	return ret;
-}
-
 const gchar *get_thumbnails_cache_dir()
 {
 #if USE_XDG
