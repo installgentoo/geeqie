@@ -21,7 +21,6 @@
 
 #include <glib.h>
 
-void file_util_trash_clear();
 gboolean file_util_safe_unlink(const gchar *path);
 gchar *file_util_safe_delete_status();
 

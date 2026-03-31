@@ -90,7 +90,6 @@ struct ConfOptions
 		gboolean safe_delete_enable;
 		gboolean use_system_trash;
 		gchar *safe_delete_path;
-		gint safe_delete_folder_maxsize;
 		gboolean no_trash;
 	} file_ops;
 
@@ -126,9 +125,7 @@ struct ConfOptions
 		gboolean enable_caching;
 		guint quality;
 		gboolean use_exif;
-		gboolean use_color_management;
 		gboolean use_ft_metadata;
-		gint collection_preview;
 	} thumbnails;
 
 	/* file filtering */

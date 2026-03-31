@@ -70,7 +70,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->file_ops.enable_delete_key = TRUE;
 	options->file_ops.use_system_trash = TRUE;
 	options->file_ops.safe_delete_enable = TRUE;
-	options->file_ops.safe_delete_folder_maxsize = 128;
 	options->file_ops.safe_delete_path = nullptr;
 	options->file_ops.no_trash = FALSE;
 
@@ -140,9 +139,7 @@ ConfOptions *init_options(ConfOptions *options)
 	options->thumbnails.display_width = 128;
 	options->thumbnails.quality = GDK_INTERP_TILES;
 	options->thumbnails.use_exif = FALSE;
-	options->thumbnails.use_color_management = FALSE;
 	options->thumbnails.use_ft_metadata = TRUE;
-	options->thumbnails.collection_preview = 20;
 
 	options->circular_selection_lists = TRUE;
 	options->update_on_time_change = TRUE;

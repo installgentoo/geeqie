@@ -370,7 +370,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.use_system_trash);
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.safe_delete_enable);
 	WRITE_NL(); WRITE_CHAR(*options, file_ops.safe_delete_path);
-	WRITE_NL(); WRITE_INT(*options, file_ops.safe_delete_folder_maxsize);
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.no_trash);
 
 	/* Properties dialog Options */
@@ -403,9 +402,7 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.enable_caching);
 	WRITE_NL(); WRITE_UINT(*options, thumbnails.quality);
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.use_exif);
-	WRITE_NL(); WRITE_BOOL(*options, thumbnails.use_color_management);
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.use_ft_metadata);
-	WRITE_NL(); WRITE_INT(*options, thumbnails.collection_preview);
 
 	/* File sorting Options */
 	WRITE_NL(); WRITE_BOOL(*options, file_sort.case_sensitive);
@@ -722,8 +719,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_BOOL(*options, thumbnails.enable_caching)) continue;
 		if (READ_UINT_CLAMP(*options, thumbnails.quality, GDK_INTERP_NEAREST, GDK_INTERP_BILINEAR)) continue;
 		if (READ_BOOL(*options, thumbnails.use_exif)) continue;
-		if (READ_BOOL(*options, thumbnails.use_color_management)) continue;
-		if (READ_INT(*options, thumbnails.collection_preview)) continue;
 		if (READ_BOOL(*options, thumbnails.use_ft_metadata)) continue;
 
 		/* File sorting options */
@@ -735,7 +730,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_BOOL(*options, file_ops.use_system_trash)) continue;
 		if (READ_BOOL(*options, file_ops.safe_delete_enable)) continue;
 		if (READ_CHAR(*options, file_ops.safe_delete_path)) continue;
-		if (READ_INT(*options, file_ops.safe_delete_folder_maxsize)) continue;
 		if (READ_BOOL(*options, file_ops.no_trash)) continue;
 
 		/* Fullscreen options */

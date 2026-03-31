@@ -245,7 +245,6 @@ static void config_window_apply()
 	options->file_ops.enable_delete_key = c_options->file_ops.enable_delete_key;
 	options->file_ops.use_system_trash = c_options->file_ops.use_system_trash;
 	options->file_ops.no_trash = c_options->file_ops.no_trash;
-	options->file_ops.safe_delete_folder_maxsize = c_options->file_ops.safe_delete_folder_maxsize;
 	options->hide_window_decorations = c_options->hide_window_decorations;
 	options->image.scroll_reset_method = c_options->image.scroll_reset_method;
 	options->image.zoom_2pass = c_options->image.zoom_2pass;
@@ -265,7 +264,6 @@ static void config_window_apply()
 		}
 	options->thumbnails.enable_caching = c_options->thumbnails.enable_caching;
 	options->thumbnails.use_exif = c_options->thumbnails.use_exif;
-	options->thumbnails.use_color_management = c_options->thumbnails.use_color_management;
 	options->thumbnails.use_ft_metadata = c_options->thumbnails.use_ft_metadata;
 	options->file_filter.show_hidden_files = c_options->file_filter.show_hidden_files;
 	options->file_filter.disable_file_extension_checks = c_options->file_filter.disable_file_extension_checks;
@@ -898,35 +896,6 @@ static void filter_disable_cb(GtkWidget *widget, gpointer data)
 				 !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)));
 }
 
-static void safe_delete_view_cb(GtkWidget *, gpointer)
-{
-	layout_set_path(nullptr, gq_gtk_entry_get_text(GTK_ENTRY(safe_delete_path_entry)));
-}
-
-static void safe_delete_clear_ok_cb(GenericDialog *, gpointer)
-{
-	file_util_trash_clear();
-}
-
-static void safe_delete_clear_cb(GtkWidget *widget, gpointer)
-{
-	GenericDialog *gd;
-	GtkWidget *entry;
-	gd = generic_dialog_new(_("Clear trash"),
-				"clear_trash", widget, TRUE,
-				dummy_cancel_cb, nullptr);
-	generic_dialog_add_message(gd, GQ_ICON_DIALOG_QUESTION, _("Clear trash"),
-				    _("This will remove the trash contents."), FALSE);
-	generic_dialog_add_button(gd, GQ_ICON_OK, "OK", safe_delete_clear_ok_cb, TRUE);
-	entry = gtk_entry_new();
-	gtk_widget_set_can_focus(entry, FALSE);
-	gtk_editable_set_editable(GTK_EDITABLE(entry), FALSE);
-	if (options->file_ops.safe_delete_path) gq_gtk_entry_set_text(GTK_ENTRY(entry), options->file_ops.safe_delete_path);
-	gq_gtk_box_pack_start(GTK_BOX(gd->vbox), entry, FALSE, FALSE, 0);
-	gtk_widget_show(entry);
-	gtk_widget_show(gd->dialog);
-}
-
 static void image_overlay_template_view_changed_cb(GtkWidget *, gpointer data)
 {
 	GtkWidget *pTextView;
@@ -1369,9 +1338,6 @@ static void config_tab_general(GtkWidget *notebook)
 
 	pref_checkbox_new_int(group, _("Use EXIF thumbnails when available (EXIF thumbnails may be outdated)"),
 			      options->thumbnails.use_exif, &c_options->thumbnails.use_exif);
-
-	pref_checkbox_new_int(group, _("Thumbnail color management"),
-				options->thumbnails.use_color_management, &c_options->thumbnails.use_color_management);
 
 #if HAVE_FFMPEGTHUMBNAILER_METADATA
 	pref_checkbox_new_int(group, _("Use embedded metadata in video files as thumbnails when available"),
@@ -1975,10 +1941,8 @@ static void config_tab_behavior(GtkWidget *notebook)
 	GtkWidget *hbox;
 	GtkWidget *vbox;
 	GtkWidget *group;
-	GtkWidget *button;
 	GtkWidget *tabcomp;
 	GtkWidget *ct_button;
-	GtkWidget *spin;
 	GtkWidget *table;
 	GtkWidget *hide_window_in_fullscreen;
 	GtkWidget *tmp;
@@ -2006,22 +1970,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 	gq_gtk_box_pack_start(GTK_BOX(hbox), tabcomp, TRUE, TRUE, 0);
 	gtk_widget_show(tabcomp);
 
-	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_BUTTON_GAP);
-	pref_checkbox_link_sensitivity(ct_button, hbox);
-
-	pref_spacer(hbox, PREF_PAD_INDENT - PREF_PAD_GAP);
-	spin = pref_spin_new_int(hbox, _("Maximum size:"), _("MiB"),
-				 0, 2048, 1, options->file_ops.safe_delete_folder_maxsize, &c_options->file_ops.safe_delete_folder_maxsize);
-	gtk_widget_set_tooltip_markup(spin, _("Set to 0 for unlimited size"));
-	button = pref_button_new(nullptr, nullptr, _("View"),
-				 G_CALLBACK(safe_delete_view_cb), nullptr);
-	gq_gtk_box_pack_end(GTK_BOX(hbox), button, FALSE, FALSE, 0);
-	gtk_widget_show(button);
-
-	button = pref_button_new(nullptr, GQ_ICON_CLEAR, nullptr,
-				 G_CALLBACK(safe_delete_clear_cb), nullptr);
-	gq_gtk_box_pack_end(GTK_BOX(hbox), button, FALSE, FALSE, 0);
-
 	c_options->file_ops.no_trash = options->file_ops.no_trash;
 	c_options->file_ops.use_system_trash = options->file_ops.use_system_trash;
 
@@ -2030,8 +1978,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 
 	pref_radiobutton_new(group, ct_button, _("Use no trash at all"),
 			options->file_ops.no_trash, G_CALLBACK(use_no_cache_cb), nullptr);
-
-	gtk_widget_show(button);
 
 	pref_spacer(group, PREF_PAD_GROUP);
 

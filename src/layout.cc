@@ -195,25 +195,13 @@ static GtkWidget *layout_tool_setup(LayoutWindow *lw)
 {
 	GtkWidget *box;
 	GtkWidget *menu_bar;
-	GtkWidget *menu_toolbar_box;
-	GtkWidget *scroll_window;
 	GtkWidget *tabcomp;
 
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
-	{
-		menu_toolbar_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-		scroll_window = gq_gtk_scrolled_window_new(nullptr, nullptr);
-		gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
-
-		menu_bar = layout_actions_menu_bar(lw);
-		gq_gtk_box_pack_start(GTK_BOX(menu_toolbar_box), menu_bar, FALSE, FALSE, 0);
-
-		gq_gtk_container_add(GTK_WIDGET(scroll_window), menu_toolbar_box);
-		gq_gtk_box_pack_start(GTK_BOX(box), scroll_window, FALSE, FALSE, 0);
-
-		gq_gtk_widget_show_all(scroll_window);
-	}
+	menu_bar = layout_actions_menu_bar(lw);
+	gq_gtk_box_pack_start(GTK_BOX(box), menu_bar, FALSE, FALSE, 0);
+	gtk_widget_show(menu_bar);
 
 	tabcomp = tab_completion_new_with_history(&lw->path_entry, nullptr, "path_list", -1, layout_path_entry_cb, lw);
 	DEBUG_NAME(tabcomp);
