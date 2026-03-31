@@ -41,7 +41,6 @@ struct ImageLoader;
 #endif
 #define THUMB_FOLDER_NORMAL "normal"
 #define THUMB_FOLDER_LARGE  "large"
-#define THUMB_FOLDER_FAIL   "fail" G_DIR_SEPARATOR_S GQ_APPNAME_LC "-" VERSION
 #define THUMB_NAME_EXTENSION ".png"
 
 

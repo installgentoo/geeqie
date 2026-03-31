@@ -141,8 +141,7 @@ static void thumb_loader_std_reset(ThumbLoaderStd *tl)
 	tl->progress = 0.0;
 }
 
-static gchar *thumb_std_cache_path(const gchar *path, const gchar *uri, gboolean,
-				   const gchar *cache_subfolder)
+static gchar *thumb_std_cache_path(const gchar *path, const gchar *uri, const gchar *cache_subfolder)
 {
 	gchar *result = nullptr;
 	gchar *md5_text;
@@ -165,7 +164,7 @@ static gchar *thumb_std_cache_path(const gchar *path, const gchar *uri, gboolean
 	return result;
 }
 
-static gchar *thumb_loader_std_cache_path(ThumbLoaderStd *tl, gboolean, GdkPixbuf *pixbuf, gboolean fail)
+static gchar *thumb_loader_std_cache_path(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 {
 	const gchar *folder;
 	gint w;
@@ -184,11 +183,7 @@ static gchar *thumb_loader_std_cache_path(ThumbLoaderStd *tl, gboolean, GdkPixbu
 		h = tl->requested_height;
 		}
 
-	if (fail)
-		{
-		folder = THUMB_FOLDER_FAIL;
-		}
-	else if (w > THUMB_SIZE_NORMAL || h > THUMB_SIZE_NORMAL)
+	if (w > THUMB_SIZE_NORMAL || h > THUMB_SIZE_NORMAL)
 		{
 		folder = THUMB_FOLDER_LARGE;
 		}
@@ -197,52 +192,7 @@ static gchar *thumb_loader_std_cache_path(ThumbLoaderStd *tl, gboolean, GdkPixbu
 		folder = THUMB_FOLDER_NORMAL;
 		}
 
-	return thumb_std_cache_path(tl->fd->path, tl->thumb_uri, FALSE, folder);
-}
-
-static gboolean thumb_loader_std_fail_check(ThumbLoaderStd *tl)
-{
-	gchar *fail_path;
-	gboolean result = FALSE;
-
-	fail_path = thumb_loader_std_cache_path(tl, FALSE, nullptr, TRUE);
-	if (isfile(fail_path))
-		{
-		GdkPixbuf *pixbuf;
-
-		if (tl->cache_retry)
-			{
-			pixbuf = nullptr;
-			}
-		else
-			{
-			gchar *pathl;
-
-			pathl = path_from_utf8(fail_path);
-			pixbuf = gdk_pixbuf_new_from_file(pathl, nullptr);
-			g_free(pathl);
-			}
-
-		if (pixbuf)
-			{
-			const gchar *mtime_str;
-
-			mtime_str = gdk_pixbuf_get_option(pixbuf, THUMB_MARKER_MTIME);
-			if (mtime_str && strtol(mtime_str, nullptr, 10) == tl->source_mtime)
-				{
-				result = TRUE;
-				DEBUG_1("thumb fail valid: %s", tl->fd->path);
-				DEBUG_1("           thumb: %s", fail_path);
-				}
-
-			g_object_unref(G_OBJECT(pixbuf));
-			}
-
-		if (!result) unlink_file(fail_path);
-		}
-	g_free(fail_path);
-
-	return result;
+	return thumb_std_cache_path(tl->fd->path, tl->thumb_uri, folder);
 }
 
 static gboolean thumb_loader_std_validate(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
@@ -280,7 +230,6 @@ static void thumb_loader_std_save(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 {
 	gchar *base_path;
 	gchar *tmp_path;
-	gboolean fail;
 
 	if (!tl->cache_enable || tl->cache_hit) return;
 	if (tl->thumb_path) return;
@@ -294,10 +243,9 @@ static void thumb_loader_std_save(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
 	else
 		{
 		g_object_ref(G_OBJECT(pixbuf));
-		fail = FALSE;
 		}
 
-	tl->thumb_path = thumb_loader_std_cache_path(tl, FALSE, pixbuf, fail);
+	tl->thumb_path = thumb_loader_std_cache_path(tl, pixbuf);
 	if (!tl->thumb_path)
 		{
 		g_object_unref(G_OBJECT(pixbuf));
@@ -575,29 +523,6 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoaderStd *tl, GdkPixbuf *pixbuf,
 	return result;
 }
 
-static gboolean thumb_loader_std_next_source(ThumbLoaderStd *tl, gboolean remove_broken)
-{
-	image_loader_free(tl->il);
-	tl->il = nullptr;
-
-	if (tl->thumb_path)
-		{
-		if (remove_broken)
-			{
-			DEBUG_1("thumb broken, unlinking: %s", tl->thumb_path);
-			unlink_file(tl->thumb_path);
-			}
-
-		g_free(tl->thumb_path);
-		tl->thumb_path = nullptr;
-
-		if (thumb_loader_std_setup(tl, tl->fd)) return TRUE;
-		}
-
-	thumb_loader_std_save(tl, nullptr);
-	return FALSE;
-}
-
 static void thumb_loader_std_done_cb(ImageLoader *il, gpointer data)
 {
 	auto tl = static_cast<ThumbLoaderStd *>(data);
@@ -607,17 +532,30 @@ static void thumb_loader_std_done_cb(ImageLoader *il, gpointer data)
 	DEBUG_1("            from: %s", image_loader_get_fd(tl->il)->path);
 
 	pixbuf = image_loader_get_pixbuf(tl->il);
-	if (!pixbuf)
+
+	if (tl->thumb_path && (!pixbuf || !thumb_loader_std_validate(tl, pixbuf)))
 		{
-		DEBUG_1("...but no pixbuf");
-		thumb_loader_std_error_cb(il, data);
+		/* cached thumb was broken or stale — unlink and load source */
+		DEBUG_1("thumb invalid, unlinking: %s", tl->thumb_path);
+		unlink_file(tl->thumb_path);
+		g_free(tl->thumb_path);
+		tl->thumb_path = nullptr;
+
+		image_loader_free(tl->il);
+		tl->il = nullptr;
+
+		if (thumb_loader_std_setup(tl, tl->fd)) return;
+
+		thumb_loader_std_set_fallback(tl);
+		if (tl->func_error) tl->func_error(tl, tl->data);
 		return;
 		}
 
-	if (tl->thumb_path && !thumb_loader_std_validate(tl, pixbuf))
+	if (!pixbuf)
 		{
-		if (thumb_loader_std_next_source(tl, TRUE)) return;
-
+		/* source image failed to load */
+		DEBUG_1("thumb source error: %s", tl->fd->path);
+		thumb_loader_std_set_fallback(tl);
 		if (tl->func_error) tl->func_error(tl, tl->data);
 		return;
 		}
@@ -647,11 +585,8 @@ static void thumb_loader_std_error_cb(ImageLoader *il, gpointer data)
 	DEBUG_1("thumb image error: %s", tl->fd->path);
 	DEBUG_1("             from: %s", image_loader_get_fd(tl->il)->path);
 
-	if (thumb_loader_std_next_source(tl, TRUE)) return;
-
-	thumb_loader_std_set_fallback(tl);
-
-	if (tl->func_error) tl->func_error(tl, tl->data);
+	/* pass through done_cb which handles both cached and source failures */
+	thumb_loader_std_done_cb(il, data);
 }
 
 static void thumb_loader_std_progress_cb(ImageLoader *, gdouble percent, gpointer data)
@@ -740,14 +675,15 @@ gboolean thumb_loader_std_start(ThumbLoaderStd *tl, FileData *fd)
 
 	if (tl->cache_enable)
 		{
-		gint found;
+		struct stat thumb_st;
 
-		tl->thumb_path = thumb_loader_std_cache_path(tl, FALSE, nullptr, FALSE);
+		tl->thumb_path = thumb_loader_std_cache_path(tl, nullptr);
 
-		found = isfile(tl->thumb_path);
-		if (found)
+		/* stat-based pre-check: skip loading thumbs older than the source */
+		gboolean found = (stat_utf8(tl->thumb_path, &thumb_st) && S_ISREG(thumb_st.st_mode));
+		if (found && thumb_st.st_mtime >= tl->source_mtime)
 			{
-			FileData *fd = file_data_new_no_grouping(tl->thumb_path);
+			FileData *fd = file_data_new(tl->thumb_path, &thumb_st);
 			if (thumb_loader_std_setup(tl, fd))
 				{
 				file_data_unref(fd);
@@ -756,18 +692,14 @@ gboolean thumb_loader_std_start(ThumbLoaderStd *tl, FileData *fd)
 			file_data_unref(fd);
 			}
 
-		if (thumb_loader_std_fail_check(tl) ||
-		    !thumb_loader_std_next_source(tl, found))
-			{
-			thumb_loader_std_set_fallback(tl);
-			return FALSE;
-			}
-		return TRUE;
+		/* cached thumb missing or stale — clean up and load source directly */
+		if (found) unlink_file(tl->thumb_path);
+		g_free(tl->thumb_path);
+		tl->thumb_path = nullptr;
 		}
 
 	if (!thumb_loader_std_setup(tl, tl->fd))
 		{
-		thumb_loader_std_save(tl, nullptr);
 		thumb_loader_std_set_fallback(tl);
 		return FALSE;
 		}
@@ -959,14 +891,11 @@ ThumbLoaderStd *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gi
 	return tv->tl;
 }
 
-static void thumb_std_maint_remove_one(const gchar *source, const gchar *uri, gboolean local,
-				       const gchar *subfolder)
+static void thumb_std_maint_remove_one(const gchar *source, const gchar *uri, const gchar *subfolder)
 {
 	gchar *thumb_path;
 
-	thumb_path = thumb_std_cache_path(source,
-					  (local) ? filename_from_path(uri) : uri,
-					  local, subfolder);
+	thumb_path = thumb_std_cache_path(source, uri, subfolder);
 	if (isfile(thumb_path))
 		{
 		DEBUG_1("thumb removing: %s", thumb_path);
@@ -987,11 +916,8 @@ void thumb_std_maint_removed(const gchar *source)
 
 	/* all this to remove a thumbnail? */
 
-	thumb_std_maint_remove_one(source, uri, FALSE, THUMB_FOLDER_NORMAL);
-	thumb_std_maint_remove_one(source, uri, FALSE, THUMB_FOLDER_LARGE);
-	thumb_std_maint_remove_one(source, uri, FALSE, THUMB_FOLDER_FAIL);
-	thumb_std_maint_remove_one(source, uri, TRUE, THUMB_FOLDER_NORMAL);
-	thumb_std_maint_remove_one(source, uri, TRUE, THUMB_FOLDER_LARGE);
+	thumb_std_maint_remove_one(source, uri, THUMB_FOLDER_NORMAL);
+	thumb_std_maint_remove_one(source, uri, THUMB_FOLDER_LARGE);
 
 	g_free(uri);
 }
@@ -1024,8 +950,8 @@ static void thumb_std_maint_move_step(TMaintMove *tm)
 
 		auto* uri = g_filename_to_uri(tm->source, nullptr, nullptr);
 		auto* new_uri = g_filename_to_uri(tm->dest, nullptr, nullptr);
-		auto* thumb_path = thumb_std_cache_path(tm->source, uri, FALSE, THUMB_FOLDER_NORMAL);
-		auto* new_thumb_path = thumb_std_cache_path(tm->dest, new_uri, FALSE, THUMB_FOLDER_NORMAL);
+		auto* thumb_path = thumb_std_cache_path(tm->source, uri, THUMB_FOLDER_NORMAL);
+		auto* new_thumb_path = thumb_std_cache_path(tm->dest, new_uri, THUMB_FOLDER_NORMAL);
 
 		gboolean success = rename_file(thumb_path, new_thumb_path);
 

@@ -278,8 +278,8 @@ class FileData {
 
 	static void file_data_dump();
 
-    protected:
 	static FileData *file_data_new(const gchar *path_utf8, struct stat *st, gboolean, FileDataContext *context = nullptr);
+    protected:
 	static FileData *file_data_new_local(const gchar *path, struct stat *st, gboolean, FileDataContext *context = nullptr);
 
 	static void file_data_free(FileData *fd);
@@ -356,9 +356,9 @@ gchar *text_from_size(gint64 size);
 gchar *text_from_size_abrev(gint64 size);
 const gchar *text_from_time(time_t t);
 
-FileData *file_data_new_group(const gchar *path_utf8);
-
 FileData *file_data_new_no_grouping(const gchar *path_utf8);
+
+FileData *file_data_new(const gchar *path_utf8, struct stat *st);
 
 FileData *file_data_new_dir(const gchar *path_utf8);
 

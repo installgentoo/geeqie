@@ -52,6 +52,11 @@ FileData *file_data_new_no_grouping(const gchar *path_utf8)
 	return FileData::file_data_new_no_grouping(path_utf8);
 }
 
+FileData *file_data_new(const gchar *path_utf8, struct stat *st)
+{
+	return FileData::file_data_new(path_utf8, st, TRUE);
+}
+
 /**
  * @brief Should be used on dirs
  */

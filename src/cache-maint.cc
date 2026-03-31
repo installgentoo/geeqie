@@ -969,7 +969,6 @@ static void cache_manager_standard_clean_start(GenericDialog *, gpointer data)
 
 	cd->list = get_thumbnails_folder_files(THUMB_FOLDER_NORMAL);
 	cd->list = g_list_concat(cd->list, get_thumbnails_folder_files(THUMB_FOLDER_LARGE));
-	cd->list = g_list_concat(cd->list, get_thumbnails_folder_files(THUMB_FOLDER_FAIL));
 
 	cd->count_total = g_list_length(cd->list);
 	cd->count_done = 0;
