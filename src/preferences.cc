@@ -267,7 +267,6 @@ static void config_window_apply()
 	options->thumbnails.use_exif = c_options->thumbnails.use_exif;
 	options->thumbnails.use_color_management = c_options->thumbnails.use_color_management;
 	options->thumbnails.use_ft_metadata = c_options->thumbnails.use_ft_metadata;
-	options->thumbnails.spec_standard = c_options->thumbnails.spec_standard;
 	options->file_filter.show_hidden_files = c_options->file_filter.show_hidden_files;
 	options->file_filter.disable_file_extension_checks = c_options->file_filter.disable_file_extension_checks;
 
@@ -1331,22 +1330,6 @@ static GtkWidget *scrolled_notebook_page(GtkWidget *notebook, const gchar *title
 	return vbox;
 }
 
-static void cache_standard_cb(GtkWidget *widget, gpointer)
-{
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
-		{
-		c_options->thumbnails.spec_standard =TRUE;
-		}
-}
-
-static void cache_geeqie_cb(GtkWidget *widget, gpointer)
-{
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
-		{
-		c_options->thumbnails.spec_standard =FALSE;
-		}
-}
-
 static void config_tab_general(GtkWidget *notebook)
 {
 	GtkWidget *vbox;
@@ -1354,7 +1337,6 @@ static void config_tab_general(GtkWidget *notebook)
 	GtkWidget *group;
 	GtkWidget *group_frame;
 	GtkWidget *subgroup;
-	GtkWidget *button;
 	GtkWidget *ct_button;
 	GtkWidget *table;
 
@@ -1376,19 +1358,14 @@ static void config_tab_general(GtkWidget *notebook)
 	subgroup = pref_box_new(group, FALSE, GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
 	pref_checkbox_link_sensitivity(ct_button, subgroup);
 
-	c_options->thumbnails.spec_standard = options->thumbnails.spec_standard;
-	group_frame = pref_frame_new(subgroup, TRUE, _("Use Geeqie thumbnail style and cache"),
-										GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
-	button = pref_radiobutton_new(group_frame, nullptr,  get_thumbnails_cache_dir(),
-							!options->thumbnails.spec_standard,
-							G_CALLBACK(cache_geeqie_cb), nullptr);
+	group_frame = pref_frame_new(subgroup, TRUE, _("Geeqie .sim cache"),
+							GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
+	pref_label_new(group_frame, _(get_thumbnails_cache_dir()));
 
 	group_frame = pref_frame_new(subgroup, TRUE,
-							_("Use standard thumbnail style and cache, shared with other applications"),
+							_("Standard thumbnail cache"),
 							GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
-	pref_radiobutton_new(group_frame, button, get_thumbnails_standard_cache_dir(),
-							options->thumbnails.spec_standard,
-							G_CALLBACK(cache_standard_cb), nullptr);
+	pref_label_new(group_frame, _(get_thumbnails_standard_cache_dir()));
 
 	pref_checkbox_new_int(group, _("Use EXIF thumbnails when available (EXIF thumbnails may be outdated)"),
 			      options->thumbnails.use_exif, &c_options->thumbnails.use_exif);

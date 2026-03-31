@@ -445,7 +445,7 @@ static void cache_maint_moved(FileData *fd)
 	cache_move(CACHE_TYPE_THUMB);
 	cache_move(CACHE_TYPE_SIM);
 
-	if (options->thumbnails.enable_caching && options->thumbnails.spec_standard)
+	if (options->thumbnails.enable_caching)
 		thumb_std_maint_moved(src, dest);
 }
 
@@ -465,7 +465,7 @@ static void cache_maint_removed(FileData *fd)
 	cache_remove(CACHE_TYPE_THUMB);
 	cache_remove(CACHE_TYPE_SIM);
 
-	if (options->thumbnails.enable_caching && options->thumbnails.spec_standard)
+	if (options->thumbnails.enable_caching)
 		thumb_std_maint_removed(fd->path);
 }
 
@@ -511,7 +511,7 @@ struct CacheManager
 struct CacheOpsData
 {
 	GenericDialog *gd;
-	ThumbLoaderStd *tl;
+	ThumbLoader *tl;
 	CacheLoader *cl;
 	GSourceFunc destroy_func; /* Used by the command line prog. functions */
 
@@ -548,7 +548,7 @@ static void cache_manager_render_reset(CacheOpsData *cd)
 	filelist_free(cd->list_dir);
 	cd->list_dir = nullptr;
 
-	thumb_loader_free(reinterpret_cast<ThumbLoader *>(cd->tl));
+	thumb_loader_free(cd->tl);
 	cd->tl = nullptr;
 }
 
@@ -611,7 +611,7 @@ static gboolean cache_manager_render_file(CacheOpsData *cd);
 
 static void cache_manager_render_release_thumb_pixbuf(CacheOpsData *cd)
 {
-	auto tl = reinterpret_cast<ThumbLoader *>(cd->tl);
+	auto tl = cd->tl;
 
 	if (!tl || !tl->fd || !tl->fd->thumb_pixbuf) return;
 
@@ -625,7 +625,7 @@ static void cache_manager_render_thumb_done_cb(ThumbLoader *, gpointer data)
 
 	cache_manager_render_release_thumb_pixbuf(cd);
 
-	thumb_loader_free(reinterpret_cast<ThumbLoader *>(cd->tl));
+	thumb_loader_free(cd->tl);
 	cd->tl = nullptr;
 
 	while (cache_manager_render_file(cd));
@@ -641,13 +641,13 @@ static gboolean cache_manager_render_file(CacheOpsData *cd)
 		fd = static_cast<FileData *>(cd->list->data);
 		cd->list = g_list_remove(cd->list, fd);
 
-		cd->tl = reinterpret_cast<ThumbLoaderStd *>(thumb_loader_new(options->thumbnails.save_width, options->thumbnails.display_width));
-		thumb_loader_set_callbacks(reinterpret_cast<ThumbLoader *>(cd->tl),
+		cd->tl = thumb_loader_new(options->thumbnails.save_width, options->thumbnails.display_width);
+		thumb_loader_set_callbacks(cd->tl,
 					   cache_manager_render_thumb_done_cb,
 					   cache_manager_render_thumb_done_cb,
 					   nullptr, cd);
-		thumb_loader_set_cache(reinterpret_cast<ThumbLoader *>(cd->tl), TRUE, FALSE, TRUE);
-		success = thumb_loader_start(reinterpret_cast<ThumbLoader *>(cd->tl), fd);
+		thumb_loader_set_cache(cd->tl);
+		success = thumb_loader_start(cd->tl, fd);
 		if (success)
 			{
 			if (!cd->remote)
@@ -660,7 +660,7 @@ static gboolean cache_manager_render_file(CacheOpsData *cd)
 		else
 			{
 			cache_manager_render_release_thumb_pixbuf(cd);
-			thumb_loader_free(reinterpret_cast<ThumbLoader *>(cd->tl));
+			thumb_loader_free(cd->tl);
 			cd->tl = nullptr;
 			}
 

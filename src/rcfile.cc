@@ -401,8 +401,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_INT(*options, thumbnails.save_width);
 	WRITE_NL(); WRITE_INT(*options, thumbnails.display_width);
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.enable_caching);
-	WRITE_NL(); WRITE_BOOL(*options, thumbnails.use_xvpics);
-	WRITE_NL(); WRITE_BOOL(*options, thumbnails.spec_standard);
 	WRITE_NL(); WRITE_UINT(*options, thumbnails.quality);
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.use_exif);
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.use_color_management);
@@ -722,8 +720,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_INT_CLAMP(*options, thumbnails.display_width, 16, 512)) continue;
 
 		if (READ_BOOL(*options, thumbnails.enable_caching)) continue;
-		if (READ_BOOL(*options, thumbnails.use_xvpics)) continue;
-		if (READ_BOOL(*options, thumbnails.spec_standard)) continue;
 		if (READ_UINT_CLAMP(*options, thumbnails.quality, GDK_INTERP_NEAREST, GDK_INTERP_BILINEAR)) continue;
 		if (READ_BOOL(*options, thumbnails.use_exif)) continue;
 		if (READ_BOOL(*options, thumbnails.use_color_management)) continue;

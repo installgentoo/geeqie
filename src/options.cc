@@ -139,8 +139,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->thumbnails.save_width = 128;
 	options->thumbnails.display_width = 128;
 	options->thumbnails.quality = GDK_INTERP_TILES;
-	options->thumbnails.spec_standard = TRUE;
-	options->thumbnails.use_xvpics = TRUE;
 	options->thumbnails.use_exif = FALSE;
 	options->thumbnails.use_color_management = FALSE;
 	options->thumbnails.use_ft_metadata = TRUE;

@@ -124,8 +124,6 @@ struct ConfOptions
 		gint save_width;
 		gint display_width;
 		gboolean enable_caching;
-		gboolean use_xvpics;
-		gboolean spec_standard;
 		guint quality;
 		gboolean use_exif;
 		gboolean use_color_management;

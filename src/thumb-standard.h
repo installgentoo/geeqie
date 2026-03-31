@@ -44,7 +44,7 @@ struct ImageLoader;
 #define THUMB_NAME_EXTENSION ".png"
 
 
-struct ThumbLoaderStd
+struct ThumbLoader
 {
 	gboolean standard_loader;
 
@@ -63,11 +63,10 @@ struct ThumbLoaderStd
 
 	gboolean cache_enable;
 	gboolean cache_hit;
-	gboolean cache_retry;
 
 	gdouble progress;
 
-	using Func = void (*)(ThumbLoaderStd *, gpointer);
+	using Func = void (*)(ThumbLoader *, gpointer);
 	Func func_done;
 	Func func_error;
 	Func func_progress;
@@ -76,24 +75,24 @@ struct ThumbLoaderStd
 };
 
 
-ThumbLoaderStd *thumb_loader_std_new(gint save_width, gint display_width);
-void thumb_loader_std_set_callbacks(ThumbLoaderStd *tl,
-				    ThumbLoaderStd::Func func_done,
-				    ThumbLoaderStd::Func func_error,
-				    ThumbLoaderStd::Func func_progress,
+ThumbLoader *thumb_loader_std_new(gint save_width, gint display_width);
+void thumb_loader_std_set_callbacks(ThumbLoader *tl,
+				    ThumbLoader::Func func_done,
+				    ThumbLoader::Func func_error,
+				    ThumbLoader::Func func_progress,
 				    gpointer data);
-void thumb_loader_std_set_cache(ThumbLoaderStd *tl, gboolean enable_cache, gboolean, gboolean retry_failed);
-gboolean thumb_loader_std_start(ThumbLoaderStd *tl, FileData *fd);
-void thumb_loader_std_free(ThumbLoaderStd *tl);
+void thumb_loader_std_set_cache(ThumbLoader *tl);
+gboolean thumb_loader_std_start(ThumbLoader *tl, FileData *fd);
+void thumb_loader_std_free(ThumbLoader *tl);
 
-GdkPixbuf *thumb_loader_std_get_pixbuf(ThumbLoaderStd *tl);
+GdkPixbuf *thumb_loader_std_get_pixbuf(ThumbLoader *tl);
 
 void thumb_loader_std_calibrate_pixbuf(FileData *fd, GdkPixbuf *pixbuf);
 
-ThumbLoaderStd *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gint allowed_days,
+ThumbLoader *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gint allowed_days,
 						     void (*func_valid)(const gchar *path, gboolean valid, gpointer data),
 						     gpointer data);
-void thumb_loader_std_thumb_file_validate_cancel(ThumbLoaderStd *tl);
+void thumb_loader_std_thumb_file_validate_cancel(ThumbLoader *tl);
 
 
 void thumb_std_maint_removed(const gchar *source);

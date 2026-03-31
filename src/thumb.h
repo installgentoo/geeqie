@@ -22,38 +22,10 @@
 #ifndef THUMB_H
 #define THUMB_H
 
-#include <gdk-pixbuf/gdk-pixbuf.h>
-#include <glib.h>
-
+#include "thumb-standard.h"
 #include "typedefs.h"
 
 class FileData;
-struct ImageLoader;
-
-struct ThumbLoader
-{
-	gboolean standard_loader;
-
-	ImageLoader *il;
-	FileData *fd;           /**< fd->pixbuf contains final (scaled) image when done */
-
-	gboolean cache_enable;
-	gboolean cache_hit;
-	gdouble percent_done;
-
-	gint save_width;
-	gint display_width;
-
-	using Func = void (*)(ThumbLoader *, gpointer);
-	Func func_done;
-	Func func_error;
-	Func func_progress;
-
-	gpointer data;
-
-	guint idle_done_id; /**< event source id */
-};
-
 
 ThumbLoader *thumb_loader_new(gint save_width, gint display_width);
 void thumb_loader_set_callbacks(ThumbLoader *tl,
@@ -61,7 +33,7 @@ void thumb_loader_set_callbacks(ThumbLoader *tl,
 				ThumbLoader::Func func_error,
 				ThumbLoader::Func func_progress,
 				gpointer data);
-void thumb_loader_set_cache(ThumbLoader *tl, gboolean enable_cache, gboolean, gboolean retry_failed);
+void thumb_loader_set_cache(ThumbLoader *tl);
 
 gboolean thumb_loader_start(ThumbLoader *tl, FileData *fd);
 void thumb_loader_free(ThumbLoader *tl);
