@@ -84,8 +84,6 @@ constexpr std::array<GtkTargetEntry, 4> target_types
 constexpr gint DIALOG_DEF_IMAGE_DIM_X = 150;
 constexpr gint DIALOG_DEF_IMAGE_DIM_Y = 100;
 
-constexpr gint DIALOG_WIDTH = 750;
-
 /* thumbnail spec has a max depth of 4 (.thumb??/fail/appname/??.png) */
 constexpr gint UTILITY_DELETE_MAX_DEPTH = 5;
 

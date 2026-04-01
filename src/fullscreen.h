@@ -41,7 +41,7 @@ struct FullScreenData
 	guint busy_mouse_id; /**< event source id */
 
 	gint cursor_state;
-OsdShowFlags osd_flags;
+	gboolean osd;
 
 	guint saver_block_id; /**< event source id */
 

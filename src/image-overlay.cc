@@ -42,19 +42,12 @@
 #include "pixbuf-util.h"
 #include "typedefs.h"
 
-namespace
-{
-
-constexpr gint IMAGE_OSD_DEFAULT_DURATION = 30;
-
-} // namespace
-
 struct OverlayStateData {
 	ImageWindow *imd;
 	ImageState changed_states;
 	NotifyType notify;
 
-	OsdShowFlags show;
+	gboolean show;
 	OverlayRendererFlags origin;
 
 	gint ovl_info;
@@ -62,36 +55,10 @@ struct OverlayStateData {
 	gint x;
 	gint y;
 
-	gint icon_time[IMAGE_OSD_COUNT];
-	gint icon_id[IMAGE_OSD_COUNT];
-
 	guint idle_id; /* event source id */
-	guint timer_id; /* event source id */
 	gulong destroy_id;
 };
 
-
-struct OSDIcon {
-	gboolean reset;	/* reset on new image */
-	gint x;		/* x, y offset */
-	gint y;
-	gchar *key;	/* inline pixbuf */
-};
-
-static OSDIcon osd_icons[] = {
-	{  TRUE,   0,   0, nullptr },			/* none */
-	{  TRUE, -10, -10, nullptr },			/* auto rotated */
-	{  TRUE, -10, -10, nullptr },			/* user rotated */
-	{  TRUE, -40, -10, nullptr },			/* color embedded */
-	{  TRUE, -70, -10, nullptr },			/* first image */
-	{  TRUE, -70, -10, nullptr },			/* last image */
-	{ FALSE, -70, -10, nullptr },			/* osd enabled */
-	{ FALSE, 0, 0, nullptr }
-};
-
-#define OSD_DATA "overlay-data"
-
-static void image_osd_timer_schedule(OverlayStateData *osd);
 
 void set_image_overlay_template_string(gchar **template_string, const gchar *value)
 {
@@ -100,7 +67,6 @@ void set_image_overlay_template_string(gchar **template_string, const gchar *val
 	g_free(*template_string);
 	*template_string = g_strdup(value);
 }
-
 
 void set_image_overlay_font_string(gchar **font_string, const gchar *value)
 {
@@ -127,21 +93,6 @@ static void image_set_osd_data(ImageWindow *imd, OverlayStateData *osd)
 	g_assert(imd);
 	g_assert(imd->pr);
 	g_object_set_data(G_OBJECT(imd->pr), "IMAGE_OVERLAY_DATA", osd);
-}
-
-void image_osd_toggle(ImageWindow *imd)
-{
-	if (!imd) return;
-
-	OsdShowFlags show = image_osd_get(imd);
-	if (show == OSD_SHOW_NOTHING)
-		{
-		image_osd_set(imd, static_cast<OsdShowFlags>(OSD_SHOW_INFO | OSD_SHOW_STATUS));
-		}
-	else
-		{
-		image_osd_set(imd, OSD_SHOW_NOTHING);
-		}
 }
 
 static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
@@ -205,84 +156,6 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 	return pixbuf;
 }
 
-/**
- * @brief Create non-standard icons for the OSD
- * @param flag
- * @returns
- *
- * IMAGE_OSD_COLOR
- * \image html image-osd-color.png
- * IMAGE_OSD_FIRST
- * \image html image-osd-first.png
- * IMAGE_OSD_ICON
- * \image html image-osd-icon.png
- * IMAGE_OSD_LAST
- * \image html image-osd-last.png
- * IMAGE_OSD_ROTATE_AUTO
- * \image html image-osd-rotate-auto.png
- *
- */
-static GdkPixbuf *image_osd_icon_pixbuf(ImageOSDFlag flag)
-{
-	static auto **icons = g_new0(GdkPixbuf *, IMAGE_OSD_COUNT);
-
-	if (icons[flag]) return icons[flag];
-
-	GdkPixbuf *icon = nullptr;
-
-	if (osd_icons[flag].key)
-		{
-		icon = pixbuf_inline(osd_icons[flag].key);
-		}
-
-	if (!icon)
-		{
-		icon = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, 24, 24);
-		pixbuf_set_rect_fill(icon, 1, 1, 22, 22, 255, 255, 255, 200);
-		pixbuf_set_rect(icon, 0, 0, 24, 24, 0, 0, 0, 128, 1, 1, 1, 1);
-		switch (flag)
-			{
-			case IMAGE_OSD_ROTATE_AUTO:
-				pixbuf_set_rect(icon, 3, 8, 11, 12,
-						0, 0, 0, 255,
-						3, 0, 3, 0);
-				pixbuf_draw_triangle(icon, {14, 3, 6, 12},
-				                     {20, 9}, {14, 15}, {14, 3},
-				                     0, 0, 0, 255);
-				break;
-			case IMAGE_OSD_ROTATE_USER:
-				break;
-			case IMAGE_OSD_COLOR:
-				pixbuf_set_rect_fill(icon, 3, 3, 18, 6, 200, 0, 0, 255);
-				pixbuf_set_rect_fill(icon, 3, 9, 18, 6, 0, 200, 0, 255);
-				pixbuf_set_rect_fill(icon, 3, 15, 18, 6, 0, 0, 200, 255);
-				break;
-			case IMAGE_OSD_FIRST:
-				pixbuf_set_rect(icon, 3, 3, 18, 18, 0, 0, 0, 200, 3, 3, 3, 0);
-				pixbuf_draw_triangle(icon, {6, 5, 12, 6},
-				                     {12, 5}, {18, 11}, {6, 11},
-				                     0, 0, 0, 255);
-				break;
-			case IMAGE_OSD_LAST:
-				pixbuf_set_rect(icon, 3, 3, 18, 18, 0, 0, 0, 200, 3, 3, 0, 3);
-				pixbuf_draw_triangle(icon, {6, 12, 12, 6},
-				                     {12, 18}, {6, 12}, {18, 12},
-				                     0, 0, 0, 255);
-				break;
-			case IMAGE_OSD_ICON:
-				pixbuf_set_rect_fill(icon, 11, 3, 3, 12, 0, 0, 0, 255);
-				pixbuf_set_rect_fill(icon, 11, 17, 3, 3, 0, 0, 0, 255);
-				break;
-			default:
-				break;
-			}
-		}
-
-	icons[flag] = icon;
-
-	return icon;
-}
-
 static gint image_overlay_add(ImageWindow *imd, GdkPixbuf *pixbuf, gint x, gint y,
 			      OverlayRendererFlags flags)
 {
@@ -297,69 +170,6 @@ static void image_overlay_set(ImageWindow *imd, gint id, GdkPixbuf *pixbuf, gint
 static void image_overlay_remove(ImageWindow *imd, gint id)
 {
 	pixbuf_renderer_overlay_remove(PIXBUF_RENDERER(imd->pr), id);
-}
-
-static void image_osd_icon_show(OverlayStateData *osd, ImageOSDFlag flag)
-{
-	GdkPixbuf *pixbuf;
-
-	if (osd->icon_id[flag]) return;
-
-	pixbuf = image_osd_icon_pixbuf(flag);
-	if (!pixbuf) return;
-
-	osd->icon_id[flag] = image_overlay_add(osd->imd, pixbuf,
-					       osd_icons[flag].x, osd_icons[flag].y,
-					       OVL_RELATIVE);
-}
-
-static void image_osd_icon_hide(OverlayStateData *osd, ImageOSDFlag flag)
-{
-	if (osd->icon_id[flag])
-		{
-		image_overlay_remove(osd->imd, osd->icon_id[flag]);
-		osd->icon_id[flag] = 0;
-		}
-}
-
-static void image_osd_icons_reset_time(OverlayStateData *osd)
-{
-	gint i;
-
-	for (i = 0; i < IMAGE_OSD_COUNT; i++)
-		{
-		if (osd_icons[i].reset)
-			{
-			osd->icon_time[i] = 0;
-			}
-		}
-}
-
-static void image_osd_icons_update(OverlayStateData *osd)
-{
-	gint i;
-
-	for (i = 0; i < IMAGE_OSD_COUNT; i++)
-		{
-		if (osd->icon_time[i] > 0)
-			{
-			image_osd_icon_show(osd, static_cast<ImageOSDFlag>(i));
-			}
-		else
-			{
-			image_osd_icon_hide(osd, static_cast<ImageOSDFlag>(i));
-			}
-		}
-}
-
-static void image_osd_icons_hide(OverlayStateData *osd)
-{
-	gint i;
-
-	for (i = 0; i < IMAGE_OSD_COUNT; i++)
-		{
-		image_osd_icon_hide(osd, static_cast<ImageOSDFlag>(i));
-		}
 }
 
 static void image_osd_info_show(OverlayStateData *osd, GdkPixbuf *pixbuf)
@@ -386,7 +196,7 @@ static gboolean image_osd_update_cb(gpointer data)
 {
 	auto osd = static_cast<OverlayStateData *>(data);
 
-	if (osd->show & OSD_SHOW_INFO)
+	if (osd->show)
 		{
 		/* redraw when the image was changed */
 		if (osd->changed_states & IMAGE_STATE_IMAGE)
@@ -408,38 +218,6 @@ static gboolean image_osd_update_cb(gpointer data)
 	else
 		{
 		image_osd_info_hide(osd);
-		}
-
-	if (osd->show & OSD_SHOW_STATUS)
-		{
-		if (osd->changed_states & IMAGE_STATE_IMAGE)
-			image_osd_icons_reset_time(osd);
-
-		if (osd->changed_states & IMAGE_STATE_COLOR_ADJ)
-			{
-			osd->icon_time[IMAGE_OSD_COLOR] = IMAGE_OSD_DEFAULT_DURATION + 1;
-			image_osd_timer_schedule(osd);
-			}
-
-		if (osd->changed_states & IMAGE_STATE_ROTATE_AUTO)
-			{
-			gint n = 0;
-
-			if (osd->imd->state & IMAGE_STATE_ROTATE_AUTO)
-				{
-				n = 1;
-				if (!osd->imd->cm) n += IMAGE_OSD_DEFAULT_DURATION;
-				}
-
-			osd->icon_time[IMAGE_OSD_ROTATE_AUTO] = n;
-			image_osd_timer_schedule(osd);
-			}
-
-		image_osd_icons_update(osd);
-		}
-	else
-		{
-		image_osd_icons_hide(osd);
 		}
 
 	osd->changed_states = IMAGE_STATE_NONE;
@@ -467,49 +245,6 @@ void image_osd_update(ImageWindow *imd)
 	image_osd_update_schedule(osd, TRUE);
 }
 
-static gboolean image_osd_timer_cb(gpointer data)
-{
-	auto osd = static_cast<OverlayStateData *>(data);
-	gboolean done = TRUE;
-	gboolean changed = FALSE;
-	gint i;
-
-	for (i = 0; i < IMAGE_OSD_COUNT; i++)
-		{
-		if (osd->icon_time[i] > 1)
-			{
-			osd->icon_time[i]--;
-			if (osd->icon_time[i] < 2)
-				{
-				osd->icon_time[i] = 0;
-				changed = TRUE;
-				}
-			else
-				{
-				done = FALSE;
-				}
-			}
-		}
-
-	if (changed) image_osd_update_schedule(osd, FALSE);
-
-	if (done)
-		{
-		osd->timer_id = 0;
-		return FALSE;
-		}
-
-	return TRUE;
-}
-
-static void image_osd_timer_schedule(OverlayStateData *osd)
-{
-	if (!osd->timer_id)
-		{
-		osd->timer_id = g_timeout_add(100, image_osd_timer_cb, osd);
-		}
-}
-
 static void image_osd_state_cb(ImageWindow *, ImageState state, gpointer data)
 {
 	auto osd = static_cast<OverlayStateData *>(data);
@@ -523,7 +258,6 @@ static void image_osd_free(OverlayStateData *osd)
 	if (!osd) return;
 
 	if (osd->idle_id) g_source_remove(osd->idle_id);
-	if (osd->timer_id) g_source_remove(osd->timer_id);
 
 	if (osd->imd)
 		{
@@ -533,7 +267,6 @@ static void image_osd_free(OverlayStateData *osd)
 		image_set_state_func(osd->imd, nullptr, nullptr);
 
 		image_osd_info_hide(osd);
-		image_osd_icons_hide(osd);
 		}
 
 	g_free(osd);
@@ -547,7 +280,7 @@ static void image_osd_destroy_cb(GtkWidget *, gpointer data)
 	image_osd_free(osd);
 }
 
-static void image_osd_enable(ImageWindow *imd, OsdShowFlags show)
+static void image_osd_enable(ImageWindow *imd, gboolean show)
 {
 	OverlayStateData *osd = image_get_osd_data(imd);
 
@@ -555,7 +288,7 @@ static void image_osd_enable(ImageWindow *imd, OsdShowFlags show)
 		{
 		osd = g_new0(OverlayStateData, 1);
 		osd->imd = imd;
-		osd->show = OSD_SHOW_NOTHING;
+		osd->show = FALSE;
 		osd->x = options->image_overlay.x;
 		osd->y = options->image_overlay.y;
 		osd->origin = OVL_RELATIVE;
@@ -567,53 +300,27 @@ static void image_osd_enable(ImageWindow *imd, OsdShowFlags show)
 		image_set_state_func(osd->imd, image_osd_state_cb, osd);
 		}
 
-	if (show & OSD_SHOW_STATUS)
-		image_osd_icon(imd, IMAGE_OSD_ICON, -1);
-
 	if (show != osd->show)
 		image_osd_update_schedule(osd, TRUE);
 
 	osd->show = show;
 }
 
-void image_osd_set(ImageWindow *imd, OsdShowFlags show)
+void image_osd_set(ImageWindow *imd, gboolean show)
 {
 	if (!imd) return;
 
 	image_osd_enable(imd, show);
 }
 
-OsdShowFlags image_osd_get(ImageWindow *imd)
+gboolean image_osd_get(ImageWindow *imd)
 {
 	OverlayStateData *osd = image_get_osd_data(imd);
 
-	return osd ? osd->show : OSD_SHOW_NOTHING;
+	return osd ? osd->show : FALSE;
 }
 
 void image_osd_copy_status(ImageWindow *src, ImageWindow *dest)
 {
 	image_osd_set(dest, image_osd_get(src));
 }
-
-/* duration:
-    0 = hide
-    1 = show
-   2+ = show for duration tenths of a second
-   -1 = use default duration
- */
-void image_osd_icon(ImageWindow *imd, ImageOSDFlag flag, gint duration)
-{
-	OverlayStateData *osd = image_get_osd_data(imd);
-
-	if (!osd) return;
-
-	if (flag >= IMAGE_OSD_COUNT) return;
-	if (duration < 0) duration = IMAGE_OSD_DEFAULT_DURATION;
-	if (duration > 1) duration += 1;
-
-	osd->icon_time[flag] = duration;
-
-	image_osd_update_schedule(osd, FALSE);
-	image_osd_timer_schedule(osd);
-}
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

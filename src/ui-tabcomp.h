@@ -38,8 +38,5 @@ void tab_completion_add_tab_func(GtkWidget *entry, void (*tab_func)(const gchar 
 gchar *remove_trailing_slash(const gchar *path);
 
 void tab_completion_add_select_button(GtkWidget *entry, const gchar *title, gboolean folders_only);
-void tab_completion_add_append_func(GtkWidget *entry, void (*tab_append_func)(const gchar *, gpointer, gint), gpointer data);
-
 
 #endif
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

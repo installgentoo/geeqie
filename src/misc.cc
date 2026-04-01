@@ -43,8 +43,6 @@
 namespace
 {
 
-constexpr int BUFSIZE = 128;
-
 constexpr gint CELL_HEIGHT_OVERRIDE = 512;
 
 } // namespace

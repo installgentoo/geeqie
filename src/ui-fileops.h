@@ -69,7 +69,6 @@ gboolean isname(const gchar *s);
 gboolean isfile(const gchar *s);
 gboolean isdir(const gchar *s);
 gboolean islink(const gchar *s);
-gint64 filesize(const gchar *s);
 time_t filetime(const gchar *s);
 gboolean filetime_set(const gchar *s, time_t tval);
 gboolean is_readable_file(const gchar *s);

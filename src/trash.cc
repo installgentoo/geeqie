@@ -47,7 +47,6 @@
 static gint file_util_safe_number()
 {
 	gint n = 0;
-	gint64 total = 0;
 	GList *list;
 	GList *work;
 	FileData *dir_fd;
@@ -71,8 +70,6 @@ static gint file_util_safe_number()
 
 		v = static_cast<gint>(strtol(fd->name, nullptr, 10));
 		if (v >= n) n = v + 1;
-
-		total += fd->size;
 		}
 
 	filelist_free(list);

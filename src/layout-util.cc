@@ -332,17 +332,7 @@ static void layout_menu_overlay_cb(GtkToggleAction *action, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
 
-	if (gq_gtk_toggle_action_get_active(action))
-		{
-		OsdShowFlags flags = image_osd_get(lw->image);
-
-		if ((flags | OSD_SHOW_INFO | OSD_SHOW_STATUS) != flags)
-			image_osd_set(lw->image, static_cast<OsdShowFlags>(flags | OSD_SHOW_INFO | OSD_SHOW_STATUS));
-		}
-	else
-		{
-		image_osd_set(lw->image, OSD_SHOW_NOTHING);
-		}
+	image_osd_set(lw->image, gq_gtk_toggle_action_get_active(action));
 }
 
 static void layout_menu_animate_cb(GtkToggleAction *action, gpointer data)
@@ -1083,7 +1073,7 @@ void layout_util_sync_file_filter(LayoutWindow *lw)
 static void layout_util_sync_views(LayoutWindow *lw)
 {
 	GtkAction *action;
-	OsdShowFlags osd_flags = image_osd_get(lw->image);
+	auto osd = image_osd_get(lw->image);
 
 	if (!lw->action_group) return;
 
@@ -1091,7 +1081,7 @@ static void layout_util_sync_views(LayoutWindow *lw)
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), lw->options.animate);
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "ImageOverlay");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), osd_flags != OSD_SHOW_NOTHING);
+	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), osd);
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "ExifRotate");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), options->image.exif_rotate_enable);

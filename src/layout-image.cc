@@ -867,10 +867,6 @@ void layout_image_next(LayoutWindow *lw)
 			{
 			layout_image_set_index(lw, current + 1);
 			}
-		else
-			{
-			image_osd_icon(lw->image, IMAGE_OSD_LAST, -1);
-			}
 		}
 	else
 		{
@@ -920,10 +916,6 @@ void layout_image_prev(LayoutWindow *lw)
 		if (current > 0)
 			{
 			layout_image_set_index(lw, current - 1);
-			}
-		else
-			{
-			image_osd_icon(lw->image, IMAGE_OSD_FIRST, -1);
 			}
 		}
 	else

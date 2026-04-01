@@ -301,14 +301,6 @@ gboolean islink(const gchar *s)
 	return (lstat_utf8(s, &st) && S_ISLNK(st.st_mode));
 }
 
-gint64 filesize(const gchar *s)
-{
-	struct stat st;
-
-	if (!stat_utf8(s, &st)) return 0;
-	return st.st_size;
-}
-
 time_t filetime(const gchar *s)
 {
 	struct stat st;

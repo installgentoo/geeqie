@@ -504,7 +504,7 @@ void pixbuf_renderer_overlay_set(PixbufRenderer *pr, gint id, GdkPixbuf *pixbuf,
 	pr->renderer->overlay_set(pr->renderer, id, pixbuf, x, y);
 }
 
-gboolean pixbuf_renderer_overlay_get(PixbufRenderer *pr, gint id, GdkPixbuf **pixbuf, gint *x, gint *y)
+static gboolean pixbuf_renderer_overlay_get(PixbufRenderer *pr, gint id, GdkPixbuf **pixbuf, gint *x, gint *y)
 {
 	return pr->renderer->overlay_get(pr->renderer, id, pixbuf, x, y);
 }

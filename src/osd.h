@@ -25,7 +25,7 @@
 #include <gtk/gtk.h>
 
 class FileData;
-class ImageWindow;
+struct ImageWindow;
 
 GtkWidget *osd_new(gint max_cols, GtkWidget *template_view);
 gchar *image_osd_mkinfo(const gchar *str, ImageWindow *imd);

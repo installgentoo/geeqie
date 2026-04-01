@@ -389,7 +389,7 @@ FullScreenData *fullscreen_start(GtkWidget *window, ImageWindow *imd,
 
 	fs->cursor_state = FULLSCREEN_CURSOR_HIDDEN;
 
-	fs->osd_flags = image_osd_get(imd);
+	fs->osd = image_osd_get(imd);
 
 	fs->normal_window = window;
 	fs->normal_imd = imd;

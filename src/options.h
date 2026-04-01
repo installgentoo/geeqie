@@ -291,7 +291,7 @@ struct LayoutOptions
 	} main_window;
 
 	struct {
-		guint state;
+		gboolean state;
 	} image_overlay;
 
 	GdkRectangle log_window;

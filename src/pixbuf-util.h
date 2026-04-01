@@ -29,8 +29,6 @@
 
 class FileData;
 
-gboolean pixbuf_to_file_as_png (GdkPixbuf *pixbuf, const gchar *filename);
-
 void pixbuf_inline_register_stock_icons();
 gboolean register_theme_icon_as_stock(const gchar *key, const gchar *icon);
 
@@ -95,20 +93,10 @@ void pixbuf_draw_layout(GdkPixbuf *pixbuf, PangoLayout *layout,
                         gint x, gint y,
                         guint8 r, guint8 g, guint8 b, guint8 a);
 
-void pixbuf_draw_triangle(GdkPixbuf *pb, GdkRectangle clip,
-                          GdkPoint c1, GdkPoint c2, GdkPoint c3,
-                          guint8 r, guint8 g, guint8 b, guint8 a);
-
 void pixbuf_desaturate_rect(GdkPixbuf *pb,
 			    gint x, gint y, gint w, gint h);
 
 void pixbuf_highlight_overunderexposed(GdkPixbuf *pb,
 				       gint x, gint y, gint w, gint h);
 
-/* clipping utils */
-
-GdkRectangle util_triangle_bounding_box(GdkPoint c1, GdkPoint c2, GdkPoint c3);
-
-
 #endif
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

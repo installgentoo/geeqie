@@ -110,11 +110,6 @@ guint vf_count(ViewFile *vf, gint64 *bytes)
 	return g_list_length(vf->list);
 }
 
-GList *vf_get_list(ViewFile *vf)
-{
-	return filelist_copy(vf->list);
-}
-
 /*
  *-------------------------------------------------------------------
  * keyboard

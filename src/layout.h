@@ -109,14 +109,12 @@ void layout_write_config(LayoutWindow *lw, GString *outstr, gint indent);
 gint layout_compare_options_id(const LayoutWindow *lw, const gchar *id);
 
 const gchar *layout_get_path(LayoutWindow *lw);
-gboolean layout_set_path(LayoutWindow *lw, const gchar *path);
 gboolean layout_set_fd(LayoutWindow *lw, FileData *fd);
 
 void layout_status_update_progress(LayoutWindow *lw, gdouble val, const gchar *text);
 void layout_status_update_info(LayoutWindow *lw, const gchar *text);
 void layout_status_update_image(LayoutWindow *lw);
 
-GList *layout_list(LayoutWindow *lw);
 guint layout_list_count(LayoutWindow *lw, gint64 *bytes);
 FileData *layout_list_get_fd(LayoutWindow *lw, gint index);
 gint layout_list_get_index(LayoutWindow *lw, FileData *fd);

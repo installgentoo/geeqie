@@ -209,7 +209,7 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	options->search_window = {100, 100, 700, 650};
 	options->dupe_window = {100, 100, 800, 400};
 	options->show_file_filter = FALSE;
-	options->image_overlay.state = OSD_SHOW_NOTHING;
+	options->image_overlay.state = FALSE;
 	options->animate = TRUE;
 	options->log_window = {0, 0, 520, 400};
 	options->preferences_window.rect = {0, 0, 700, 600};

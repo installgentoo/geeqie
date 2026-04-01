@@ -94,16 +94,6 @@ constexpr PixbufInline inline_pixbuf_data[] = {
 constexpr gint ROTATE_BUFFER_WIDTH = 48;
 constexpr gint ROTATE_BUFFER_HEIGHT = 48;
 
-// Intersects the clip region with the pixbuf. r is that intersecting region.
-gboolean pixbuf_clip_region(const GdkPixbuf *pb, GdkRectangle clip, GdkRectangle &r)
-{
-	gint pw = gdk_pixbuf_get_width(pb);
-	gint ph = gdk_pixbuf_get_height(pb);
-	const GdkRectangle pb_rect{0, 0, pw, ph};
-
-	return gdk_rectangle_intersect(&pb_rect, &clip, &r);
-}
-
 /*
  * Fills rectangular region of pixbuf defined by
  * corners `(x1, y1)` and `(x2, y2)` from `rect`
@@ -138,31 +128,6 @@ void pixbuf_draw_rect_fill(guchar *p_pix, gint prs, gboolean has_alpha,
 }
 
 } // namespace
-
-/*
- *-----------------------------------------------------------------------------
- * png save
- *-----------------------------------------------------------------------------
- */
-
-gboolean pixbuf_to_file_as_png(GdkPixbuf *pixbuf, const gchar *filename)
-{
-	GError *error = nullptr;
-	gboolean ret;
-
-	if (!pixbuf || !filename) return FALSE;
-
-	ret = gdk_pixbuf_save(pixbuf, filename, "png", &error,
-			      "tEXt::Software", GQ_APPNAME " " VERSION, NULL);
-
-	if (error)
-		{
-		log_printf("Error saving png file: %s\n", error->message);
-		g_error_free(error);
-		}
-
-	return ret;
-}
 
 /*
  *-----------------------------------------------------------------------------
@@ -951,129 +916,6 @@ void pixbuf_draw_layout(GdkPixbuf *pixbuf, PangoLayout *layout,
 
 	g_object_unref(buffer);
 	cairo_surface_destroy(source);
-}
-
-/*
- *-----------------------------------------------------------------------------
- * pixbuf drawing (triangle)
- *-----------------------------------------------------------------------------
- */
-
-/**
- * @brief Computes the bounding box for the specified triangle.
- * @param[in] c1 Coordinates of the first corner of the triangle.
- * @param[in] c2 Coordinates of the second corner of the triangle.
- * @param[in] c3 Coordinates of the third corner of the triangle.
- * @return The computed bounding box.
- */
-GdkRectangle util_triangle_bounding_box(GdkPoint c1, GdkPoint c2, GdkPoint c3)
-{
-	GdkRectangle bounding_box;
-
-	gint x_max;
-	std::tie(bounding_box.x, x_max) = std::minmax({c1.x, c2.x, c3.x});
-	bounding_box.width = x_max - bounding_box.x;
-
-	gint y_max;
-	std::tie(bounding_box.y, y_max) = std::minmax({c1.y, c2.y, c3.y});
-	bounding_box.height = y_max - bounding_box.y;
-
-	return bounding_box;
-}
-
-/**
- * @brief Draws a filled triangle of the specified color into the pixbuf, constrained
- *        to the specified clip region.
- * @param pb The `GdkPixbuf` to paint into.
- * @param clip Clipping region.
- * @param c1 Coordinates of the first corner of the triangle.
- * @param c2 Coordinates of the second corner of the triangle.
- * @param c3 Coordinates of the third corner of the triangle.
- * @param r,g,b,a Color and alpha.
- */
-void pixbuf_draw_triangle(GdkPixbuf *pb, GdkRectangle clip,
-                          GdkPoint c1, GdkPoint c2, GdkPoint c3,
-                          guint8 r, guint8 g, guint8 b, guint8 a)
-{
-	gboolean has_alpha;
-	gint prs;
-	gint fx2;
-	gint fy2;
-	guchar *p_pix;
-	guchar *pp;
-	gint p_step;
-	gboolean middle = FALSE;
-
-	if (!pb) return;
-
-	GdkRectangle pb_rect;
-	if (!pixbuf_clip_region(pb, clip, pb_rect)) return;
-
-	// Determine the bounding box for the triangle.
-	GdkRectangle tri_rect = util_triangle_bounding_box(c1, c2, c3);
-
-	// And now clip the triangle bounding box to the pixbuf clipping region.
-	GdkRectangle f;
-	if (!gdk_rectangle_intersect(&pb_rect, &tri_rect, &f)) return;
-
-	fx2 = f.x + f.width;
-	fy2 = f.y + f.height;
-
-	has_alpha = gdk_pixbuf_get_has_alpha(pb);
-	prs = gdk_pixbuf_get_rowstride(pb);
-	p_pix = gdk_pixbuf_get_pixels(pb);
-
-	p_step = (has_alpha) ? 4 : 3;
-
-	// Ensure that points are ordered by increasing y coordinate.
-	std::vector<GdkPoint> v{c1, c2, c3};
-	std::sort(v.begin(), v.end(), [](const GdkPoint &l, const GdkPoint &r){ return l.y < r.y; });
-
-	const auto get_slope = [](GdkPoint start, GdkPoint end)
-	{
-		gdouble slope = end.y - start.y;
-		if (slope) slope = static_cast<gdouble>(end.x - start.x) / slope;
-		return slope;
-	};
-
-	gdouble slope1 = get_slope(v[0], v[1]);
-	GdkPoint slope1_start = v[0];
-	const gdouble slope2 = get_slope(v[0], v[2]);
-	const GdkPoint &slope2_start = v[0];
-
-	for (gint y = f.y; y < fy2; y++)
-		{
-		if (!middle && y > v[1].y)
-			{
-			slope1 = get_slope(v[1], v[2]);
-			slope1_start = v[1];
-
-			middle = TRUE;
-			}
-
-		gint x1 = slope1_start.x + (slope1 * (y - slope1_start.y) + 0.5);
-		gint x2 = slope2_start.x + (slope2 * (y - slope2_start.y) + 0.5);
-
-		if (x1 > x2)
-			{
-			std::swap(x1, x2);
-			}
-
-		x1 = CLAMP(x1, f.x, fx2);
-		x2 = CLAMP(x2, f.x, fx2);
-
-		pp = p_pix + y * prs + x1 * p_step;
-
-		while (x1 < x2)
-			{
-			pp[0] = (r * a + pp[0] * (256-a)) >> 8;
-			pp[1] = (g * a + pp[1] * (256-a)) >> 8;
-			pp[2] = (b * a + pp[2] * (256-a)) >> 8;
-			pp += p_step;
-
-			x1++;
-			}
-		}
 }
 
 /*

@@ -26,37 +26,14 @@
 
 struct ImageWindow;
 
-enum ImageOSDFlag {
-	IMAGE_OSD_NONE = 0,
-	IMAGE_OSD_ROTATE_USER,
-	IMAGE_OSD_ROTATE_AUTO,
-	IMAGE_OSD_COLOR,
-	IMAGE_OSD_FIRST,
-	IMAGE_OSD_LAST,
-	IMAGE_OSD_ICON,
-	IMAGE_OSD_COUNT
-};
-
-enum OsdShowFlags {
-	OSD_SHOW_NOTHING	= 0,
-	OSD_SHOW_INFO		= 1 << 0,
-	OSD_SHOW_STATUS		= 1 << 1,
-};
-
 void set_image_overlay_template_string(gchar **template_string, const gchar *value);
 void set_image_overlay_font_string(gchar **font_string, const gchar *value);
 
-void image_osd_set(ImageWindow *imd, OsdShowFlags show);
-OsdShowFlags image_osd_get(ImageWindow *imd);
+void image_osd_set(ImageWindow *imd, gboolean show);
+gboolean image_osd_get(ImageWindow *imd);
 
 void image_osd_copy_status(ImageWindow *src, ImageWindow *dest);
 
 void image_osd_update(ImageWindow *imd);
 
-void image_osd_icon(ImageWindow *imd, ImageOSDFlag flag, gint duration);
-
-void image_osd_toggle(ImageWindow *imd);
-
-
 #endif
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

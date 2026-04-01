@@ -62,9 +62,6 @@
 namespace
 {
 
-constexpr gint MAINWINDOW_DEF_WIDTH = 700;
-constexpr gint MAINWINDOW_DEF_HEIGHT = 500;
-
 constexpr gint PROGRESS_WIDTH = 150;
 
 constexpr gint ZOOM_LABEL_WIDTH = 120;
@@ -93,6 +90,7 @@ gboolean layout_valid(LayoutWindow **lw)
  *-----------------------------------------------------------------------------
  */
 
+static gboolean layout_set_path(LayoutWindow *lw, const gchar *path);
 static void layout_path_entry_changed_cb(GtkWidget *widget, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -700,15 +698,6 @@ static void layout_list_scroll_to_subpart(LayoutWindow *lw, const gchar *)
 	if (!lw) return;
 }
 
-GList *layout_list(LayoutWindow *lw)
-{
-	if (!layout_valid(&lw)) return nullptr;
-
-	if (lw->vf) return vf_get_list(lw->vf);
-
-	return nullptr;
-}
-
 guint layout_list_count(LayoutWindow *lw, gint64 *bytes)
 {
 	if (!layout_valid(&lw)) return 0;
@@ -820,7 +809,7 @@ static void layout_sync_path(LayoutWindow *lw)
 	if (lw->vf) vf_set_fd(lw->vf, lw->dir_fd);
 }
 
-gboolean layout_set_path(LayoutWindow *lw, const gchar *path)
+static gboolean layout_set_path(LayoutWindow *lw, const gchar *path)
 {
 	FileData *fd;
 	gboolean ret;
@@ -1194,7 +1183,7 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 
 	gtk_widget_show(lw->window);
 
-	image_osd_set(lw->image, static_cast<OsdShowFlags>(lw->options.image_overlay.state));
+	image_osd_set(lw->image, lw->options.image_overlay.state);
 
 	main_lw = lw;
 
@@ -1225,7 +1214,7 @@ void layout_write_attributes(LayoutOptions *layout, GString *outstr, gint indent
 	WRITE_NL(); WRITE_INT(*layout, main_window.vdivider_pos);
 	WRITE_SEPARATOR();
 
-	WRITE_NL(); WRITE_UINT(*layout, image_overlay.state);
+	WRITE_NL(); WRITE_BOOL(*layout, image_overlay.state);
 
 	WRITE_NL(); WRITE_INT(*layout, log_window.x);
 	WRITE_NL(); WRITE_INT(*layout, log_window.y);
@@ -1291,7 +1280,7 @@ void layout_load_attributes(LayoutOptions *layout, const gchar **attribute_names
 		if (READ_INT(*layout, main_window.hdivider_pos)) continue;
 		if (READ_INT(*layout, main_window.vdivider_pos)) continue;
 
-		if (READ_UINT(*layout, image_overlay.state)) continue;
+		if (READ_BOOL(*layout, image_overlay.state)) continue;
 
 		if (READ_INT(*layout, log_window.x)) continue;
 		if (READ_INT(*layout, log_window.y)) continue;
