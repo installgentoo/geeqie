@@ -46,10 +46,7 @@
           <separator/>
           <menuitem action="Grayscale"/>
         </menu>
-        <menu action="OverlayMenu">
-          <menuitem action="ImageOverlay"/>
-          <menuitem action="ImageOverlayCycle"/>
-        </menu>
+        <menuitem action="ImageOverlay"/>
         <menuitem action="OverUnderExposed"/>
         <menuitem action="FullScreen"/>
         <separator/>

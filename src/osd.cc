@@ -24,10 +24,10 @@
 
 #include "osd.h"
 
-#include <array>
 #include <cmath>
-#include <cstdlib>
-#include <cstring>
+#include <string>
+#include <string_view>
+#include <unordered_map>
 
 #include <gdk/gdk.h>
 #include <glib-object.h>
@@ -37,10 +37,18 @@
 #include "compat.h"
 #include "dnd.h"
 #include "exif.h"
+#include "filedata.h"
+#include "image-load.h"
+#include "image.h"
 #include "intl.h"
-#include "metadata.h"
+#include "layout.h"
 #include "typedefs.h"
 #include "ui-misc.h"
+#include "ui-fileops.h"
+
+#include <grp.h>
+#include <pwd.h>
+#include <sys/stat.h>
 
 namespace {
 
@@ -55,24 +63,221 @@ const gchar *predefined_tags[][2] = {
 	{"%path:60%",						N_("Path")},
 	{"%date%",							N_("Date")},
 	{"%size%",							N_("Size")},
-	{"%zoom%",							N_("Zoom")},
 	{"%dimensions%",					N_("Dimensions")},
 	{"%number%",						N_("Image index")},
 	{"%total%",							N_("Images total")},
+	{"%file.link%",						N_("File link")},
 	{"%file.ctime%",					N_("File ctime")},
 	{"%file.mode%",						N_("File mode")},
 	{"%file.owner%",					N_("File owner")},
-	{"%file.group%",					N_("File group")},
-	{"%file.link%",						N_("File link")},
 	{"%file.page_no%",					N_("File page no.")},
 	{"%exif%",							N_("EXIF data")},
 	{"%xmp%",							N_("XMP / IPTC data")},
 	{"%metadata%",						N_("All EXIF / XMP / IPTC data")},
+	{"%zoom%",							N_("Zoom")},
 	{nullptr, nullptr}};
 
 constexpr std::array<GtkTargetEntry, 1> osd_drag_types{{
 	{ const_cast<gchar *>("text/plain"), GTK_TARGET_SAME_APP, TARGET_TEXT_PLAIN }
 }};
+
+struct OsdValueCache
+{
+	std::unordered_map<std::string, std::string> values;
+	bool list_info_loaded = false;
+	bool exif_loaded = false;
+};
+
+static void osd_load_list_info(OsdValueCache &cache)
+{
+	if (cache.list_info_loaded) return;
+
+	gint n;
+	gint t;
+
+	if (main_lw)
+		{
+		t = layout_list_count(main_lw, nullptr);
+		n = layout_list_get_index(main_lw, image_get_fd(main_lw->image)) + 1;
+		}
+	else
+		{
+		t = 1;
+		n = 1;
+		}
+
+	if (n < 1) n = 1;
+	if (t < 1) t = 1;
+
+	cache.values["number"] = std::to_string(n);
+	cache.values["total"] = std::to_string(t);
+	cache.list_info_loaded = true;
+}
+
+static void osd_load_exif_data(FileData *fd, OsdValueCache &cache)
+{
+	if (cache.exif_loaded || !fd) return;
+
+	ExifData *exif = exif_read_fd(fd);
+	if (exif)
+		{
+		g_autofree gchar *exif_text = exif_get_all_exif_as_text(exif);
+		g_autofree gchar *xmp_text = exif_get_all_xmp_as_text(exif);
+		g_autofree gchar *metadata_text = exif_get_all_metadata_as_text(exif);
+		cache.values["exif"] = exif_text ? exif_text : "";
+		cache.values["xmp"] = xmp_text ? xmp_text : "";
+		cache.values["metadata"] = metadata_text ? metadata_text : "";
+		exif_free_fd(fd, exif);
+		}
+
+	cache.exif_loaded = true;
+}
+
+static std::string osd_mode_to_text(mode_t mode)
+{
+	static constexpr char rwx[] = {'r', 'w', 'x'};
+	std::string out(9, '-');
+
+	for (int i = 0; i < 9; i++)
+		{
+		if (mode & (1 << (8 - i))) out[i] = rwx[i % 3];
+		}
+
+	return out;
+}
+
+static std::string osd_read_link_target(const gchar *path)
+{
+	if (!path || !islink(path)) return "";
+
+	struct stat st{};
+	if (lstat(path, &st) != 0 || st.st_size <= 0) return "";
+
+	std::string target(static_cast<size_t>(st.st_size), '\0');
+	const ssize_t len = readlink(path, target.data(), target.size());
+	if (len <= 0) return "";
+	target.resize(static_cast<size_t>(len));
+	return target;
+}
+
+static void osd_load_file_tag(const std::string &tag, FileData *fd, std::string &value)
+{
+	if (!fd) return;
+
+	if (tag == "file.ctime")
+		{
+		value = FileData::text_from_time(fd->cdate);
+		}
+	else if (tag == "file.mode")
+		{
+		value = osd_mode_to_text(fd->mode);
+		}
+	else if (tag == "file.owner")
+		{
+		struct stat st{};
+		if (stat(fd->path, &st) == 0)
+			{
+			std::string user, group;
+			if (struct passwd *pw = getpwuid(st.st_uid); pw && pw->pw_name) user = pw->pw_name;
+			else user = std::to_string(st.st_uid);
+			if (struct group *gr = getgrgid(st.st_gid); gr && gr->gr_name) group = gr->gr_name;
+			else group = std::to_string(st.st_gid);
+			value = user + "/" + group;
+			}
+		}
+	else if (tag == "file.link")
+		{
+		value = osd_read_link_target(fd->path);
+		}
+	else if (tag == "file.page_no")
+		{
+		if (fd->page_total > 1)
+			{
+			g_autofree gchar *page_no = g_strdup_printf("%d/%d", fd->page_num + 1, fd->page_total);
+			value = page_no ? page_no : "";
+			}
+		else if (fd->page_num > 0) value = std::to_string(fd->page_num + 1);
+		}
+}
+
+static const std::string &osd_lookup_value(const std::string &tag, ImageWindow *imd, OsdValueCache &cache)
+{
+	const auto it = cache.values.find(tag);
+	if (it != cache.values.end()) return it->second;
+
+	const auto empty_it = cache.values.emplace(tag, "").first;
+	auto &value = empty_it->second;
+	FileData *fd = image_get_fd(imd);
+
+	if (tag == "number" || tag == "total")
+		{
+		osd_load_list_info(cache);
+		return cache.values[tag];
+		}
+
+	if (tag == "name")
+		{
+		const gchar *name = image_get_name(imd);
+		if (name) value = name;
+		}
+	else if (tag == "path")
+		{
+		const gchar *path = image_get_path(imd);
+		if (path) value = path;
+		}
+	else if (tag == "date")
+		{
+		if (fd) value = text_from_time(fd->date);
+		}
+	else if (tag == "size")
+		{
+		if (fd)
+			{
+			g_autofree gchar *size = text_from_size_abrev(fd->size);
+			if (size) value = size;
+			}
+		}
+	else if (tag == "zoom")
+		{
+		g_autofree gchar *zoom = image_zoom_get_as_text(imd);
+		if (zoom) value = zoom;
+		}
+	else if (tag == "dimensions")
+		{
+		if (!imd->unknown)
+			{
+			gint w;
+			gint h;
+			GdkPixbuf *load_pixbuf = image_loader_get_pixbuf(imd->il);
+
+			if (imd->delay_flip &&
+			    imd->il && load_pixbuf &&
+			    image_get_pixbuf(imd) != load_pixbuf)
+				{
+				w = gdk_pixbuf_get_width(load_pixbuf);
+				h = gdk_pixbuf_get_height(load_pixbuf);
+				}
+			else
+				{
+				image_get_image_size(imd, &w, &h);
+				}
+
+			g_autofree gchar *dimensions = g_strdup_printf("%d × %d", w, h);
+			if (dimensions) value = dimensions;
+			}
+		}
+	else if (tag == "exif" || tag == "xmp" || tag == "metadata")
+		{
+		osd_load_exif_data(fd, cache);
+		return cache.values[tag];
+		}
+	else if (tag.rfind("file.", 0) == 0)
+		{
+		osd_load_file_tag(tag, fd, value);
+		}
+
+	return value;
+}
 
 } // namespace
 
@@ -169,185 +374,84 @@ GtkWidget *osd_new(gint max_cols, GtkWidget *template_view)
 	return vbox;
 }
 
-gchar *image_osd_mkinfo(const gchar *str, FileData*, GHashTable *vars)
+gchar *image_osd_mkinfo(const gchar *str, ImageWindow *imd)
 {
-	gchar delim = '%';
-	gchar *start;
-	gchar *end;
-	guint pos;
-	guint prev;
-	gchar *name;
-	gchar *data;
-	GString *osd_info;
-	gchar *ret;
+	if (!str || !*str || !imd) return g_strdup("");
 
-	if (!str || !*str) return g_strdup("");
+	std::string output;
+	std::string_view template_text(str);
+	gsize line_start = 0;
+	OsdValueCache cache;
 
-	osd_info = g_string_new(str);
-
-	prev = -1;
-
-	while (TRUE)
+	while (line_start <= template_text.size())
 		{
-		guint limit = 0;
-		gchar *trunc = nullptr;
-		gchar *limpos = nullptr;
-		gchar *extra = nullptr;
-		gchar *extrapos = nullptr;
-		gchar *p;
+		const gsize line_end = template_text.find('\n', line_start);
+		const std::string_view line = (line_end == std::string::npos)
+					      ? template_text.substr(line_start)
+					      : template_text.substr(line_start, line_end - line_start);
+		std::string rendered_line;
 
-		start = strchr(osd_info->str + (prev + 1), delim);
-		if (!start)
-			break;
-		end = strchr(start+1, delim);
-		if (!end)
-			break;
-
-		/* Search for optional modifiers
-		 * %name:99:extra% -> name = "name", limit=99, extra = "extra"
-		 */
-		for (p = start + 1; p < end; p++)
+		for (gsize i = 0; i < line.size();)
 			{
-			if (p[0] == ':')
+			if (line[i] != '%')
 				{
-				if (g_ascii_isdigit(p[1]) && !limpos)
+				rendered_line += line[i++];
+				continue;
+				}
+
+			const gsize end = line.find('%', i + 1);
+			if (end == std::string::npos)
+				{
+				rendered_line.append(line.substr(i));
+				break;
+				}
+
+			const std::string token(line.substr(i + 1, end - i - 1));
+			const gsize colon = token.find(':');
+			std::string name = (colon == std::string::npos) ? token : token.substr(0, colon);
+			guint limit = 0;
+
+			if (colon != std::string::npos)
+				{
+				gsize cursor = colon + 1;
+				const gsize digits_start = cursor;
+				while (cursor < token.size() && std::isdigit(static_cast<unsigned char>(token[cursor])))
 					{
-					limpos = p + 1;
-					if (!trunc) trunc = p;
+					cursor++;
 					}
-				else
+				if (cursor > digits_start)
 					{
-					extrapos = p + 1;
-					if (!trunc) trunc = p;
-					break;
+					limit = static_cast<guint>(std::atoi(token.substr(digits_start, cursor - digits_start).c_str()));
 					}
 				}
-			}
 
-		if (limpos)
-			limit = static_cast<guint>(atoi(limpos));
+			std::string data = osd_lookup_value(name, imd, cache);
 
-		if (extrapos)
-			extra = g_strndup(extrapos, end - extrapos);
-
-		name = g_strndup(start+1, (trunc ? trunc : end)-start-1);
-		pos = start - osd_info->str;
-		data = nullptr;
-
-		data = g_strdup(static_cast<const gchar *>(g_hash_table_lookup(vars, static_cast<gconstpointer>(name))));
-
-		if (data && *data && limit > 0 && strlen(data) > limit + 3)
-			{
-			gchar *new_data = g_strdup_printf("%-*.*s...", limit, limit, data);
-			g_free(data);
-			data = new_data;
-			}
-
-		if (data)
-			{
-			/* Since we use pango markup to display, we need to escape here */
-			gchar *escaped = g_markup_escape_text(data, -1);
-			g_free(data);
-			data = escaped;
-			}
-
-		if (extra)
-			{
-			if (data && *data)
+			if (limit > 0 && data.size() > limit + 3)
 				{
-				/* Display data between left and right parts of extra string
-				 * the data is expressed by a '*' character. A '*' may be escaped
-				 * by a \. You should escape all '*' characters, do not rely on the
-				 * current implementation which only replaces the first unescaped '*'.
-				 * If no "*" is present, the extra string is just appended to data string.
-				 * Pango mark up is accepted in left and right parts.
-				 * Any \n is replaced by a newline
-				 * Examples:
-				 * "<i>*</i>\n" -> data is displayed in italics ended with a newline
-				 * "\n" 	-> ended with newline
-				 * 'ISO *'	-> prefix data with 'ISO ' (ie. 'ISO 100')
-				 * "\**\*"	-> prefix data with a star, and append a star (ie. "*100*")
-				 * "\\*"	-> prefix data with an anti slash (ie "\100")
-				 * 'Collection <b>*</b>\n' -> display data in bold prefixed by 'Collection ' and a newline is appended
-				 */
-				/** @FIXME using background / foreground colors lead to weird results.
-				 */
-				gchar *new_data;
-				gchar *left = nullptr;
-				gchar *right = extra;
-				gchar *p;
-				guint len = strlen(extra);
-
-				/* Search for left and right parts and unescape characters */
-				for (p = extra; *p; p++, len--)
-					if (p[0] == '\\')
-						{
-						if (p[1] == 'n')
-							{
-							memmove(p+1, p+2, --len);
-							p[0] = '\n';
-							}
-						else if (p[1] != '\0')
-							memmove(p, p+1, len--); // includes \0
-						}
-					else if (p[0] == '*' && !left)
-						{
-						right = p + 1;
-						left = extra;
-						}
-
-				if (left) right[-1] = '\0';
-
-				new_data = g_strdup_printf("%s%s%s", left ? left : "", data, right);
-				g_free(data);
-				data = new_data;
+				data = data.substr(0, limit) + "...";
 				}
-			g_free(extra);
+
+			if (!data.empty())
+				{
+				g_autofree gchar *escaped = g_markup_escape_text(data.c_str(), -1);
+				data = escaped ? escaped : "";
+				rendered_line += data;
+				}
+
+			i = end + 1;
 			}
 
-		g_string_erase(osd_info, pos, end-start+1);
-		if (data && *data)
-		{
-			g_string_insert(osd_info, pos, data);
-			pos += strlen(data);
+		if (!rendered_line.empty())
+			{
+			if (!output.empty()) output += '\n';
+			output += rendered_line;
+			}
+
+		if (line_end == std::string::npos) break;
+		line_start = line_end + 1;
 		}
 
-		prev = pos - 1;
-
-		g_free(name);
-		g_free(data);
-		}
-
-	/* search and destroy empty lines */
-	end = osd_info->str;
-	while ((start = strchr(end, '\n')))
-		{
-		end = start;
-		while (*++(end) == '\n')
-			;
-		g_string_erase(osd_info, start-osd_info->str, end-start-1);
-		}
-
-	ret = g_string_free(osd_info, FALSE);
-
+	gchar *ret = g_strdup(output.c_str());
 	return g_strchomp(ret);
-}
-
-void osd_template_insert(GHashTable *vars, const gchar *keyword, const gchar *value, OsdTemplateFlags flags)
-{
-	if (!value)
-		{
-		g_hash_table_insert(vars, const_cast<gchar *>(keyword), g_strdup(""));
-		return;
-		}
-
-	if (flags & OSDT_NO_DUP)
-		{
-		g_hash_table_insert(vars, const_cast<gchar *>(keyword), const_cast<gchar *>(value));
-		return;
-		}
-
-	g_hash_table_insert(vars, const_cast<gchar *>(keyword), g_strdup(value));
-
-	if (flags & OSDT_FREE) g_free(const_cast<gchar *>(value));
 }

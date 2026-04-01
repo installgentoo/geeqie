@@ -25,15 +25,8 @@
 #include <gtk/gtk.h>
 
 class FileData;
-
-enum OsdTemplateFlags {
-	OSDT_NONE 	= 0,
-	OSDT_FREE 	= 1 << 0,
-	OSDT_NO_DUP 	= 1 << 1
-};
+class ImageWindow;
 
 GtkWidget *osd_new(gint max_cols, GtkWidget *template_view);
-gchar *image_osd_mkinfo(const gchar *str, FileData *fd, GHashTable *vars);
-void osd_template_insert(GHashTable *vars, const gchar *keyword, const gchar *value, OsdTemplateFlags flags);
+gchar *image_osd_mkinfo(const gchar *str, ImageWindow *imd);
 #endif
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

@@ -49,13 +49,6 @@ constexpr gint IMAGE_OSD_DEFAULT_DURATION = 30;
 
 } // namespace
 
-/*
- *----------------------------------------------------------------------------
- * image overlay
- *----------------------------------------------------------------------------
- */
-
-
 struct OverlayStateData {
 	ImageWindow *imd;
 	ImageState changed_states;
@@ -167,84 +160,8 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 
 	name = image_get_name(imd);
 	if (name)
-		{
-		gint n;
-		gint t;
-		GHashTable *vars;
-
-		vars = g_hash_table_new_full(g_str_hash, g_str_equal, nullptr, g_free);
-
-			{
-			if (main_lw)
-				{
-					{
-					t = layout_list_count(main_lw, nullptr);
-					n = layout_list_get_index(main_lw, image_get_fd(main_lw->image)) + 1;
-					}
-				}
-			else
-				{
-				t = 1;
-				n = 1;
-				}
-
-			if (n < 1) n = 1;
-			if (t < 1) t = 1;
-			}
-
-		osd_template_insert(vars, "number", g_strdup_printf("%d", n), OSDT_NO_DUP);
-		osd_template_insert(vars, "total", g_strdup_printf("%d", t), OSDT_NO_DUP);
-		osd_template_insert(vars, "name", const_cast<gchar *>(name), OSDT_NONE);
-		osd_template_insert(vars, "path", image_get_path(imd), OSDT_NONE);
-		osd_template_insert(vars, "date", imd->image_fd ? (const_cast<gchar *>(text_from_time(imd->image_fd->date))) : "", OSDT_NONE);
-		osd_template_insert(vars, "size", imd->image_fd ? (text_from_size_abrev(imd->image_fd->size)) : g_strdup(""), OSDT_FREE);
-		osd_template_insert(vars, "zoom", image_zoom_get_as_text(imd), OSDT_FREE);
-
-		if (!imd->unknown)
-			{
-			gint w;
-			gint h;
-			GdkPixbuf *load_pixbuf = image_loader_get_pixbuf(imd->il);
-
-			if (imd->delay_flip &&
-			    imd->il && load_pixbuf &&
-			    image_get_pixbuf(imd) != load_pixbuf)
-				{
-				w = gdk_pixbuf_get_width(load_pixbuf);
-				h = gdk_pixbuf_get_height(load_pixbuf);
-				}
-			else
-				{
-				image_get_image_size(imd, &w, &h);
-				}
-
-			osd_template_insert(vars, "dimensions", g_strdup_printf("%d × %d", w, h), OSDT_FREE);
-	 		}
-		else
-			{
-	 		osd_template_insert(vars, "dimensions", nullptr, OSDT_NONE);
-			}
-
-		{
-		ExifData *exif = exif_read_fd(fd);
-		if (exif)
-			{
-			osd_template_insert(vars, "exif", exif_get_all_exif_as_text(exif), OSDT_FREE);
-			osd_template_insert(vars, "xmp", exif_get_all_xmp_as_text(exif), OSDT_FREE);
-			osd_template_insert(vars, "metadata", exif_get_all_metadata_as_text(exif), OSDT_FREE);
-			exif_free_fd(fd, exif);
-			}
-		else
-			{
-			osd_template_insert(vars, "exif", nullptr, OSDT_NONE);
-			osd_template_insert(vars, "xmp", nullptr, OSDT_NONE);
-			osd_template_insert(vars, "metadata", nullptr, OSDT_NONE);
-			}
-		}
-
-		text = image_osd_mkinfo(options->image_overlay.template_string, imd->image_fd, vars);
-		g_hash_table_destroy(vars);
-
+	{
+		text = image_osd_mkinfo(options->image_overlay.template_string, imd);
 	} else {
 		/* When does this occur ?? */
 		text = g_markup_escape_text(_("Untitled"), -1);
