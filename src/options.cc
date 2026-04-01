@@ -30,7 +30,6 @@
 #include "layout.h"
 #include "main-defines.h"
 #include "misc.h"
-#include "print.h"
 #include "rcfile.h"
 #include "ui-bookmark.h"
 #include "ui-fileops.h"
@@ -149,13 +148,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->log_window.timer_data = FALSE;
 	options->log_window.action = g_strdup("echo");
 
-	options->printer.template_string = nullptr;
-	options->printer.image_font = g_strdup("Serif 10");
-	options->printer.page_font = g_strdup("Serif 10");
-	options->printer.page_text = nullptr;
-	options->printer.image_text_position = FOOTER_1;
-	options->printer.page_text_position = HEADER_1;
-
 	options->threads.duplicates = get_cpu_cores() - 1;
 
 	options->disabled_plugins = nullptr;
@@ -189,7 +181,7 @@ void setup_default_options(ConfOptions *options)
 		options->color_profile.input_name[i] = nullptr;
 		}
 
-	set_default_image_overlay_template_string(&options->image_overlay.template_string);
+	set_image_overlay_template_string(&options->image_overlay.template_string, "%name%");
 
 	options->shell.path = g_strdup(GQ_DEFAULT_SHELL_PATH);
 	options->shell.options = g_strdup(GQ_DEFAULT_SHELL_OPTIONS);

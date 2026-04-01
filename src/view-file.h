@@ -78,17 +78,11 @@ struct ViewFile
 	GQueue *thumbs_lru;
 	GHashTable *thumbs_lru_index;
 
-	/* stars */
-	FileData *stars_filedata;
-	guint stars_id;
-
 	/* refresh */
 	guint refresh_idle_id; /**< event source id */
 	time_t time_refresh_set; /**< time when refresh_idle_id was set */
 
 	GList *editmenu_fd_list; /**< file list for edit menu */
-
-	guint read_metadata_in_idle_id;
 
 	using SelectionCallback = std::function<void(FileData *)>;
 };
@@ -133,7 +127,6 @@ void vf_notify_cb(FileData *fd, NotifyType type, gpointer data);
 
 void vf_thumb_update(ViewFile *vf);
 void vf_thumb_cleanup(ViewFile *vf);
-void vf_read_metadata_in_idle(ViewFile *vf);
 void vf_file_filter_set(ViewFile *vf, gboolean enable);
 GRegex *vf_file_filter_get_filter(ViewFile *vf);
 

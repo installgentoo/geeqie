@@ -130,7 +130,6 @@ class FileData {
 	gchar *path;
 	const gchar *name;
 	const gchar *extension;
-	gchar *extended_extension;
 	FileFormatClass format_class;
 	gchar *format_name; /**< set by the image loader */
 	gchar *collate_key_name;
@@ -154,15 +153,10 @@ class FileData {
 	gint ref;
 	gint version; /**< increased when any field in this structure is changed */
 
-	gint user_orientation;
 	gint exif_orientation;
 
 	ExifData *exif;
-	time_t exifdate;
-	time_t exifdate_digitized;
 	GList *cached_metadata;
-	gboolean metadata_in_idle_loaded;
-
 	SelectionType selected;  /**< Used by view-file-icon. */
 
 	gint page_num;
@@ -262,9 +256,6 @@ class FileData {
 
 	gboolean file_data_register_real_time_monitor(FileData *fd);
 	gboolean file_data_unregister_real_time_monitor(FileData *fd);
-
-	void read_exif_time_data(FileData *file);
-	void read_exif_time_digitized_data(FileData *file);
 
 	void file_data_inc_page_num(FileData *fd);
 	void file_data_dec_page_num(FileData *fd);
@@ -444,9 +435,6 @@ void file_data_send_notification(FileData *fd, NotifyType type);
 
 gboolean file_data_register_real_time_monitor(FileData *fd);
 gboolean file_data_unregister_real_time_monitor(FileData *fd);
-
-void read_exif_time_data(FileData *file);
-void read_exif_time_digitized_data(FileData *file);
 
 void file_data_inc_page_num(FileData *fd);
 void file_data_dec_page_num(FileData *fd);

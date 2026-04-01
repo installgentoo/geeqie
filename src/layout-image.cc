@@ -644,11 +644,6 @@ void layout_image_reset_orientation(LayoutWindow *lw)
 		imd->orientation = 1;
 		}
 
-	if (imd->image_fd->user_orientation != 0)
-		{
-		 imd->orientation = imd->image_fd->user_orientation;
-		}
-
 	pixbuf_renderer_set_orientation(PIXBUF_RENDERER(imd->pr), imd->orientation);
 }
 

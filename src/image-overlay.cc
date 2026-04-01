@@ -29,6 +29,7 @@
 #include <pango/pango.h>
 
 #include "debug.h"
+#include "exif.h"
 #include "filedata.h"
 #include "image-load.h"
 #include "image.h"
@@ -108,11 +109,6 @@ void set_image_overlay_template_string(gchar **template_string, const gchar *val
 }
 
 
-void set_default_image_overlay_template_string(gchar **template_string)
-{
-	set_image_overlay_template_string(template_string, DEFAULT_OVERLAY_INFO);
-}
-
 void set_image_overlay_font_string(gchar **font_string, const gchar *value)
 {
 	g_assert(font_string);
@@ -142,18 +138,16 @@ static void image_set_osd_data(ImageWindow *imd, OverlayStateData *osd)
 
 void image_osd_toggle(ImageWindow *imd)
 {
-	OsdShowFlags show;
 	if (!imd) return;
 
-	show = image_osd_get(imd);
+	OsdShowFlags show = image_osd_get(imd);
 	if (show == OSD_SHOW_NOTHING)
 		{
 		image_osd_set(imd, static_cast<OsdShowFlags>(OSD_SHOW_INFO | OSD_SHOW_STATUS));
-		return;
 		}
-
+	else
 		{
-		image_osd_set(imd, static_cast<OsdShowFlags>(show));
+		image_osd_set(imd, OSD_SHOW_NOTHING);
 		}
 }
 
@@ -196,8 +190,6 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 
 			if (n < 1) n = 1;
 			if (t < 1) t = 1;
-
-			osd_template_insert(vars, "collection", nullptr, OSDT_NONE);
 			}
 
 		osd_template_insert(vars, "number", g_strdup_printf("%d", n), OSDT_NO_DUP);
@@ -226,17 +218,29 @@ static GdkPixbuf *image_osd_info_render(OverlayStateData *osd)
 				image_get_image_size(imd, &w, &h);
 				}
 
-
-			osd_template_insert(vars, "width", g_strdup_printf("%d", w), OSDT_NO_DUP);
-	 		osd_template_insert(vars, "height", g_strdup_printf("%d", h), OSDT_NO_DUP);
-	 		osd_template_insert(vars, "res", g_strdup_printf("%d × %d", w, h), OSDT_FREE);
+			osd_template_insert(vars, "dimensions", g_strdup_printf("%d × %d", w, h), OSDT_FREE);
 	 		}
 		else
 			{
-			osd_template_insert(vars, "width", nullptr, OSDT_NONE);
-	 		osd_template_insert(vars, "height", nullptr, OSDT_NONE);
-	 		osd_template_insert(vars, "res", nullptr, OSDT_NONE);
+	 		osd_template_insert(vars, "dimensions", nullptr, OSDT_NONE);
 			}
+
+		{
+		ExifData *exif = exif_read_fd(fd);
+		if (exif)
+			{
+			osd_template_insert(vars, "exif", exif_get_all_exif_as_text(exif), OSDT_FREE);
+			osd_template_insert(vars, "xmp", exif_get_all_xmp_as_text(exif), OSDT_FREE);
+			osd_template_insert(vars, "metadata", exif_get_all_metadata_as_text(exif), OSDT_FREE);
+			exif_free_fd(fd, exif);
+			}
+		else
+			{
+			osd_template_insert(vars, "exif", nullptr, OSDT_NONE);
+			osd_template_insert(vars, "xmp", nullptr, OSDT_NONE);
+			osd_template_insert(vars, "metadata", nullptr, OSDT_NONE);
+			}
+		}
 
 		text = image_osd_mkinfo(options->image_overlay.template_string, imd->image_fd, vars);
 		g_hash_table_destroy(vars);

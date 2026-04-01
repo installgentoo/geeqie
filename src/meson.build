@@ -101,8 +101,6 @@ main_sources = files(
 'pixbuf-util.h',
 'preferences.cc',
 'preferences.h',
-'print.cc',
-'print.h',
 'rcfile.cc',
 'rcfile.h',
 'renderer-tiles.cc',
@@ -195,13 +193,6 @@ if conf_data.get('HAVE_JPEGXL', 0) == 1
     )
 endif
 
-if conf_data.get('HAVE_LUA', 0) == 1
-    main_sources += files(
-        'glua.h',
-        'lua.cc',
-    )
-endif
-
 if conf_data.get('HAVE_PDF', 0) == 1
     main_sources += files(
         'image-load-pdf.cc',
@@ -280,7 +271,6 @@ libopenjp2_dep,
 libraw_dep,
 libunwind_dep,
 libwebp_dep,
-lua_dep,
 poppler_glib_dep,
 thread_dep,
 tiff_dep

@@ -115,6 +115,9 @@ void exif_free_fd(FileData *fd, ExifData *exif);
 void exif_free(ExifData *exif);
 
 gchar *exif_get_data_as_text(ExifData *exif, const gchar *key);
+gchar *exif_get_all_exif_as_text(ExifData *exif);
+gchar *exif_get_all_xmp_as_text(ExifData *exif);
+gchar *exif_get_all_metadata_as_text(ExifData *exif);
 gint exif_get_integer(ExifData *exif, const gchar *key, gint *value);
 
 ExifItem *exif_get_item(ExifData *exif, const gchar *key);
@@ -138,9 +141,6 @@ void exif_add_jpeg_color_profile(ExifData *exif, guchar *cp_data, guint cp_lengt
 
 
 gboolean exif_jpeg_parse_color(ExifData *exif, guchar *data, guint size);
-
-/* support for so called "jpeg comment" */
-gchar* exif_get_image_comment(FileData* fd);
 
 /*raw support */
 guchar *exif_get_preview(ExifData *exif, guint *data_len, gint requested_width, gint requested_height);

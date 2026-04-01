@@ -44,12 +44,10 @@ struct CacheData
 	gchar *path;
 	gint width;
 	gint height;
-	time_t date;
 	guchar md5sum[16];
 	ImageSimilarityData *sim;
 
 	gboolean dimensions;
-	gboolean have_date;
 	gboolean have_md5sum;
 	gboolean similarity;
 };
@@ -74,4 +72,3 @@ const gchar *get_thumbnails_cache_dir();
 const gchar *get_thumbnails_standard_cache_dir();
 
 #endif
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

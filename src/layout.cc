@@ -246,10 +246,6 @@ static void layout_sort_menu_cb(GtkWidget *widget, gpointer data)
 
 	type = static_cast<SortType>GPOINTER_TO_INT(data);
 
-	if (type == SORT_EXIFTIME || type == SORT_EXIFTIMEDIGITIZED)
-		{
-		vf_read_metadata_in_idle(lw->vf);
-		}
 	layout_sort_set_files(lw, type, lw->options.file_view_list_sort.ascend, lw->options.file_view_list_sort.case_sensitive);
 }
 
@@ -940,11 +936,6 @@ gboolean layout_set_fd(LayoutWindow *lw, FileData *fd)
 		{
 		gint count = layout_list_count(lw, nullptr);
 		layout_image_set_index(lw, count > 0 ? count - 1 : 0);
-		}
-
-	if (lw->vf && (lw->options.file_view_list_sort.method == SORT_EXIFTIME || lw->options.file_view_list_sort.method == SORT_EXIFTIMEDIGITIZED))
-		{
-		vf_read_metadata_in_idle(lw->vf);
 		}
 
 	return TRUE;

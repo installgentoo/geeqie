@@ -1731,18 +1731,6 @@ static gboolean search_file_next(SearchData *sd)
 			{
 			file_date = fd->cdate;
 			}
-		else if (g_strcmp0(gtk_combo_box_text_get_active_text(
-						GTK_COMBO_BOX_TEXT(sd->date_type)), _("Original")) == 0)
-			{
-			read_exif_time_data(fd);
-			file_date = fd->exifdate;
-			}
-		else if (g_strcmp0(gtk_combo_box_text_get_active_text(
-						GTK_COMBO_BOX_TEXT(sd->date_type)), _("Digitized")) == 0)
-			{
-			read_exif_time_digitized_data(fd);
-			file_date = fd->exifdate_digitized;
-			}
 		else
 			{
 			file_date = fd->date;
@@ -2713,11 +2701,9 @@ void search_new(FileData *dir_fd, FileData *example_file)
 	sd->date_type = gtk_combo_box_text_new();
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->date_type), _("Modified"));
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->date_type), _("Status Changed"));
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->date_type), _("Original"));
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->date_type), _("Digitized"));
 	gq_gtk_box_pack_start(GTK_BOX(hbox), sd->date_type, FALSE, FALSE, 0);
 	gtk_combo_box_set_active(GTK_COMBO_BOX(sd->date_type), 0);
-	gtk_widget_set_tooltip_text(sd->date_type, "Modified (mtime)\nStatus Changed (ctime)\nOriginal (Exif.Photo.DateTimeOriginal)\nDigitized (Exif.Photo.DateTimeDigitized)");
+	gtk_widget_set_tooltip_text(sd->date_type, "Modified (mtime)\nStatus Changed (ctime)\n");
 	gtk_widget_show(sd->date_type);
 
 	/* Search for image dimensions */

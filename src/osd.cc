@@ -37,7 +37,6 @@
 #include "compat.h"
 #include "dnd.h"
 #include "exif.h"
-#include "glua.h"
 #include "intl.h"
 #include "metadata.h"
 #include "typedefs.h"
@@ -58,42 +57,17 @@ const gchar *predefined_tags[][2] = {
 	{"%size%",							N_("Size")},
 	{"%zoom%",							N_("Zoom")},
 	{"%dimensions%",					N_("Dimensions")},
-	{"%collection%",					N_("Collection")},
 	{"%number%",						N_("Image index")},
 	{"%total%",							N_("Images total")},
-	{"%comment%",						N_("Comment")},
-	{"%keywords%",						N_("Keywords")},
 	{"%file.ctime%",					N_("File ctime")},
 	{"%file.mode%",						N_("File mode")},
 	{"%file.owner%",					N_("File owner")},
 	{"%file.group%",					N_("File group")},
 	{"%file.link%",						N_("File link")},
-	{"%file.class%",					N_("File class")},
 	{"%file.page_no%",					N_("File page no.")},
-	{"%formatted.DateTime%",			N_("Image date")},
-	{"%formatted.DateTimeDigitized%",	N_("Date digitized")},
-	{"%formatted.ShutterSpeed%",		N_("ShutterSpeed")},
-	{"%formatted.Aperture%",			N_("Aperture")},
-	{"%formatted.ExposureBias%",		N_("Exposure bias")},
-	{"%formatted.Resolution%",			N_("Resolution")},
-	{"%formatted.Camera%",				N_("Camera")},
-	{"%lua.lensID%",					N_("Lens")},
-	{"%formatted.ISOSpeedRating%",		N_("ISO")},
-	{"%formatted.FocalLength%",			N_("Focal length")},
-	{"%formatted.FocalLength35mmFilm%",	N_("Focal len. 35mm")},
-	{"%formatted.SubjectDistance%",		N_("Subject distance")},
-	{"%formatted.Flash%",				N_("Flash")},
-	{"%formatted.ColorProfile%",		N_("Color profile")},
-	{"%formatted.GPSPosition%",			N_("Lat, Long")},
-	{"%formatted.GPSAltitude%",			N_("Altitude")},
-	{"%formatted.localtime%",			N_("Local time")},
-	{"%formatted.timezone%",			N_("Timezone")},
-	{"%formatted.countryname%",			N_("Country name")},
-	{"%formatted.countrycode%",			N_("Country code")},
-	{"%rating%",						N_("Rating")},
-	{"%Xmp.dc.creator%",				N_("© Creator")},
-	{"%Xmp.dc.contributor%",			N_("© Contributor")},
-	{"%Xmp.dc.rights%",					N_("© Rights")},
+	{"%exif%",							N_("EXIF data")},
+	{"%xmp%",							N_("XMP / IPTC data")},
+	{"%metadata%",						N_("All EXIF / XMP / IPTC data")},
 	{nullptr, nullptr}};
 
 constexpr std::array<GtkTargetEntry, 1> osd_drag_types{{
@@ -161,37 +135,24 @@ static void set_osd_button(GtkGrid *grid, const gint rows, const gint cols, cons
 GtkWidget *osd_new(gint max_cols, GtkWidget *template_view)
 {
 	GtkWidget *vbox;
-	GtkWidget *scrolled;
 	gint i = 0;
 	gint rows = 0;
 	gint max_rows = 0;
 	gint cols = 0;
 	gdouble entries;
-	GtkWidget *viewport;
 
 	vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
 	pref_label_new(vbox, _("To include predefined tags in the template, click a button or drag-and-drop"));
 
-	scrolled = gq_gtk_scrolled_window_new(nullptr, nullptr);
-	gq_gtk_box_pack_start(GTK_BOX(vbox), scrolled, FALSE, FALSE, 0);
-	gtk_container_set_border_width(GTK_CONTAINER(scrolled), PREF_PAD_BORDER);
-	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
-				       GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-	gtk_widget_show(scrolled);
-	gtk_widget_set_size_request(scrolled, -1, 140);
-
-	viewport = gtk_viewport_new(nullptr, nullptr);
-	gtk_viewport_set_shadow_type(GTK_VIEWPORT(viewport), GTK_SHADOW_NONE);
-	gq_gtk_container_add(GTK_WIDGET(scrolled), viewport);
-	gtk_widget_show(viewport);
 
 	entries = ((gdouble)sizeof(predefined_tags) / sizeof(predefined_tags[0])) - 1;
 	max_rows = ceil(entries / max_cols);
 
 	GtkGrid *grid;
 	grid = GTK_GRID(gtk_grid_new());
-	gq_gtk_container_add(GTK_WIDGET(viewport), GTK_WIDGET(grid));
+	gq_gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(grid), FALSE, FALSE, 0);
+	gtk_container_set_border_width(GTK_CONTAINER(grid), PREF_PAD_BORDER);
 	gtk_widget_show(GTK_WIDGET(grid));
 
 	for (rows = 0; rows < max_rows; rows++)
@@ -208,17 +169,13 @@ GtkWidget *osd_new(gint max_cols, GtkWidget *template_view)
 	return vbox;
 }
 
-gchar *image_osd_mkinfo(const gchar *str, FileData *fd, GHashTable *vars)
+gchar *image_osd_mkinfo(const gchar *str, FileData*, GHashTable *vars)
 {
 	gchar delim = '%';
-	gchar imp = '|';
-	constexpr gchar sep[] = " - ";
-	const size_t sep_len = strlen(sep);
 	gchar *start;
 	gchar *end;
 	guint pos;
 	guint prev;
-	gboolean want_separator = FALSE;
 	gchar *name;
 	gchar *data;
 	GString *osd_info;
@@ -277,31 +234,7 @@ gchar *image_osd_mkinfo(const gchar *str, FileData *fd, GHashTable *vars)
 		pos = start - osd_info->str;
 		data = nullptr;
 
-		if (strcmp(name, "comment") == 0)
-			{
-			data = metadata_read_string(fd, COMMENT_KEY, METADATA_PLAIN);
-			}
-		else if (strcmp(name, "imagecomment") == 0)
-			{
-			data = exif_get_image_comment(fd);
-			}
-#if HAVE_LUA
-		else if (strncmp(name, "lua/", 4) == 0)
-			{
-			gchar *tmp;
-			tmp = strchr(name+4, '/');
-			if (!tmp)
-				break;
-			*tmp = '\0';
-			data = lua_callvalue(fd, name+4, tmp+1);
-			}
-#endif
-		else
-			{
-			data = g_strdup(static_cast<const gchar *>(g_hash_table_lookup(vars, static_cast<gconstpointer>(name))));
-			if (!data)
-				data = metadata_read_string(fd, name, METADATA_FORMATTED);
-			}
+		data = g_strdup(static_cast<const gchar *>(g_hash_table_lookup(vars, static_cast<gconstpointer>(name))));
 
 		if (data && *data && limit > 0 && strlen(data) > limit + 3)
 			{
@@ -374,28 +307,10 @@ gchar *image_osd_mkinfo(const gchar *str, FileData *fd, GHashTable *vars)
 
 		g_string_erase(osd_info, pos, end-start+1);
 		if (data && *data)
-			{
-			if (want_separator)
-				{
-				/* insert separator */
-				g_string_insert(osd_info, pos, sep);
-				pos += sep_len;
-				want_separator = FALSE;
-				}
-
+		{
 			g_string_insert(osd_info, pos, data);
 			pos += strlen(data);
 		}
-
-		if (pos-prev >= 1 && osd_info->str[pos] == imp)
-			{
-			/* pipe character is replaced by a separator, delete it
-			 * and raise a flag if needed */
-			g_string_erase(osd_info, pos--, 1);
-			want_separator |= (data && *data);
-			}
-
-		if (osd_info->str[pos] == '\n') want_separator = FALSE;
 
 		prev = pos - 1;
 
@@ -436,4 +351,3 @@ void osd_template_insert(GHashTable *vars, const gchar *keyword, const gchar *va
 
 	if (flags & OSDT_FREE) g_free(const_cast<gchar *>(value));
 }
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

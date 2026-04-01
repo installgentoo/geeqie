@@ -49,13 +49,6 @@
 
 #define DEFAULT_MINIMAL_WINDOW_SIZE 100
 
-
-#define DEFAULT_OVERLAY_INFO	"%collection:<i>*</i>\\n%" \
-				"(%number%/%total%) [%zoom%] <b>%name%</b>\n" \
-				"%res%|%date%|%size%\n" \
-				"%formatted.Aperture%|%formatted.ShutterSpeed%|%formatted.ISOSpeedRating:ISO *%|%formatted.FocalLength%|%formatted.ExposureBias:* Ev%\n" \
-				"%formatted.Camera:40%|%formatted.Flash%\n"
-
 #define GQ_LINK_STR "↩"
 
 #define GQ_ICON_ADD "list-add"

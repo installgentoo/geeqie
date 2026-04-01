@@ -393,11 +393,6 @@ static void vf_pop_menu_sort_cb(GtkWidget *widget, gpointer data)
 
 	type = static_cast<SortType>GPOINTER_TO_INT(data);
 
-	if (type == SORT_EXIFTIME || type == SORT_EXIFTIMEDIGITIZED)
-		{
-		vf_read_metadata_in_idle(vf);
-		}
-
 	if (vf->layout)
 		{
 		layout_sort_set_files(vf->layout, type, vf->sort_ascend, vf->sort_case);
@@ -552,10 +547,6 @@ static void vf_destroy_cb(GtkWidget *, gpointer data)
 		gq_gtk_widget_destroy(vf->popup);
 		}
 
-	if (vf->read_metadata_in_idle_id)
-		{
-		g_idle_remove_by_data(vf);
-		}
 	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
 	file_data_unref(vf->dir_fd);
 	g_free(vf->info);
@@ -839,7 +830,6 @@ ViewFile *vf_new(FileData *dir_fd)
 
 	vf->sort_method = SORT_NAME;
 	vf->sort_ascend = TRUE;
-	vf->read_metadata_in_idle_id = 0;
 
 	vf->scrolled = gq_gtk_scrolled_window_new(nullptr, nullptr);
 	gq_gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(vf->scrolled), GTK_SHADOW_IN);
@@ -964,20 +954,6 @@ static gdouble vf_thumb_progress(ViewFile *vf)
 	}
 
 	DEBUG_1("thumb progress: %d of %d", done, count);
-	return static_cast<gdouble>(done) / count;
-}
-
-static gdouble vf_read_metadata_in_idle_progress(ViewFile *vf)
-{
-	gint count = 0;
-	gint done = 0;
-
-	
-	{
-
-	vficon_read_metadata_progress_count(vf->list, count, done);
-	}
-
 	return static_cast<gdouble>(done) / count;
 }
 
@@ -1285,65 +1261,3 @@ void vf_notify_cb(FileData *fd, NotifyType type, gpointer data)
 		vf_refresh_idle(vf);
 		}
 }
-
-static gboolean vf_read_metadata_in_idle_cb(gpointer data)
-{
-	FileData *fd;
-	auto vf = static_cast<ViewFile *>(data);
-	GList *work;
-
-	vf_thumb_status(vf, vf_read_metadata_in_idle_progress(vf), _("Loading meta..."));
-
-	work = vf->list;
-
-	while (work)
-		{
-		fd = static_cast<FileData *>(work->data);
-
-		if (fd && !fd->metadata_in_idle_loaded)
-			{
-			if (!fd->exifdate)
-				{
-				read_exif_time_data(fd);
-				}
-			if (!fd->exifdate_digitized)
-				{
-				read_exif_time_digitized_data(fd);
-				}
-			fd->metadata_in_idle_loaded = TRUE;
-			return G_SOURCE_CONTINUE;
-			}
-		work = work->next;
-		}
-
-	vf_thumb_status(vf, 0.0, nullptr);
-	vf->read_metadata_in_idle_id = 0;
-	vf_refresh(vf);
-	return G_SOURCE_REMOVE;
-}
-
-static void vf_read_metadata_in_idle_finished_cb(gpointer data)
-{
-	auto vf = static_cast<ViewFile *>(data);
-
-	vf_thumb_status(vf, 0.0, _("Loading meta..."));
-	vf->read_metadata_in_idle_id = 0;
-}
-
-void vf_read_metadata_in_idle(ViewFile *vf)
-{
-	if (!vf) return;
-
-	if (vf->read_metadata_in_idle_id)
-		{
-		g_idle_remove_by_data(vf);
-		}
-	vf->read_metadata_in_idle_id = 0;
-
-	if (vf->list)
-		{
-		vf->read_metadata_in_idle_id = g_idle_add_full(G_PRIORITY_LOW, vf_read_metadata_in_idle_cb, vf, vf_read_metadata_in_idle_finished_cb);
-		}
-}
-
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

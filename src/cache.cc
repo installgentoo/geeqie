@@ -133,7 +133,6 @@ CacheData *cache_sim_data_new()
 	CacheData *cd;
 
 	cd = g_new0(CacheData, 1);
-	cd->date = -1;
 
 	return cd;
 }
@@ -158,15 +157,6 @@ static gboolean cache_sim_write_dimensions(SecureSaveInfo *ssi, CacheData *cd)
 	if (!cd || !cd->dimensions) return FALSE;
 
 	secure_fprintf(ssi, "Dimensions=[%d x %d]\n", cd->width, cd->height);
-
-	return TRUE;
-}
-
-static gboolean cache_sim_write_date(SecureSaveInfo *ssi, CacheData *cd)
-{
-	if (!cd || !cd->have_date) return FALSE;
-
-	secure_fprintf(ssi, "Date=[%ld]\n", cd->date);
 
 	return TRUE;
 }
@@ -235,7 +225,6 @@ gboolean cache_sim_data_save(CacheData *cd)
 
 	secure_fprintf(ssi, "SIMcache\n#%s %s\n", PACKAGE, VERSION);
 	cache_sim_write_dimensions(ssi, cd);
-	cache_sim_write_date(ssi, cd);
 	cache_sim_write_md5sum(ssi, cd);
 	cache_sim_write_similarity(ssi, cd);
 
@@ -270,15 +259,6 @@ static gboolean cache_sim_read_skipline(FILE *f, gint s)
 		}
 
 	return FALSE;
-}
-
-static gboolean cache_sim_read_comment(FILE *f, const gchar *buf, gint s, CacheData *cd)
-{
-	if (!f || !buf || !cd) return FALSE;
-
-	if (s < 1 || buf[0] != '#') return FALSE;
-
-	return cache_sim_read_skipline(f, s - 1);
 }
 
 static gboolean cache_sim_read_dimensions(FILE *f, gchar *buf, gint s, CacheData *cd)
@@ -318,46 +298,6 @@ static gboolean cache_sim_read_dimensions(FILE *f, gchar *buf, gint s, CacheData
 		cd->width = w;
 		cd->height = h;
 		cd->dimensions = TRUE;
-
-		return TRUE;
-		}
-
-	return FALSE;
-}
-
-static gboolean cache_sim_read_date(FILE *f, gchar *buf, gint s, CacheData *cd)
-{
-	if (!f || !buf || !cd) return FALSE;
-
-	if (s < 4 || strncmp("Date", buf, 4) != 0) return FALSE;
-
-	if (fseek(f, - s, SEEK_CUR) == 0)
-		{
-		gchar b;
-		gchar buf[1024];
-		gsize p = 0;
-
-		b = 'X';
-		while (b != '[')
-			{
-			if (fread(&b, sizeof(b), 1, f) != 1) return FALSE;
-			}
-		while (b != ']' && p < sizeof(buf) - 1)
-			{
-			if (fread(&b, sizeof(b), 1, f) != 1) return FALSE;
-			buf[p] = b;
-			p++;
-			}
-
-		while (b != '\n')
-			{
-			if (fread(&b, sizeof(b), 1, f) != 1) break;
-			}
-
-		buf[p] = '\0';
-		cd->date = strtol(buf, nullptr, 10);
-
-		cd->have_date = TRUE;
 
 		return TRUE;
 		}
@@ -504,9 +444,7 @@ CacheData *cache_sim_data_load(const gchar *path)
 			}
 		else
 			{
-			if (!cache_sim_read_comment(f, buf, s, cd) &&
-			    !cache_sim_read_dimensions(f, buf, s, cd) &&
-			    !cache_sim_read_date(f, buf, s, cd) &&
+			if (!cache_sim_read_dimensions(f, buf, s, cd) &&
 			    !cache_sim_read_md5sum(f, buf, s, cd) &&
 			    !cache_sim_read_similarity(f, buf, s, cd))
 				{
@@ -529,7 +467,6 @@ CacheData *cache_sim_data_load(const gchar *path)
 	fclose(f);
 
 	if (!cd->dimensions &&
-	    !cd->have_date &&
 	    !cd->have_md5sum &&
 	    !cd->similarity)
 		{

@@ -8,8 +8,6 @@
         <menuitem action="Search"/>
         <menuitem action="FindDupes"/>
         <separator/>
-        <menuitem action="Print"/>
-        <separator/>
         <menuitem action="NewFolder"/>
         <menuitem action="Copy"/>
         <menuitem action="Move"/>

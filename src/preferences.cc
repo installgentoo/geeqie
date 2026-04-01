@@ -907,31 +907,6 @@ static void image_overlay_template_view_changed_cb(GtkWidget *, gpointer data)
 					  gtk_text_buffer_get_text(pTextBuffer, &iStart, &iEnd, TRUE));
 }
 
-static void image_overlay_default_template_ok_cb(GenericDialog *, gpointer data)
-{
-	auto text_view = static_cast<GtkTextView *>(data);
-	GtkTextBuffer *buffer;
-
-	set_default_image_overlay_template_string(&options->image_overlay.template_string);
-	if (!configwindow) return;
-
-	buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view));
-	gtk_text_buffer_set_text(buffer, options->image_overlay.template_string, -1);
-}
-
-static void image_overlay_default_template_cb(GtkWidget *widget, gpointer data)
-{
-	GenericDialog *gd;
-
-	gd = generic_dialog_new(_("Reset image overlay template string"),
-				"reset_image_overlay_template_string", widget, TRUE,
-				dummy_cancel_cb, data);
-	generic_dialog_add_message(gd, GQ_ICON_DIALOG_QUESTION, _("Reset image overlay template string"),
-				   _("This will reset the image overlay template string to the default.\nContinue?"), TRUE);
-	generic_dialog_add_button(gd, GQ_ICON_OK, "OK", image_overlay_default_template_ok_cb, TRUE);
-	gtk_widget_show(gd->dialog);
-}
-
 static void font_activated_cb(GtkFontChooser *widget, gchar *fontname, gpointer)
 {
 	g_free(c_options->image_overlay.font);
@@ -1460,7 +1435,6 @@ static void config_tab_osd(GtkWidget *notebook)
 	subgroup = pref_box_new(group, FALSE, GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
 
 	scrolled_pre_formatted = osd_new(PRE_FORMATTED_COLUMNS, image_overlay_template_view);
-	gtk_widget_set_size_request(scrolled_pre_formatted, 200, 150);
 	gq_gtk_box_pack_start(GTK_BOX(subgroup), scrolled_pre_formatted, FALSE, FALSE, 0);
 	gtk_widget_show(scrolled_pre_formatted);
 	gtk_widget_show(subgroup);
@@ -1500,11 +1474,6 @@ static void config_tab_osd(GtkWidget *notebook)
 	gtk_widget_show(button);
 	image_overlay_set_text_colors();
 
-	button = pref_button_new(nullptr, nullptr, _("Defaults"),
-				 G_CALLBACK(image_overlay_default_template_cb), image_overlay_template_view);
-	gq_gtk_box_pack_end(GTK_BOX(hbox), button, FALSE, FALSE, 0);
-	gtk_widget_show(button);
-
 	buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(image_overlay_template_view));
 	if (options->image_overlay.template_string) gtk_text_buffer_set_text(buffer, options->image_overlay.template_string, -1);
 	g_signal_connect(G_OBJECT(buffer), "changed",
@@ -1512,38 +1481,11 @@ static void config_tab_osd(GtkWidget *notebook)
 
 	pref_line(group, PREF_PAD_GAP);
 
-	group = pref_group_new(vbox, FALSE, _("Exif, XMP or IPTC tags"), GTK_ORIENTATION_VERTICAL);
-	hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	gq_gtk_box_pack_start(GTK_BOX(group), hbox, FALSE, FALSE, 0);
-	gtk_widget_show(hbox);
-	label = gtk_label_new(_("%Exif.Image.Orientation%"));
-	gq_gtk_box_pack_start(GTK_BOX(hbox),label, FALSE,FALSE,0);
-	gtk_widget_show(label);
-	pref_spacer(group,TRUE);
-
-	group = pref_group_new(vbox, FALSE, _("Field separators"), GTK_ORIENTATION_VERTICAL);
-	hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	gq_gtk_box_pack_start(GTK_BOX(group), hbox, FALSE, FALSE, 0);
-	gtk_widget_show(hbox);
-	label = gtk_label_new(_("Separator shown only if both fields are non-null:\n%formatted.ShutterSpeed%|%formatted.ISOSpeedRating%"));
-	gq_gtk_box_pack_start(GTK_BOX(hbox),label, FALSE,FALSE,0);
-	gtk_widget_show(label);
-	pref_spacer(group,TRUE);
-
 	group = pref_group_new(vbox, FALSE, _("Field maximum length"), GTK_ORIENTATION_VERTICAL);
 	hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gq_gtk_box_pack_start(GTK_BOX(group), hbox, FALSE, FALSE, 0);
 	gtk_widget_show(hbox);
 	label = gtk_label_new(_("%path:39%"));
-	gq_gtk_box_pack_start(GTK_BOX(hbox),label, FALSE,FALSE,0);
-	gtk_widget_show(label);
-	pref_spacer(group,TRUE);
-
-	group = pref_group_new(vbox, FALSE, _("Pre- and post- text"), GTK_ORIENTATION_VERTICAL);
-	hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	gq_gtk_box_pack_start(GTK_BOX(group), hbox, FALSE, FALSE, 0);
-	gtk_widget_show(hbox);
-	label = gtk_label_new(_("Text shown only if the field is non-null:\n%formatted.Aperture:F no. * setting%\n %formatted.Aperture:10:F no. * setting%"));
 	gq_gtk_box_pack_start(GTK_BOX(hbox),label, FALSE,FALSE,0);
 	gtk_widget_show(label);
 	pref_spacer(group,TRUE);

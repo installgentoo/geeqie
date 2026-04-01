@@ -146,27 +146,6 @@ static gboolean cache_loader_phase2_process(CacheLoader *cl)
 
 		cl->todo_mask = static_cast<CacheDataType>(cl->todo_mask & ~CACHE_LOADER_MD5SUM);
 		}
-	else if (cl->todo_mask & CACHE_LOADER_DATE &&
-		 !cl->cd->have_date)
-		{
-		static const auto get_date = [](FileData *fd) -> time_t
-		{
-			g_autofree gchar *text = metadata_read_string(fd, "Exif.Image.DateTime", METADATA_FORMATTED);
-			if (!text) return -1;
-
-			std::tm t{};
-			if (!strptime(text, "%Y:%m:%d %H:%M:%S", &t)) return -1;
-
-			t.tm_isdst = -1;
-			return mktime(&t);
-		};
-
-		cl->cd->date = get_date(cl->fd);
-		cl->cd->have_date = TRUE;
-
-		cl->done_mask = static_cast<CacheDataType>(cl->done_mask | CACHE_LOADER_DATE);
-		cl->todo_mask = static_cast<CacheDataType>(cl->todo_mask & ~CACHE_LOADER_DATE);
-		}
 	else
 		{
 		/* done, save then call done function */

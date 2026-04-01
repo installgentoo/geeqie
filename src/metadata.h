@@ -32,7 +32,6 @@ class FileData;
 #define COMMENT_KEY "Xmp.dc.description"
 #define KEYWORD_KEY "Xmp.dc.subject"
 #define ORIENTATION_KEY "Xmp.tiff.Orientation"
-#define RATING_KEY "Xmp.xmp.Rating"
 
 void metadata_cache_free(FileData *fd);
 

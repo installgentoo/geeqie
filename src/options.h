@@ -217,18 +217,6 @@ struct ConfOptions
 		gchar *action; /** Used with F1 key */
 	} log_window;
 
-	/* Printer */
-	struct {
-		gchar *image_font;
-		gchar *page_font;
-		gboolean show_image_text;
-		gboolean show_page_text;
-		gchar *page_text;
-		TextPosition image_text_position;
-		TextPosition page_text_position;
-		gchar *template_string;
-	} printer;
-
 	/* Threads */
 	struct {
 		gint duplicates;

@@ -31,7 +31,6 @@ struct ImageLoader;
 enum CacheDataType {
 	CACHE_LOADER_NONE       = 0,
 	CACHE_LOADER_DIMENSIONS = 1 << 0,
-	CACHE_LOADER_DATE       = 1 << 1,
 	CACHE_LOADER_MD5SUM     = 1 << 2,
 	CACHE_LOADER_SIMILARITY = 1 << 3
 };

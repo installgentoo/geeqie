@@ -982,11 +982,7 @@ void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboo
 	imd->orientation = EXIF_ORIENTATION_TOP_LEFT;
 	if (imd->image_fd)
 		{
-		if (imd->image_fd->user_orientation)
-			{
-			imd->orientation = imd->image_fd->user_orientation;
-			}
-		else if (options->image.exif_rotate_enable)
+		if (options->image.exif_rotate_enable)
 			{
 			if (g_strcmp0(imd->image_fd->format_name, "heif") == 0)
 				{

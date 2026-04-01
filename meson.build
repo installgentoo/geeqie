@@ -75,7 +75,6 @@ if not option.disabled()
     running_from_git = find_program('git', required: false).found() and fs.is_dir('.git')
 else
     running_from_git = false
-    summary({'git' : ['disabled - ChangeLog, ChangeLog.html, lua-api help file created:', false]}, section : 'Documentation', bool_yn : true)
 endif
 
 debug = get_option('debug')
@@ -340,22 +339,6 @@ if not option.disabled()
     endif
 else
     summary({'libraw' : ['disabled - .cr3 files supported:', false]}, section : 'Configuration', bool_yn : true)
-endif
-
-conf_data.set('HAVE_LUA', 0)
-lua_dep = []
-req_version = '>=5.3'
-option = get_option('lua')
-if not option.disabled()
-    lua_dep = dependency('lua', 'lua5.3', 'lua-5.3', 'lua53', version: req_version, required: get_option('lua'))
-    if lua_dep.found()
-        conf_data.set('HAVE_LUA', 1)
-        summary({'lua' : ['lua supported:', true]}, section : 'Configuration', bool_yn : true)
-    else
-        summary({'lua' : ['lua ' + req_version + ' not found - lua supported:', false]}, section : 'Configuration', bool_yn : true)
-    endif
-else
-    summary({'lua' : ['disabled - lua supported:', false]}, section : 'Configuration', bool_yn : true)
 endif
 
 conf_data.set('HAVE_PDF', 0)
@@ -637,25 +620,6 @@ if untranslated_text_sh.found()
     summary({'Untranslated Text' : ['Test runs:', true]}, section : 'Testing', bool_yn : true)
 else
     summary({'Untranslated Text' : ['Test runs:', false]}, section : 'Testing', bool_yn : true)
-endif
-
-# Lua test
-option = get_option('lua')
-if not option.disabled()
-    if lua_dep.found()
-        if xvfb.found()
-            lua_test_sh = find_program('lua-test.sh', dirs : scriptsdir, required : true)
-            test('Lua test', isolate_test_sh, args: [lua_test_sh.full_path(), geeqie_exe.full_path()], timeout: 100, suite : 'analysis')
-
-            summary({'lua' : ['Test runs:', true]}, section : 'Testing', bool_yn : true)
-        else
-            summary({'lua' : ['Test runs:', false]}, section : 'Testing', bool_yn : true)
-        endif
-    else
-        summary({'lua' : ['Test runs:', false]}, section : 'Testing', bool_yn : true)
-    endif
-else
-    summary({'lua' : ['Test runs:', false]}, section : 'Testing', bool_yn : true)
 endif
 
 # Ancillary files test

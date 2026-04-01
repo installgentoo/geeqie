@@ -26,6 +26,7 @@
 #include <exception>
 #include <list>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -685,14 +686,168 @@ guchar *exif_get_color_profile(ExifData *exif, guint *data_len)
 	return ret;
 }
 
-gchar* exif_get_image_comment(FileData* fd)
+gchar *exif_get_all_exif_as_text(ExifData *exif)
 {
-	if (!fd || !fd->exif)
-		return g_strdup("");
+	if (!exif) return g_strdup("");
 
-	return g_strdup(fd->exif->image_comment().c_str());
+	try {
+		GString *str = g_string_new(nullptr);
+		const Exiv2::ExifData &ed = exif->exifData();
+
+		for (const auto &entry : ed)
+			{
+			if (entry.size() > 1024) continue; /* skip large binary blobs */
+
+			std::string val = entry.print(&ed);
+			if (val.empty()) continue;
+			if (val.length() > 256)
+				{
+				val.erase(256);
+				val.append("...");
+				}
+
+			gchar *label = utf8_validate_or_convert(entry.tagLabel().c_str());
+			gchar *value = utf8_validate_or_convert(val.c_str());
+			g_string_append_printf(str, "%s\t%s\n", label, value);
+			g_free(label);
+			g_free(value);
+			}
+
+		return g_string_free(str, FALSE);
+	}
+	catch (Exiv2::AnyError& e) {
+		debug_exception(e);
+		return g_strdup("");
+	}
 }
 
+gchar *exif_get_all_xmp_as_text(ExifData *exif)
+{
+	if (!exif) return g_strdup("");
+
+	try {
+		GString *str = g_string_new(nullptr);
+		std::set<std::string> seen_labels;
+
+		/* XMP entries first */
+		const Exiv2::XmpData &xd = exif->xmpData();
+		for (const auto &entry : xd)
+			{
+			std::string val = entry.print();
+			if (val.empty()) continue;
+			if (val.length() > 256)
+				{
+				val.erase(256);
+				val.append("...");
+				}
+
+			std::string label = entry.tagLabel();
+			seen_labels.insert(label);
+
+			gchar *ulabel = utf8_validate_or_convert(label.c_str());
+			gchar *value = utf8_validate_or_convert(val.c_str());
+			g_string_append_printf(str, "%s\t%s\n", ulabel, value);
+			g_free(ulabel);
+			g_free(value);
+			}
+
+		/* IPTC entries — only if label not already covered by XMP */
+		const Exiv2::IptcData &id = exif->iptcData();
+		for (const auto &entry : id)
+			{
+			std::string label = entry.tagLabel();
+			if (seen_labels.count(label)) continue;
+
+			std::string val = entry.print();
+			if (val.empty()) continue;
+			if (val.length() > 256)
+				{
+				val.erase(256);
+				val.append("...");
+				}
+
+			seen_labels.insert(label);
+
+			gchar *ulabel = utf8_validate_or_convert(label.c_str());
+			gchar *value = utf8_validate_or_convert(val.c_str());
+			g_string_append_printf(str, "%s\t%s\n", ulabel, value);
+			g_free(ulabel);
+			g_free(value);
+			}
+
+		/* JPEG comment */
+		std::string comment = exif->image_comment();
+		if (!comment.empty())
+			{
+			gchar *value = utf8_validate_or_convert(comment.c_str());
+			g_string_append_printf(str, "JPEG comment\t%s\n", value);
+			g_free(value);
+			}
+
+		return g_string_free(str, FALSE);
+	}
+	catch (Exiv2::AnyError& e) {
+		debug_exception(e);
+		return g_strdup("");
+	}
+}
+
+gchar *exif_get_all_metadata_as_text(ExifData *exif)
+{
+	gchar *exif_text = exif_get_all_exif_as_text(exif);
+	gchar *xmp_text = exif_get_all_xmp_as_text(exif);
+
+	/* collect xmp lines into a set for dedup */
+	std::set<std::string> xmp_lines;
+	gchar *p = xmp_text;
+	while (p && *p)
+		{
+		gchar *nl = strchr(p, '\n');
+		if (nl)
+			{
+			xmp_lines.emplace(p, nl - p);
+			p = nl + 1;
+			}
+		else
+			{
+			xmp_lines.emplace(p);
+			break;
+			}
+		}
+
+	/* build result: exif lines first (skipping any that appear in xmp), then all xmp */
+	GString *str = g_string_new(nullptr);
+
+	p = exif_text;
+	while (p && *p)
+		{
+		gchar *nl = strchr(p, '\n');
+		std::string line;
+		if (nl)
+			{
+			line.assign(p, nl - p);
+			p = nl + 1;
+			}
+		else
+			{
+			line.assign(p);
+			p = nullptr;
+			}
+
+		if (!line.empty() && !xmp_lines.count(line))
+			{
+			g_string_append(str, line.c_str());
+			g_string_append_c(str, '\n');
+			}
+		}
+
+	g_string_append(str, xmp_text);
+
+	g_free(exif_text);
+	g_free(xmp_text);
+
+	return g_string_free(str, FALSE);
+}
 
 guchar *exif_get_preview(ExifData *exif, guint *data_len, gint requested_width, gint requested_height)
 {

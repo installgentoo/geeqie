@@ -26,12 +26,6 @@
 /* Location of helper scripts and executables */
 #mesondefine GQ_BINDIR
 
-/* Location of documentation files */
-#mesondefine GQ_HELPDIR
-
-/* Location of html documentation */
-#mesondefine GQ_HTMLDIR 
-
 /* Define the location where the catalogs will be installed */
 #mesondefine GQ_LOCALEDIR
 
@@ -41,17 +35,8 @@
 /* Name of gettext file */
 /*#mesondefine GETTEXT_PACKAGE*/
 
-/* Define to enable archive support */
-#mesondefine HAVE_ARCHIVE
-
-/* Define to enable use of clutter library */
-#mesondefine HAVE_CLUTTER
-
 /* Define to enable DjVu support */
 #mesondefine HAVE_DJVU
-
-/* Define to enable exiv2 support */
-#mesondefine HAVE_EXIV2
 
 /* Define to enable ffmpegthumbnailer support */
 #mesondefine HAVE_FFMPEGTHUMBNAILER
@@ -84,16 +69,10 @@
 #mesondefine HAVE_LCMS2
 
 /* Define to enable use of maps */
-#mesondefine HAVE_LIBCHAMPLAIN
-
-/* Define to enable use of maps */
 #mesondefine HAVE_LIBCHAMPLAIN_GTK
 
 /* Define to 1 if LIRC must be used */
 #mesondefine HAVE_LIRC
-
-/* Define to enable lua support */
-#mesondefine HAVE_LUA
 
 /* Define if _NL_TIME_FIRST_WEEKDAY is available */
 #mesondefine HAVE__NL_TIME_FIRST_WEEKDAY
@@ -103,9 +82,6 @@
 
 /* Define to enable libraw support */
 #mesondefine HAVE_RAW
-
-/* Define to enable libgspell support */
-#mesondefine HAVE_SPELL
 
 /* Define to enable use of custom tiff loader */
 #mesondefine HAVE_TIFF
@@ -222,9 +198,6 @@
 
 /* Define to 1 if you have the <execinfo.h> header file. */
 #mesondefine HAVE_EXECINFO_H
-
-/* Do not use */
-#mesondefine HAVE_GTK4
 
 /* Whether to enable a mode of Geeqie that executes unit tests instead of
    running the actual app.  Actually executing the unit tests _also_ requires

@@ -371,18 +371,6 @@ gboolean file_data_unregister_real_time_monitor(FileData *fd)
 	return fd->file_data_unregister_real_time_monitor(fd);
 }
 
-
-void read_exif_time_data(FileData *file)
-{
-	file->read_exif_time_data(file);
-}
-
-void read_exif_time_digitized_data(FileData *file)
-{
-	file->read_exif_time_digitized_data(file);
-}
-
-
 void file_data_inc_page_num(FileData *fd)
 {
 	fd->file_data_inc_page_num(fd);

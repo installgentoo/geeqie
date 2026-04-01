@@ -58,7 +58,6 @@
 #include "exif.h"
 #include "filedata.h"
 #include "filefilter.h"
-#include "glua.h"
 #include "history-list.h"
 #include "image.h"
 #include "intl.h"
@@ -899,10 +898,6 @@ gint main(gint argc, gchar *argv[])
 #endif
 
 	exif_init();
-
-#if HAVE_LUA
-	lua_init();
-#endif
 
 	/* setup random seed for random slideshow */
 	srand(time(nullptr));

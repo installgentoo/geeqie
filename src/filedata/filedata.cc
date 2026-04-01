@@ -384,7 +384,6 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileD
 	fd->mode = st->st_mode;
 	fd->ref = 1;
 	fd->magick = FD_MAGICK;
-	fd->exifdate = 0;
 	fd->format_class = filter_file_get_class(path_utf8);
 	fd->page_num = 0;
 	fd->page_total = 0;
@@ -429,62 +428,6 @@ FileData *FileData::file_data_new_simple(const gchar *path_utf8, FileDataContext
 		}
 
 	return fd;
-}
-
-void FileData::read_exif_time_data(FileData *file)
-{
-	if (file->exifdate > 0)
-		{
-		DEBUG_1("%s read_exif_time_data: Already exists for %s", get_exec_time(), file->path);
-		return;
-		}
-
-	if (!file->exif)
-		{
-		exif_read_fd(file);
-		}
-
-	if (file->exif)
-		{
-		g_autofree gchar *tmp = exif_get_data_as_text(file->exif, "Exif.Photo.DateTimeOriginal");
-		DEBUG_2("%s read_exif_time_data: reading %p %s", get_exec_time(), (void *)file, file->path);
-
-		if (tmp)
-			{
-			std::tm time_str{};
-			strptime(tmp, "%Y:%m:%d %H:%M:%S", &time_str);
-
-			file->exifdate = mktime(&time_str);
-			}
-		}
-}
-
-void FileData::read_exif_time_digitized_data(FileData *file)
-{
-	if (file->exifdate_digitized > 0)
-		{
-		DEBUG_1("%s read_exif_time_digitized_data: Already exists for %s", get_exec_time(), file->path);
-		return;
-		}
-
-	if (!file->exif)
-		{
-		exif_read_fd(file);
-		}
-
-	if (file->exif)
-		{
-		g_autofree gchar *tmp = exif_get_data_as_text(file->exif, "Exif.Photo.DateTimeDigitized");
-		DEBUG_2("%s read_exif_time_digitized_data: reading %p %s", get_exec_time(), (void *)file, file->path);
-
-		if (tmp)
-			{
-			std::tm time_str{};
-			strptime(tmp, "%Y:%m:%d %H:%M:%S", &time_str);
-
-			file->exifdate_digitized = mktime(&time_str);
-			}
-		}
 }
 
 FileData *FileData::file_data_new(const gchar *path_utf8, FileDataContext *context)
@@ -599,7 +542,6 @@ void FileData::file_data_free(FileData *fd)
 	g_free(fd->collate_key_name_nocase_natural);
 	g_free(fd->collate_key_name_natural);
 
-	g_free(fd->extended_extension);
 	if (fd->thumb_pixbuf) g_object_unref(fd->thumb_pixbuf);
 	g_free(fd->format_name);
 

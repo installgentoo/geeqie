@@ -44,7 +44,6 @@ enum OsdShowFlags {
 };
 
 void set_image_overlay_template_string(gchar **template_string, const gchar *value);
-void set_default_image_overlay_template_string(gchar **template_string);
 void set_image_overlay_font_string(gchar **font_string, const gchar *value);
 
 void image_osd_set(ImageWindow *imd, OsdShowFlags show);
