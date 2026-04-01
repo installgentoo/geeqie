@@ -41,7 +41,6 @@
 #include "exif.h"
 #include "filefilter.h"
 #include "intl.h"
-#include "metadata.h"
 #include "options.h"
 #include "trash.h"
 #include "ui-fileops.h"
@@ -531,7 +530,6 @@ void FileData::file_data_free(FileData *fd)
 	DEBUG_2("file data count--: %d", fd->context->global_file_data_count);
 #endif
 
-	metadata_cache_free(fd);
 	g_hash_table_remove(fd->context->file_data_pool, fd->original_path);
 
 	g_free(fd->path);

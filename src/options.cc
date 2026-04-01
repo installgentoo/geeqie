@@ -248,18 +248,9 @@ gboolean load_options(ConfOptions *)
 	gboolean success;
 	gchar *rc_path;
 
-	if (isdir(GQ_SYSTEM_WIDE_DIR))
-		{
-		rc_path = g_build_filename(GQ_SYSTEM_WIDE_DIR, RC_FILE_NAME, NULL);
-		success = load_config_from_file(rc_path, TRUE);
-		DEBUG_1("Loading options from %s ... %s", rc_path, success ? "done" : "failed");
-		g_free(rc_path);
-		}
-
 	rc_path = g_build_filename(get_rc_dir(), RC_FILE_NAME, NULL);
 	success = load_config_from_file(rc_path, TRUE);
 	DEBUG_1("Loading options from %s ... %s", rc_path, success ? "done" : "failed");
 	g_free(rc_path);
 	return(success);
 }
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

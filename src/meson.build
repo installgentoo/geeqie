@@ -87,8 +87,6 @@ main_sources = files(
 'md5-util.h',
 'menu.cc',
 'menu.h',
-'metadata.cc',
-'metadata.h',
 'misc.cc',
 'misc.h',
 'options.cc',

@@ -29,7 +29,6 @@
 #include "cache.h"
 #include "filedata.h"
 #include "image-load.h"
-#include "metadata.h"
 #include "options.h"
 #include "similar.h"
 #include "typedefs.h"

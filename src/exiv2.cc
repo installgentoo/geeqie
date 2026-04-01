@@ -686,6 +686,55 @@ guchar *exif_get_color_profile(ExifData *exif, guint *data_len)
 	return ret;
 }
 
+static gint exif_orientation_validate(gint orientation, gint fallback)
+{
+	if (orientation < EXIF_ORIENTATION_TOP_LEFT || orientation > EXIF_ORIENTATION_LEFT_BOTTOM) return fallback;
+	return orientation;
+}
+
+gint exif_read_orientation(FileData *fd, gint fallback)
+{
+	ExifData *exif = exif_read_fd(fd);
+	if (!exif) return fallback;
+
+	gint orientation = fallback;
+
+	try
+		{
+		const Exiv2::ExifData &ed = exif->exifData();
+		const auto exif_it = ed.findKey(Exiv2::ExifKey("Exif.Image.Orientation"));
+		if (exif_it != ed.end())
+			{
+#if EXIV2_TEST_VERSION(0,28,0)
+			orientation = static_cast<gint>(exif_it->toInt64());
+#else
+			orientation = static_cast<gint>(exif_it->toLong());
+#endif
+			exif_free_fd(fd, exif);
+			return exif_orientation_validate(orientation, fallback);
+			}
+
+		const Exiv2::XmpData &xd = exif->xmpData();
+		const auto xmp_it = xd.findKey(Exiv2::XmpKey("Xmp.tiff.Orientation"));
+		if (xmp_it != xd.end())
+			{
+#if EXIV2_TEST_VERSION(0,28,0)
+			orientation = static_cast<gint>(xmp_it->toInt64());
+#else
+			orientation = static_cast<gint>(xmp_it->toLong());
+#endif
+			}
+		}
+	catch (Exiv2::AnyError& e)
+		{
+		debug_exception(e);
+		orientation = fallback;
+		}
+
+	exif_free_fd(fd, exif);
+	return exif_orientation_validate(orientation, fallback);
+}
+
 gchar *exif_get_all_exif_as_text(ExifData *exif)
 {
 	if (!exif) return g_strdup("");

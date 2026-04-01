@@ -37,7 +37,6 @@
 #include "intl.h"
 #include "layout-image.h"
 #include "layout.h"
-#include "metadata.h"
 #include "options.h"
 #include "pixbuf-renderer.h"
 #include "pixbuf-util.h"
@@ -991,7 +990,7 @@ void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboo
 				}
 			else
 				{
-				imd->orientation = metadata_read_int(imd->image_fd, ORIENTATION_KEY, EXIF_ORIENTATION_TOP_LEFT);
+				imd->orientation = exif_read_orientation(imd->image_fd, EXIF_ORIENTATION_TOP_LEFT);
 				imd->image_fd->exif_orientation = imd->orientation;
 				}
 			}

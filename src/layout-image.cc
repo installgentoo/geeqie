@@ -47,7 +47,6 @@
 #include "layout.h"
 #include "main-defines.h"
 #include "menu.h"
-#include "metadata.h"
 #include "misc.h"
 #include "options.h"
 #include "pixbuf-renderer.h"
@@ -632,7 +631,7 @@ void layout_image_reset_orientation(LayoutWindow *lw)
 		{
 		if (g_strcmp0(imd->image_fd->format_name, "heif") != 0)
 			{
-			imd->orientation = metadata_read_int(imd->image_fd, ORIENTATION_KEY, EXIF_ORIENTATION_TOP_LEFT);
+			imd->orientation = exif_read_orientation(imd->image_fd, EXIF_ORIENTATION_TOP_LEFT);
 			}
 		else
 			{

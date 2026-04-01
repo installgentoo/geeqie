@@ -156,7 +156,6 @@ class FileData {
 	gint exif_orientation;
 
 	ExifData *exif;
-	GList *cached_metadata;
 	SelectionType selected;  /**< Used by view-file-icon. */
 
 	gint page_num;

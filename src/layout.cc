@@ -161,17 +161,6 @@ static void layout_vd_select_cb(ViewDir *, FileData *fd, gpointer data)
 	layout_set_fd(lw, fd);
 }
 
-static void layout_path_entry_tab_append_cb(const gchar *, gpointer data, gint n)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (!lw || !lw->back_button) return;
-	if (!layout_valid(&lw)) return;
-
-	/* Enable back button if it makes sense */
-	gtk_widget_set_sensitive(lw->back_button, (n > 1));
-}
-
 static gboolean path_entry_tooltip_cb(GtkWidget *widget, gpointer)
 {
 	GList *box_child_list;
@@ -204,7 +193,6 @@ static GtkWidget *layout_tool_setup(LayoutWindow *lw)
 	tabcomp = tab_completion_new_with_history(&lw->path_entry, nullptr, "path_list", -1, layout_path_entry_cb, lw);
 	DEBUG_NAME(tabcomp);
 	tab_completion_add_tab_func(lw->path_entry, layout_path_entry_tab_cb, lw);
-	tab_completion_add_append_func(lw->path_entry, layout_path_entry_tab_append_cb, lw);
 
 	gq_gtk_box_pack_start(GTK_BOX(box), tabcomp, FALSE, FALSE, 0);
 
@@ -1399,6 +1387,3 @@ LayoutWindow *layout_new_from_default()
 
 	return main_lw;
 }
-
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
-

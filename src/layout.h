@@ -68,8 +68,6 @@ struct LayoutWindow
 	GtkWidget *menu_bar; /**< referenced by lw, exist during whole lw lifetime */
 	/* toolbar */
 
-	GtkWidget *back_button;
-
 	ViewDir *vd;
 	GtkWidget *dir_view;
 
@@ -152,4 +150,3 @@ void layout_styles_update();
 gchar *layout_get_unique_id();
 
 #endif
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

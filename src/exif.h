@@ -118,6 +118,7 @@ gchar *exif_get_data_as_text(ExifData *exif, const gchar *key);
 gchar *exif_get_all_exif_as_text(ExifData *exif);
 gchar *exif_get_all_xmp_as_text(ExifData *exif);
 gchar *exif_get_all_metadata_as_text(ExifData *exif);
+gint exif_read_orientation(FileData *fd, gint fallback);
 gint exif_get_integer(ExifData *exif, const gchar *key, gint *value);
 
 ExifItem *exif_get_item(ExifData *exif, const gchar *key);

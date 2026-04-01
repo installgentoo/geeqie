@@ -35,8 +35,6 @@
 #define GQ_RESOURCE_PATH_CREDITS "/org/geeqie/credits"
 #define GQ_RESOURCE_PATH_UI "/org/geeqie/ui"
 
-#define GQ_SYSTEM_WIDE_DIR    "/etc/" GQ_APPNAME_LC
-
 #define RC_FILE_NAME GQ_APPNAME_LC "rc.xml"
 #define DEFAULT_WINDOW_LAYOUT "default_window_layout.xml"
 
@@ -53,12 +51,10 @@
 
 #define GQ_ICON_ADD "list-add"
 #define GQ_ICON_REMOVE "list-remove"
-#define GQ_ICON_UNDO "edit-undo"
 #define GQ_ICON_REDO "edit-redo"
 #define GQ_ICON_OPEN "document-open"
 #define GQ_ICON_OPEN_WITH "open-menu"
 #define GQ_ICON_SAVE "document-save"
-#define GQ_ICON_SAVE_AS "document-save-as"
 #define GQ_ICON_NEW "document-new"
 #define GQ_ICON_EDIT "document-edit"
 #define GQ_ICON_REVERT "document-revert"
@@ -75,16 +71,12 @@
 #define GQ_ICON_CLEAR "edit-clear"
 #define GQ_ICON_COPY "edit-copy"
 #define GQ_ICON_FIND "edit-find"
-#define GQ_ICON_REPLACE "edit-find-replace"
-#define GQ_ICON_PRINT "document-print"
 #define GQ_ICON_FILE_FILTER "preview-file"
-#define GQ_ICON_USER_TRASH "user-trash"
 
 #define GQ_ICON_GO_TOP "go-top"
 #define GQ_ICON_GO_BOTTOM "go-bottom"
 #define GQ_ICON_GO_UP "go-up"
 #define GQ_ICON_GO_DOWN "go-down"
-#define GQ_ICON_GO_FIRST "go-first"
 #define GQ_ICON_GO_LAST "go-last"
 #define GQ_ICON_GO_PREV "go-previous"
 #define GQ_ICON_GO_NEXT "go-next"
@@ -96,9 +88,6 @@
 #define GQ_ICON_BACK_PAGE "media-seek-backward"
 #define GQ_ICON_FORWARD_PAGE "media-seek-forward"
 
-#define GQ_ICON_PLAY "media-playback-start"
-#define GQ_ICON_PAUSE "media-playback-pause"
-
 #define GQ_ICON_ZOOM_IN "zoom-in"
 #define GQ_ICON_ZOOM_OUT "zoom-out"
 #define GQ_ICON_ZOOM_100 "zoom-original"
@@ -106,7 +95,6 @@
 
 // might need replacing
 #define GQ_ICON_PREFERENCES "preferences-system"
-#define GQ_ICON_HELP "help-contents" // "help-browser"?
 #define GQ_ICON_EXPORT "document-export" // use collection icon?
 
 // not available in some themes
@@ -143,5 +131,4 @@
 // PIXBUF_INLINE_ICON_ZOOMFILLHOR
 // PIXBUF_INLINE_ICON_ZOOMFILLVERT
 
-#endif /* _MAIN_DEFINES_H */
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
+#endif

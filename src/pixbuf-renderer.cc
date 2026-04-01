@@ -370,8 +370,6 @@ static void pixbuf_renderer_init(PixbufRenderer *pr)
 
 	pr->renderer = pr_backend_renderer_new(pr);
 
-	pr->renderer2 = nullptr;
-
 	gtk_widget_set_double_buffered(box, FALSE);
 	gtk_widget_set_app_paintable(box, TRUE);
 	g_signal_connect_after(G_OBJECT(box), "size_allocate",
@@ -387,8 +385,6 @@ static void pixbuf_renderer_finalize(GObject *object)
 	pr = PIXBUF_RENDERER(object);
 
 	pr->renderer->free(pr->renderer);
-	if (pr->renderer2) pr->renderer2->free(pr->renderer2);
-
 
 	if (pr->pixbuf) g_object_unref(pr->pixbuf);
 
@@ -500,27 +496,22 @@ static void pixbuf_renderer_get_property(GObject *object, guint prop_id,
 gint pixbuf_renderer_overlay_add(PixbufRenderer *pr, GdkPixbuf *pixbuf, gint x, gint y,
 				 OverlayRendererFlags flags)
 {
-	/* let's assume both renderers returns the same value */
-	if (pr->renderer2) pr->renderer2->overlay_add(pr->renderer2, pixbuf, x, y, flags);
 	return pr->renderer->overlay_add(pr->renderer, pixbuf, x, y, flags);
 }
 
 void pixbuf_renderer_overlay_set(PixbufRenderer *pr, gint id, GdkPixbuf *pixbuf, gint x, gint y)
 {
 	pr->renderer->overlay_set(pr->renderer, id, pixbuf, x, y);
-	if (pr->renderer2) pr->renderer2->overlay_set(pr->renderer2, id, pixbuf, x, y);
 }
 
 gboolean pixbuf_renderer_overlay_get(PixbufRenderer *pr, gint id, GdkPixbuf **pixbuf, gint *x, gint *y)
 {
-	if (pr->renderer2) pr->renderer2->overlay_get(pr->renderer2, id, pixbuf, x, y);
 	return pr->renderer->overlay_get(pr->renderer, id, pixbuf, x, y);
 }
 
 void pixbuf_renderer_overlay_remove(PixbufRenderer *pr, gint id)
 {
 	pr->renderer->overlay_set(pr->renderer, id, nullptr, 0, 0);
-	if (pr->renderer2) pr->renderer2->overlay_set(pr->renderer2, id, nullptr, 0, 0);
 }
 
 /*
@@ -700,7 +691,6 @@ void pixbuf_renderer_set_color(PixbufRenderer *pr, GdkRGBA *color)
 		}
 
 	pr->renderer->update_viewport(pr->renderer);
-	if (pr->renderer2) pr->renderer2->update_viewport(pr->renderer2);
 }
 
 /*
@@ -1297,7 +1287,6 @@ static void pr_zoom_sync(PixbufRenderer *pr, gdouble zoom,
 	pr_scroll_clamp(pr);
 
 	pr->renderer->update_zoom(pr->renderer, lazy);
-	if (pr->renderer2) pr->renderer2->update_zoom(pr->renderer2, lazy);
 
 	pr_scroll_notify_signal(pr);
 	pr_zoom_signal(pr);
@@ -1332,11 +1321,9 @@ static void pr_size_sync(PixbufRenderer *pr, gint new_width, gint new_height)
 	if (zoom_changed)
 		{
 		pr->renderer->update_zoom(pr->renderer, FALSE);
-		if (pr->renderer2) pr->renderer2->update_zoom(pr->renderer2, FALSE);
 		}
 
 	pr->renderer->update_viewport(pr->renderer);
-	if (pr->renderer2) pr->renderer2->update_viewport(pr->renderer2);
 
 
 	/* ensure scroller remains visible */
@@ -1421,7 +1408,6 @@ void pixbuf_renderer_scroll(PixbufRenderer *pr, gint x, gint y)
 	y_off = pr->y_scroll - old_y;
 
 	pr->renderer->scroll(pr->renderer, x_off, y_off);
-	if (pr->renderer2) pr->renderer2->scroll(pr->renderer2, x_off, y_off);
 }
 
 /* get or set coordinates of viewport center in the image, in range 0.0 - 1.0 */
@@ -1696,7 +1682,6 @@ static void pr_set_pixbuf(PixbufRenderer *pr, GdkPixbuf *pixbuf, gdouble zoom, P
 				    and used for pixbuf_renderer_zoom_get */
 
 		pr->renderer->update_pixbuf(pr->renderer, flags & PR_ZOOM_LAZY);
-		if (pr->renderer2) pr->renderer2->update_pixbuf(pr->renderer2, flags & PR_ZOOM_LAZY);
 
 		pr_update_signal(pr);
 
@@ -1705,7 +1690,6 @@ static void pr_set_pixbuf(PixbufRenderer *pr, GdkPixbuf *pixbuf, gdouble zoom, P
 
 	pr_pixbuf_size_sync(pr);
 	pr->renderer->update_pixbuf(pr->renderer, flags & PR_ZOOM_LAZY);
-	if (pr->renderer2) pr->renderer2->update_pixbuf(pr->renderer2, flags & PR_ZOOM_LAZY);
 	pr_zoom_sync(pr, zoom, static_cast<PrZoomFlags>(flags | PR_ZOOM_FORCE | PR_ZOOM_NEW), 0, 0);
 }
 
@@ -1847,7 +1831,6 @@ void pixbuf_renderer_area_changed(PixbufRenderer *pr, gint x, gint y, gint w, gi
 	g_return_if_fail(IS_PIXBUF_RENDERER(pr));
 
 	pr->renderer->area_changed(pr->renderer, x, y, w, h);
-	if (pr->renderer2) pr->renderer2->area_changed(pr->renderer2, x, y, w, h);
 }
 
 void pixbuf_renderer_zoom_adjust(PixbufRenderer *pr, gdouble increment)

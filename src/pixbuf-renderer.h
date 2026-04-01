@@ -192,7 +192,6 @@ struct PixbufRenderer
 	gint orientation;
 
 	RendererFuncs *renderer;
-	RendererFuncs *renderer2;
 };
 
 struct PixbufRendererClass

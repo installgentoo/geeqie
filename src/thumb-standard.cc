@@ -38,7 +38,6 @@
 #include "filedata.h"
 #include "image-load.h"
 #include "md5-util.h"
-#include "metadata.h"
 #include "options.h"
 #include "pixbuf-util.h"
 #include "ui-fileops.h"
@@ -309,7 +308,7 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoader *tl, GdkPixbuf *pixbuf)
 			{
 			if (g_strcmp0(tl->fd->format_name, "heif") != 0)
 				{
-				tl->fd->exif_orientation = metadata_read_int(tl->fd, ORIENTATION_KEY, EXIF_ORIENTATION_TOP_LEFT);
+				tl->fd->exif_orientation = exif_read_orientation(tl->fd, EXIF_ORIENTATION_TOP_LEFT);
 				}
 			else
 				{

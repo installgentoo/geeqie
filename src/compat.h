@@ -24,15 +24,6 @@
 #include <glib.h>
 #include <gtk/gtk.h>
 
-#include <config.h>
-
-/* Some systems (BSD,MacOsX,HP-UX,...) define MAP_ANON and not MAP_ANONYMOUS */
-#if defined(MAP_ANON) && !defined(MAP_ANONYMOUS)
-#define	MAP_ANONYMOUS	MAP_ANON
-#elif defined(MAP_ANONYMOUS) && !defined(MAP_ANON)
-#define	MAP_ANON	MAP_ANONYMOUS
-#endif
-
 #define gq_gtk_box_pack_end(box, child, expand, fill, padding) gtk_box_pack_end(box, child, expand, fill, padding)
 #define gq_gtk_box_pack_start(box, child, expand, fill, padding) gtk_box_pack_start(box, child, expand, fill, padding)
 #define gq_gtk_frame_set_shadow_type(frame, type) gtk_frame_set_shadow_type(frame, type)
@@ -87,5 +78,4 @@ const auto gq_gtk_ui_manager_remove_ui = gtk_ui_manager_remove_ui;
 const auto gq_gtk_ui_manager_set_add_tearoffs = gtk_ui_manager_set_add_tearoffs;
 G_GNUC_END_IGNORE_DEPRECATIONS
 
-#endif /* COMPAT_H */
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
+#endif
