@@ -283,40 +283,16 @@ static gboolean image_post_process_color(ImageWindow *imd, gint start_row, gbool
 			}
 		else
 			{
-			gchar *interop_index = exif_get_data_as_text(exif, "Exif.Iop.InteroperabilityIndex");
-
-			if (interop_index)
+			const auto color_space = exif_read_colorspace(imd->image_fd);
+			if (color_space == EXIF_COLORSPACE_SRGB)
 				{
-				/* Exif 2.21 specification */
-				if (!strcmp(interop_index, "R98"))
-					{
-					imd->color_profile_from_image = COLOR_PROFILE_SRGB;
-					DEBUG_1("Found EXIF 2.21 ColorSpace of sRGB");
-					}
-				else if (!strcmp(interop_index, "R03"))
-					{
-					imd->color_profile_from_image = COLOR_PROFILE_ADOBERGB;
-					DEBUG_1("Found EXIF 2.21 ColorSpace of AdobeRGB");
-					}
-				g_free(interop_index);
+				imd->color_profile_from_image = COLOR_PROFILE_SRGB;
+				DEBUG_1("Found EXIF ColorSpace of sRGB");
 				}
-			else
+			else if (color_space == EXIF_COLORSPACE_ADOBERGB)
 				{
-				gint cs;
-
-				/* ColorSpace == 1 specifies sRGB per EXIF 2.2 */
-				if (!exif_get_integer(exif, "Exif.Photo.ColorSpace", &cs)) cs = 0;
-				if (cs == 1)
-					{
-					imd->color_profile_from_image = COLOR_PROFILE_SRGB;
-					DEBUG_1("Found EXIF 2.2 ColorSpace of sRGB");
-					}
-				else if (cs == 2)
-					{
-					/* non-standard way of specifying AdobeRGB (used by some software) */
-					imd->color_profile_from_image = COLOR_PROFILE_ADOBERGB;
-					DEBUG_1("Found EXIF 2.2 ColorSpace of AdobeRGB");
-					}
+				imd->color_profile_from_image = COLOR_PROFILE_ADOBERGB;
+				DEBUG_1("Found EXIF ColorSpace of AdobeRGB");
 				}
 
 			if (imd->color_profile_use_image && imd->color_profile_from_image != COLOR_PROFILE_NONE)

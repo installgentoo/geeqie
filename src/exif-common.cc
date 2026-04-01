@@ -53,62 +53,6 @@ struct ExifData;
 struct ExifItem;
 struct FileCacheData;
 
-ExifFormattedText ExifFormattedList[] = {
-	{"file.size",				N_("File size"), 	nullptr},
-	{"file.date",				N_("File date"), 	nullptr},
-	{"file.mode",				N_("File mode"), 	nullptr},
-	{"file.ctime",				N_("File ctime"), 	nullptr},
-	{"file.owner",				N_("File owner"), 	nullptr},
-	{"file.group",				N_("File group"), 	nullptr},
-	{"file.link",				N_("File link"), 	nullptr},
-	{"file.page_no",			N_("Page no."), 	nullptr},
-	{ nullptr, nullptr, nullptr }
-};
-
-gchar *exif_get_formatted_by_key(ExifData *exif, const gchar *key, gboolean *key_valid)
-{
-	if (strncmp(key, EXIF_FORMATTED(), EXIF_FORMATTED_LEN) == 0)
-		{
-		gint i;
-
-		if (key_valid) *key_valid = TRUE;
-
-		key += EXIF_FORMATTED_LEN;
-		for (i = 0; ExifFormattedList[i].key; i++)
-			if (ExifFormattedList[i].build_func && strcmp(key, ExifFormattedList[i].key + EXIF_FORMATTED_LEN) == 0)
-				return ExifFormattedList[i].build_func(exif);
-		}
-
-	if (key_valid) *key_valid = FALSE;
-	return nullptr;
-}
-
-gint exif_get_integer(ExifData *exif, const gchar *key, gint *value)
-{
-	ExifItem *item;
-
-	item = exif_get_item(exif, key);
-	return exif_item_get_integer(item, value);
-}
-
-gchar *exif_get_data_as_text(ExifData *exif, const gchar *key)
-{
-	ExifItem *item;
-	gchar *text;
-	gboolean key_valid;
-
-	if (!key) return nullptr;
-
-	text = exif_get_formatted_by_key(exif, key, &key_valid);
-	if (key_valid) return text;
-
-	item = exif_get_item(exif, key);
-	if (item) return exif_item_get_data_as_text(item, exif);
-
-	return nullptr;
-}
-
-
 static FileCacheData *exif_cache;
 
 static void exif_release_cb(FileData *fd)

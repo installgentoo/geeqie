@@ -77,10 +77,6 @@ const gchar *predefined_tags[][2] = {
 	{"%zoom%",							N_("Zoom")},
 	{nullptr, nullptr}};
 
-constexpr std::array<GtkTargetEntry, 1> osd_drag_types{{
-	{ const_cast<gchar *>("text/plain"), GTK_TARGET_SAME_APP, TARGET_TEXT_PLAIN }
-}};
-
 struct OsdValueCache
 {
 	std::unordered_map<std::string, std::string> values;
@@ -294,17 +290,6 @@ static void tag_button_cb(GtkWidget *widget, gpointer data)
 	gtk_widget_grab_focus(GTK_WIDGET(image_overlay_template_view));
 }
 
-static void osd_dnd_get_cb(GtkWidget *btn, GdkDragContext *, GtkSelectionData *selection_data, guint, guint, gpointer data)
-{
-	TagData *td;
-	auto image_overlay_template_view = static_cast<GtkTextView *>(data);
-
-	td = static_cast<TagData *>(g_object_get_data(G_OBJECT(btn), "tag_data"));
-	gtk_selection_data_set_text(selection_data, td->key, -1);
-
-	gtk_widget_grab_focus(GTK_WIDGET(image_overlay_template_view));
-}
-
 static void tag_data_free(gpointer data)
 {
 	auto *td = static_cast<TagData *>(data);
@@ -328,10 +313,6 @@ static void set_osd_button(GtkGrid *grid, const gint rows, const gint cols, cons
 	td->title = g_strdup(title);
 
 	g_object_set_data_full(G_OBJECT(new_button), "tag_data", td, tag_data_free);
-
-	gtk_drag_source_set(new_button, GDK_BUTTON1_MASK, osd_drag_types.data(), osd_drag_types.size(), GDK_ACTION_COPY);
-	g_signal_connect(G_OBJECT(new_button), "drag_data_get",
-							G_CALLBACK(osd_dnd_get_cb), template_view);
 
 	gtk_grid_attach(grid, new_button, cols, rows, 1, 1);
 

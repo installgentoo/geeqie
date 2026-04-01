@@ -30,9 +30,6 @@ struct ExifData;
 struct ExifItem;
 class FileData;
 
-#define EXIF_FORMATTED() "formatted."
-#define EXIF_FORMATTED_LEN (sizeof(EXIF_FORMATTED()) - 1)
-
 /*
  *-----------------------------------------------------------------------------
  * Tag formats
@@ -57,20 +54,6 @@ enum ExifFormatType {
 	EXIF_FORMAT_DOUBLE		= 12
 };
 
-
-/*
- *-----------------------------------------------------------------------------
- * Data storage
- *-----------------------------------------------------------------------------
- */
-
-struct ExifRational
-{
-	guint32 num;
-	guint32 den;
-};
-
-
 /* enums useful for image manipulation */
 
 enum ExifOrientationType {
@@ -85,25 +68,11 @@ enum ExifOrientationType {
 	EXIF_ORIENTATION_LEFT_BOTTOM	= 8
 };
 
-enum ExifUnitType {
-	EXIF_UNIT_UNKNOWN	= 0,
-	EXIF_UNIT_NOUNIT	= 1,
-	EXIF_UNIT_INCH		= 2,
-	EXIF_UNIT_CENTIMETER	= 3
+enum ExifColorSpaceType {
+	EXIF_COLORSPACE_NONE		= 0,
+	EXIF_COLORSPACE_SRGB		= 1,
+	EXIF_COLORSPACE_ADOBERGB	= 2
 };
-
-struct ExifFormattedText
-{
-	const gchar *key;
-	const gchar *description;
-	gchar *(*build_func)(ExifData *exif);
-};
-
-/*
- *-----------------------------------------------------------------------------
- * functions
- *-----------------------------------------------------------------------------
- */
 
 void exif_init();
 
@@ -114,25 +83,16 @@ void exif_free_fd(FileData *fd, ExifData *exif);
 
 void exif_free(ExifData *exif);
 
-gchar *exif_get_data_as_text(ExifData *exif, const gchar *key);
 gchar *exif_get_all_exif_as_text(ExifData *exif);
 gchar *exif_get_all_xmp_as_text(ExifData *exif);
 gchar *exif_get_all_metadata_as_text(ExifData *exif);
 gint exif_read_orientation(FileData *fd, gint fallback);
-gint exif_get_integer(ExifData *exif, const gchar *key, gint *value);
+ExifColorSpaceType exif_read_colorspace(FileData *fd);
 
 ExifItem *exif_get_item(ExifData *exif, const gchar *key);
 
-guint exif_item_get_elements(ExifItem *item);
 gchar *exif_item_get_data(ExifItem *item, guint *data_len);
 guint exif_item_get_format_id(ExifItem *item);
-gchar *exif_item_get_data_as_text(ExifItem *item, ExifData *exif);
-gint exif_item_get_integer(ExifItem *item, gint *value);
-ExifRational *exif_item_get_rational(ExifItem *item, gint *sign, guint n);
-
-gchar *exif_get_formatted_by_key(ExifData *exif, const gchar *key, gboolean *key_valid);
-
-GList *exif_get_metadata(ExifData *exif, const gchar *key, MetadataFormat format);
 
 guchar *exif_get_color_profile(ExifData *exif, guint *data_len);
 
@@ -140,14 +100,10 @@ guchar *exif_get_color_profile(ExifData *exif, guint *data_len);
 
 void exif_add_jpeg_color_profile(ExifData *exif, guchar *cp_data, guint cp_length);
 
-
 gboolean exif_jpeg_parse_color(ExifData *exif, guchar *data, guint size);
 
 /*raw support */
 guchar *exif_get_preview(ExifData *exif, guint *data_len, gint requested_width, gint requested_height);
 void exif_free_preview(const guchar *buf);
 
-gchar *metadata_lua_info(FileData *fd, const gchar *key, MetadataFormat format);
-
 #endif
-/* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
