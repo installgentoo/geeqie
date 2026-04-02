@@ -1656,6 +1656,7 @@ void FileData::file_data_send_notification(FileData *fd, NotifyType type)
 
 static GHashTable *file_data_monitor_pool = nullptr;
 static guint realtime_monitor_id = 0; /* event source id */
+static constexpr guint REALTIME_MONITOR_INTERVAL_MS = 1000;
 
 static void realtime_monitor_check_cb(gpointer key, gpointer, gpointer)
 {
@@ -1691,7 +1692,7 @@ gboolean FileData::file_data_register_real_time_monitor(FileData *fd)
 
 	if (!realtime_monitor_id)
 		{
-		realtime_monitor_id = g_timeout_add(5000, realtime_monitor_cb, nullptr);
+		realtime_monitor_id = g_timeout_add(REALTIME_MONITOR_INTERVAL_MS, realtime_monitor_cb, nullptr);
 		}
 
 	return TRUE;

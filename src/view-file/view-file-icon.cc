@@ -1229,12 +1229,10 @@ static GList *vficon_add_row(ViewFile *vf, GtkTreeIter *iter)
 	return list;
 }
 
-static void vficon_populate(ViewFile *vf, gboolean resize, gboolean keep_position)
+static void vficon_populate(ViewFile *vf, gboolean resize)
 {
 	GtkTreeModel *store;
-	GtkTreePath *tpath;
 	GList *work;
-	FileData *visible_fd = nullptr;
 	gint r;
 	gboolean valid;
 	GtkTreeIter iter;
@@ -1242,19 +1240,6 @@ static void vficon_populate(ViewFile *vf, gboolean resize, gboolean keep_positio
 	vficon_verify_selections(vf);
 
 	store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-
-	if (keep_position && gtk_widget_get_realized(vf->listview) &&
-	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
-		{
-		GtkTreeIter iter;
-		GList *list;
-
-		gtk_tree_model_get_iter(store, &iter, tpath);
-		gtk_tree_path_free(tpath);
-
-		gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-		if (list) visible_fd = static_cast<FileData *>(list->data);
-		}
 
 
 	if (resize)
@@ -1342,24 +1327,6 @@ static void vficon_populate(ViewFile *vf, gboolean resize, gboolean keep_positio
 
 	VFICON(vf)->rows = r;
 
-	if (visible_fd &&
-	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
-		{
-		GtkTreeIter iter;
-		GList *list;
-
-		gtk_tree_model_get_iter(store, &iter, tpath);
-		gtk_tree_path_free(tpath);
-
-		gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-		if (g_list_find(list, visible_fd) == nullptr &&
-		    vficon_find_iter(vf, visible_fd, &iter, nullptr))
-			{
-			tree_view_row_make_visible(GTK_TREE_VIEW(vf->listview), &iter, FALSE);
-			}
-		}
-
-
 	vf_send_update(vf);
 	vf_thumb_update(vf);
 }
@@ -1378,7 +1345,7 @@ static void vficon_populate_at_new_size(ViewFile *vf, gint w, gint, gboolean for
 
 	VFICON(vf)->columns = new_cols;
 
-	vficon_populate(vf, TRUE, TRUE);
+	vficon_populate(vf, TRUE);
 
 	DEBUG_1("col tab pop cols=%d rows=%d", VFICON(vf)->columns, VFICON(vf)->rows);
 }
@@ -1531,7 +1498,7 @@ gint vficon_index_by_fd(const ViewFile *vf, const FileData *fd)
  *-----------------------------------------------------------------------------
  */
 
-static gboolean vficon_refresh_real(ViewFile *vf, gboolean keep_position, gboolean reread_filelist)
+static gboolean vficon_refresh_real(ViewFile *vf, gboolean reread_filelist)
 {
 	gboolean ret = TRUE;
 	GList *work;
@@ -1540,12 +1507,6 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean keep_position, gboole
 	GList *new_filelist = nullptr;
 	GList *new_fd_list = nullptr;
 	GList *old_selected = nullptr;
-	GtkTreePath *end_path = nullptr;
-	GtkTreePath *start_path = nullptr;
-	GtkTreeIter iter;
-	GtkTreeModel *store;
-
-	gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path);
 
 	if (reread_filelist && vf->dir_fd)
 		{
@@ -1688,7 +1649,7 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean keep_position, gboole
 
 	filelist_free(new_filelist);
 
-	vficon_populate(vf, TRUE, keep_position);
+	vficon_populate(vf, FALSE);
 
 	if (first_selected && !VFICON(vf)->selection)
 		{
@@ -1697,27 +1658,17 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean keep_position, gboole
 		}
 	file_data_unref(first_selected);
 
-	store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-
-	if (gtk_tree_model_get_iter_first(store, &iter) && start_path)
-		{
-		gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(vf->listview), start_path, nullptr, FALSE, 0.0, 0.0);
-		}
-
-	gtk_tree_path_free(start_path);
-	gtk_tree_path_free(end_path);
-
 	return ret;
 }
 
 gboolean vficon_refresh(ViewFile *vf)
 {
-	return vficon_refresh_real(vf, TRUE, TRUE);
+	return vficon_refresh_real(vf, TRUE);
 }
 
 gboolean vficon_refresh_filter(ViewFile *vf)
 {
-	return vficon_refresh_real(vf, TRUE, FALSE);
+	return vficon_refresh_real(vf, FALSE);
 }
 
 /*
@@ -1840,7 +1791,7 @@ gboolean vficon_set_fd(ViewFile *vf, FileData *dir_fd)
 	vf->list = nullptr;
 
 	/* NOTE: populate will clear the store for us */
-	ret = vficon_refresh_real(vf, FALSE, TRUE);
+	ret = vficon_refresh_real(vf, TRUE);
 
 	VFICON(vf)->focus_fd = nullptr;
 	vficon_move_focus(vf, 0, 0, FALSE);
