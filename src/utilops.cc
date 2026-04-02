@@ -23,7 +23,6 @@
 
 #include <unistd.h>
 
-#include <thread>
 #include <array>
 #include <cstring>
 
@@ -386,6 +385,7 @@ struct UtilityData {
 
 	guint update_idle_id; /* event source id */
 	guint perform_idle_id; /* event source id */
+	guint dest_folder_idle_id; /* event source id */
 
 	/* alternative dialog parts */
 	GtkWidget *notebook;
@@ -515,6 +515,7 @@ static void file_util_data_free(UtilityData *ud)
 
 	if (ud->update_idle_id) g_source_remove(ud->update_idle_id);
 	if (ud->perform_idle_id) g_source_remove(ud->perform_idle_id);
+	if (ud->dest_folder_idle_id) g_source_remove(ud->dest_folder_idle_id);
 
 	file_data_unref(ud->dir_fd);
 	filelist_free(ud->content_list);
@@ -1177,6 +1178,7 @@ static void file_util_fdlg_rename_cb(FileDialog *fdlg, gpointer data)
 	gchar *desc = nullptr;
 	GenericDialog *d = nullptr;
 
+	g_clear_handle_id(&ud->dest_folder_idle_id, g_source_remove);
 	file_util_dest_folder_update_path(ud);
 	if (isdir(ud->dest_path))
 		{
@@ -1211,6 +1213,7 @@ static void file_util_fdlg_ok_cb(FileDialog *fdlg, gpointer data)
 {
 	auto ud = static_cast<UtilityData *>(data);
 
+	g_clear_handle_id(&ud->dest_folder_idle_id, g_source_remove);
 	file_util_dest_folder_update_path(ud);
 	if (isdir(ud->dest_path)) file_dialog_sync_history(fdlg, TRUE);
 	file_dialog_close(fdlg);
@@ -1221,12 +1224,19 @@ static void file_util_fdlg_ok_cb(FileDialog *fdlg, gpointer data)
 	file_util_dialog_run(ud);
 }
 
+static gboolean file_util_dest_folder_entry_idle_cb(gpointer data)
+{
+	auto ud = static_cast<UtilityData *>(data);
+	ud->dest_folder_idle_id = 0;
+	file_util_dest_folder_update_path(ud);
+	return G_SOURCE_REMOVE;
+}
+
 static void file_util_dest_folder_entry_cb(GtkWidget *, gpointer data)
 {
-	std::thread([=] {
 	auto ud = static_cast<UtilityData *>(data);
-	file_util_dest_folder_update_path(ud);
-	}).detach();
+	g_clear_handle_id(&ud->dest_folder_idle_id, g_source_remove);
+	ud->dest_folder_idle_id = g_idle_add(file_util_dest_folder_entry_idle_cb, ud);
 }
 
 /* format: * = filename without extension, ## = number position, extension is kept */
