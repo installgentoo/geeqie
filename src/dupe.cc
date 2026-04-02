@@ -3721,13 +3721,32 @@ static void dupe_listview_add_column(DupeWindow *dw, GtkWidget *listview, gint n
 	gtk_tree_view_append_column(GTK_TREE_VIEW(listview), column);
 }
 
+static GtkTreeViewColumn *dupe_listview_get_column_by_model_id(GtkWidget *listview, gint model_column_id)
+{
+	GList *columns = gtk_tree_view_get_columns(GTK_TREE_VIEW(listview));
+	GtkTreeViewColumn *result = nullptr;
+
+	for (GList *work = columns; work; work = work->next)
+		{
+		auto column = static_cast<GtkTreeViewColumn *>(work->data);
+		if (gtk_tree_view_column_get_sort_column_id(column) == model_column_id)
+			{
+			result = column;
+			break;
+			}
+		}
+
+	g_list_free(columns);
+	return result;
+}
+
 static void dupe_listview_set_height(GtkWidget *listview, gboolean thumb)
 {
 	GtkTreeViewColumn *column;
 	GtkCellRenderer *cell;
 	GList *list;
 
-	column = gtk_tree_view_get_column(GTK_TREE_VIEW(listview), DUPE_COLUMN_THUMB - 1);
+	column = dupe_listview_get_column_by_model_id(listview, DUPE_COLUMN_THUMB);
 	if (!column) return;
 
 	gtk_tree_view_column_set_fixed_width(column, (thumb) ? options->thumbnails.display_width : 4);
@@ -3746,7 +3765,7 @@ static void dupe_listview_show_rank(GtkWidget *listview, gboolean rank)
 {
 	GtkTreeViewColumn *column;
 
-	column = gtk_tree_view_get_column(GTK_TREE_VIEW(listview), DUPE_COLUMN_RANK - 1);
+	column = dupe_listview_get_column_by_model_id(listview, DUPE_COLUMN_RANK);
 	if (!column) return;
 
 	gtk_tree_view_column_set_visible(column, rank);
@@ -4243,21 +4262,20 @@ DupeWindow *dupe_window_new()
 	gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(dw->listview), TRUE);
 	gtk_tree_view_set_enable_search(GTK_TREE_VIEW(dw->listview), FALSE);
 
-	dupe_listview_add_column(dw, dw->listview, DUPE_COLUMN_RANK, _("Rank"), FALSE, TRUE);
 	dupe_listview_add_column(dw, dw->listview, DUPE_COLUMN_THUMB, _("Thumb"), TRUE, FALSE);
 	dupe_listview_add_column(dw, dw->listview, DUPE_COLUMN_NAME, _("Name"), FALSE, FALSE);
 	dupe_listview_add_column(dw, dw->listview, DUPE_COLUMN_SIZE, _("Size"), FALSE, TRUE);
-	dupe_listview_add_column(dw, dw->listview, DUPE_COLUMN_DATE, _("Date"), FALSE, TRUE);
 	dupe_listview_add_column(dw, dw->listview, DUPE_COLUMN_DIMENSIONS, _("Dimensions"), FALSE, FALSE);
 	dupe_listview_add_column(dw, dw->listview, DUPE_COLUMN_PATH, _("Path"), FALSE, FALSE);
-	dupe_listview_add_column(dw, dw->listview, DUPE_COLUMN_SET, _("Set"), FALSE, FALSE);
+	dupe_listview_add_column(dw, dw->listview, DUPE_COLUMN_RANK, _("Rank"), FALSE, TRUE);
+	dupe_listview_add_column(dw, dw->listview, DUPE_COLUMN_DATE, _("Date"), FALSE, TRUE);
 
-	g_signal_connect(gtk_tree_view_get_column(GTK_TREE_VIEW(dw->listview), DUPE_COLUMN_RANK - 1), "clicked", (GCallback)column_clicked_cb, dw);
-	g_signal_connect(gtk_tree_view_get_column(GTK_TREE_VIEW(dw->listview), DUPE_COLUMN_NAME - 1), "clicked", (GCallback)column_clicked_cb, dw);
-	g_signal_connect(gtk_tree_view_get_column(GTK_TREE_VIEW(dw->listview), DUPE_COLUMN_SIZE - 1), "clicked", (GCallback)column_clicked_cb, dw);
-	g_signal_connect(gtk_tree_view_get_column(GTK_TREE_VIEW(dw->listview), DUPE_COLUMN_DATE - 1), "clicked", (GCallback)column_clicked_cb, dw);
-	g_signal_connect(gtk_tree_view_get_column(GTK_TREE_VIEW(dw->listview), DUPE_COLUMN_DIMENSIONS - 1), "clicked", (GCallback)column_clicked_cb, dw);
-	g_signal_connect(gtk_tree_view_get_column(GTK_TREE_VIEW(dw->listview), DUPE_COLUMN_PATH - 1), "clicked", (GCallback)column_clicked_cb, dw);
+	g_signal_connect(dupe_listview_get_column_by_model_id(dw->listview, DUPE_COLUMN_RANK), "clicked", (GCallback)column_clicked_cb, dw);
+	g_signal_connect(dupe_listview_get_column_by_model_id(dw->listview, DUPE_COLUMN_NAME), "clicked", (GCallback)column_clicked_cb, dw);
+	g_signal_connect(dupe_listview_get_column_by_model_id(dw->listview, DUPE_COLUMN_SIZE), "clicked", (GCallback)column_clicked_cb, dw);
+	g_signal_connect(dupe_listview_get_column_by_model_id(dw->listview, DUPE_COLUMN_DATE), "clicked", (GCallback)column_clicked_cb, dw);
+	g_signal_connect(dupe_listview_get_column_by_model_id(dw->listview, DUPE_COLUMN_DIMENSIONS), "clicked", (GCallback)column_clicked_cb, dw);
+	g_signal_connect(dupe_listview_get_column_by_model_id(dw->listview, DUPE_COLUMN_PATH), "clicked", (GCallback)column_clicked_cb, dw);
 
 	gq_gtk_container_add(GTK_WIDGET(scrolled), dw->listview);
 	gtk_widget_show(dw->listview);
