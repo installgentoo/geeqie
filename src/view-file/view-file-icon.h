@@ -67,6 +67,7 @@ ViewFile *vficon_new(ViewFile *vf);
 
 gboolean vficon_set_fd(ViewFile *vf, FileData *dir_fd);
 gboolean vficon_refresh(ViewFile *vf);
+gboolean vficon_refresh_filter(ViewFile *vf);
 
 
 void vficon_sort_set(ViewFile *vf, SortType type, gboolean ascend, gboolean case_sensitive);

@@ -1531,7 +1531,7 @@ gint vficon_index_by_fd(const ViewFile *vf, const FileData *fd)
  *-----------------------------------------------------------------------------
  */
 
-static gboolean vficon_refresh_real(ViewFile *vf, gboolean keep_position)
+static gboolean vficon_refresh_real(ViewFile *vf, gboolean keep_position, gboolean reread_filelist)
 {
 	gboolean ret = TRUE;
 	GList *work;
@@ -1547,15 +1547,35 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean keep_position)
 
 	gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path);
 
-	if (vf->dir_fd)
+	if (reread_filelist && vf->dir_fd)
 		{
-		ret = filelist_read(vf->dir_fd, &new_filelist, nullptr);
-		new_filelist = g_list_first(new_filelist);
-		new_filelist = file_data_filter_file_filter_list(new_filelist, vf_file_filter_get_filter(vf));
+		GList *new_raw_list = nullptr;
+		ret = filelist_read(vf->dir_fd, &new_raw_list, nullptr);
+		if (ret)
+			{
+			new_raw_list = g_list_first(new_raw_list);
+			new_raw_list = filelist_sort(new_raw_list, vf->sort_method, vf->sort_ascend, vf->sort_case);
+			filelist_free(vf->list_raw);
+			vf->list_raw = new_raw_list;
+			}
+		else
+			{
+			filelist_free(vf->list_raw);
+			vf->list_raw = nullptr;
+			}
+		}
+	else if (reread_filelist)
+		{
+		filelist_free(vf->list_raw);
+		vf->list_raw = nullptr;
+		}
 
+	if (vf->list_raw)
+		{
+		new_filelist = filelist_copy(vf->list_raw);
+		new_filelist = file_data_filter_file_filter_list(new_filelist, vf_file_filter_get_filter(vf));
 		new_filelist = g_list_first(new_filelist);
 		new_filelist = file_data_filter_class_list(new_filelist, vf_class_get_filter(vf));
-
 		}
 
 	vf->list = filelist_sort(vf->list, vf->sort_method, vf->sort_ascend, vf->sort_case); /* the list might not be sorted if there were renames */
@@ -1692,7 +1712,12 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean keep_position)
 
 gboolean vficon_refresh(ViewFile *vf)
 {
-	return vficon_refresh_real(vf, TRUE);
+	return vficon_refresh_real(vf, TRUE, TRUE);
+}
+
+gboolean vficon_refresh_filter(ViewFile *vf)
+{
+	return vficon_refresh_real(vf, TRUE, FALSE);
 }
 
 /*
@@ -1815,7 +1840,7 @@ gboolean vficon_set_fd(ViewFile *vf, FileData *dir_fd)
 	vf->list = nullptr;
 
 	/* NOTE: populate will clear the store for us */
-	ret = vficon_refresh_real(vf, FALSE);
+	ret = vficon_refresh_real(vf, FALSE, TRUE);
 
 	VFICON(vf)->focus_fd = nullptr;
 	vficon_move_focus(vf, 0, 0, FALSE);

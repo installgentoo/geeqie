@@ -516,6 +516,11 @@ gboolean vf_refresh(ViewFile *vf)
 	return vficon_refresh(vf);
 }
 
+gboolean vf_refresh_filter(ViewFile *vf)
+{
+	return vficon_refresh_filter(vf);
+}
+
 static void vf_thumb_stop(ViewFile *vf);
 gboolean vf_set_fd(ViewFile *vf, FileData *dir_fd)
 {
@@ -542,9 +547,29 @@ static void vf_destroy_cb(GtkWidget *, gpointer data)
 		}
 
 	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
+	g_clear_handle_id(&vf->file_filter.refresh_idle_id, g_source_remove);
+	filelist_free(vf->list_raw);
 	file_data_unref(vf->dir_fd);
 	g_free(vf->info);
 	g_free(vf);
+}
+
+static gboolean vf_file_filter_refresh_idle_cb(gpointer data)
+{
+	auto vf = static_cast<ViewFile *>(data);
+
+	vf->file_filter.refresh_idle_id = 0;
+	vf_refresh_filter(vf);
+
+	return G_SOURCE_REMOVE;
+}
+
+static void vf_file_filter_refresh_schedule(ViewFile *vf)
+{
+	g_clear_handle_id(&vf->file_filter.refresh_idle_id, g_source_remove);
+	/* Debounce expensive refreshes while typing in the filter entry. */
+	vf->file_filter.refresh_idle_id = g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, 150,
+							     vf_file_filter_refresh_idle_cb, vf, nullptr);
 }
 
 static void vf_file_filter_save_cb(GtkWidget *, gpointer data)
@@ -593,7 +618,7 @@ static void vf_file_filter_save_cb(GtkWidget *, gpointer data)
 				}
 			}
 		}
-	vf_refresh(vf);
+	vf_file_filter_refresh_schedule(vf);
 
 	g_free(entry_text);
 }
@@ -602,7 +627,7 @@ static void vf_file_filter_cb(GtkWidget *, gpointer data)
 {
 	auto vf = static_cast<ViewFile *>(data);
 
-	vf_refresh(vf);
+	vf_file_filter_refresh_schedule(vf);
 }
 
 static gboolean vf_file_filter_press_cb(GtkWidget *widget, GdkEventButton *, gpointer data)
@@ -628,7 +653,7 @@ void vf_file_filter_set(ViewFile *vf, gboolean enable)
 		gtk_widget_hide(vf->file_filter.frame);
 		}
 
-	vf_refresh(vf);
+	vf_file_filter_refresh_schedule(vf);
 }
 
 static gboolean vf_file_filter_class_cb(GtkWidget *widget, gpointer data)
@@ -645,7 +670,7 @@ static gboolean vf_file_filter_class_cb(GtkWidget *widget, gpointer data)
 			options->class_filter[i] = state;
 			}
 		}
-	vf_refresh(vf);
+	vf_file_filter_refresh_schedule(vf);
 
 	return TRUE;
 }
@@ -684,7 +709,7 @@ static gboolean vf_file_filter_class_set_all_cb(GtkWidget *widget, gpointer data
 		i++;
 		}
 	g_list_free(children);
-	vf_refresh(vf);
+	vf_file_filter_refresh_schedule(vf);
 
 	return TRUE;
 }
@@ -724,7 +749,7 @@ static void case_sensitive_cb(GtkWidget *widget, gpointer data)
 	auto vf = static_cast<ViewFile *>(data);
 
 	vf->file_filter.case_sensitive = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-	vf_refresh(vf);
+	vf_file_filter_refresh_schedule(vf);
 }
 
 static void file_filter_clear_cb(GtkEntry *, GtkEntryIconPosition pos, GdkEvent *, gpointer userdata)

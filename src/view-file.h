@@ -47,9 +47,11 @@ struct ViewFile
 		gint count;
 		gint last_selected;
 		gboolean case_sensitive;
+		guint refresh_idle_id; /**< event source id */
 	} file_filter;
 
 	FileData *dir_fd;
+	GList *list_raw; /**< complete directory snapshot used for fast filter refresh */
 	GList *list;
 
 	FileData *click_fd;
@@ -98,6 +100,7 @@ void vf_set_layout(ViewFile *vf, LayoutWindow *layout);
 
 gboolean vf_set_fd(ViewFile *vf, FileData *fd);
 gboolean vf_refresh(ViewFile *vf);
+gboolean vf_refresh_filter(ViewFile *vf);
 void vf_refresh_idle(ViewFile *vf);
 
 void vf_sort_set(ViewFile *vf, SortType type, gboolean ascend, gboolean case_sensitive);
