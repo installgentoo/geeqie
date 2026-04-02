@@ -107,6 +107,36 @@ static void layout_path_entry_changed_cb(GtkWidget *widget, gpointer data)
 	g_free(buf);
 }
 
+static gboolean layout_key_press_cb(GtkWidget *, GdkEventKey *event, gpointer data)
+{
+	auto lw = static_cast<LayoutWindow *>(data);
+
+	if (lw->path_entry && gtk_widget_has_focus(lw->path_entry))
+		{
+		if (event->keyval == GDK_KEY_Escape && lw->dir_fd)
+			{
+			gq_gtk_entry_set_text(GTK_ENTRY(lw->path_entry), lw->dir_fd->path);
+			}
+
+		/* Prevent window accelerators from stealing path entry key presses. */
+		if (gtk_widget_event(lw->path_entry, reinterpret_cast<GdkEvent *>(event)))
+			{
+			return TRUE;
+			}
+		}
+
+	if (lw->vf && lw->vf->file_filter.combo && gtk_widget_has_focus(gtk_bin_get_child(GTK_BIN(lw->vf->file_filter.combo))))
+		{
+		/* Prevent window accelerators from stealing file filter key presses. */
+		if (gtk_widget_event(gtk_bin_get_child(GTK_BIN(lw->vf->file_filter.combo)), reinterpret_cast<GdkEvent *>(event)))
+			{
+			return TRUE;
+			}
+		}
+
+	return FALSE;
+}
+
 static void layout_path_entry_tab_cb(const gchar *path, gpointer data)
 {
 	auto lw = static_cast<LayoutWindow *>(data);
@@ -1146,6 +1176,8 @@ LayoutWindow *layout_new_with_geometry(FileData *dir_fd, LayoutOptions *lop,
 	if (lw->options.main_window.maximized) gtk_window_maximize(GTK_WINDOW(lw->window));
 	g_signal_connect(G_OBJECT(lw->window), "delete_event",
 			 G_CALLBACK(exit_program), lw);
+	g_signal_connect(G_OBJECT(lw->window), "key_press_event",
+			 G_CALLBACK(layout_key_press_cb), lw);
 
 	lw->main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 	DEBUG_NAME(lw->main_box);

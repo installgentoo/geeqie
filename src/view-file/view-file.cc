@@ -30,7 +30,6 @@
 #include "dnd.h"
 #include "dupe.h"
 #include "filedata.h"
-#include "history-list.h"
 #include "intl.h"
 #include "layout.h"
 #include "main-defines.h"
@@ -560,7 +559,6 @@ static void vf_file_filter_save_cb(GtkWidget *, gpointer data)
 		{
 		gtk_combo_box_set_active(GTK_COMBO_BOX(vf->file_filter.combo), vf->file_filter.last_selected);
 		remove_text = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(vf->file_filter.combo));
-		history_list_item_remove("file_filter", remove_text);
 		gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT(vf->file_filter.combo), vf->file_filter.last_selected);
 		g_free(remove_text);
 
@@ -589,7 +587,6 @@ static void vf_file_filter_save_cb(GtkWidget *, gpointer data)
 
 			if (!text_found)
 				{
-				history_list_add_to_key("file_filter", entry_text, 10);
 				gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(vf->file_filter.combo), entry_text);
 				vf->file_filter.count++;
 				gtk_combo_box_set_active(GTK_COMBO_BOX(vf->file_filter.combo), vf->file_filter.count - 1);
@@ -743,8 +740,6 @@ static GtkWidget *vf_file_filter_init(ViewFile *vf)
 {
 	GtkWidget *frame = gtk_frame_new(nullptr);
 	GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	GList *work;
-	gint n = 0;
 	GtkWidget *combo_entry;
 	GtkWidget *menubar;
 	GtkWidget *menuitem;
@@ -762,16 +757,8 @@ static GtkWidget *vf_file_filter_init(ViewFile *vf)
 	gtk_entry_set_icon_from_icon_name(GTK_ENTRY(combo_entry), GTK_ENTRY_ICON_SECONDARY, GQ_ICON_CLEAR);
 	gtk_entry_set_icon_tooltip_text (GTK_ENTRY(combo_entry), GTK_ENTRY_ICON_SECONDARY, _("Clear"));
 	g_signal_connect(GTK_ENTRY(combo_entry), "icon-press", G_CALLBACK(file_filter_clear_cb), combo_entry);
-
-	work = history_list_get_by_key("file_filter");
-	while (work)
-		{
-		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(vf->file_filter.combo), static_cast<gchar *>(work->data));
-		work = work->next;
-		n++;
-		vf->file_filter.count = n;
-		}
-	gtk_combo_box_set_active(GTK_COMBO_BOX(vf->file_filter.combo), 0);
+	gtk_combo_box_set_active(GTK_COMBO_BOX(vf->file_filter.combo), -1);
+	gq_gtk_entry_set_text(GTK_ENTRY(combo_entry), "");
 
 	g_signal_connect(G_OBJECT(combo_entry), "activate",
 		G_CALLBACK(vf_file_filter_save_cb), vf);
