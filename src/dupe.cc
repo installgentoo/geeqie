@@ -22,6 +22,7 @@
 #include "dupe.h"
 
 #include <sys/time.h>
+#include <unistd.h>
 
 #include <array>
 #include <cinttypes>
@@ -32,6 +33,7 @@
 #include <gdk/gdk.h>
 #include <gio/gio.h>
 #include <glib-object.h>
+#include <glib/gstdio.h>
 
 #include "cache.h"
 #include "compat.h"
@@ -551,6 +553,119 @@ static void dupe_item_write_cache(DupeItem *di)
 			}
 		cache_sim_data_free(cd);
 		}
+}
+
+static gboolean dupe_item_use_sim_cache(const DupeItem *di)
+{
+	return options->thumbnails.enable_caching ||
+	       (di && di->fd && di->fd->format_class == FORMAT_CLASS_VIDEO);
+}
+
+static gboolean dupe_video_run_command(const gchar *command, gchar **stdout_text)
+{
+	gchar *stderr_text = nullptr;
+	gint exit_status = -1;
+
+	if (!g_spawn_command_line_sync(command, stdout_text, &stderr_text, &exit_status, nullptr))
+		{
+		log_printf("dupe: failed to run command: %s\n", command);
+		g_free(stderr_text);
+		return FALSE;
+		}
+
+	if (!g_spawn_check_exit_status(exit_status, nullptr))
+		{
+		log_printf("dupe: command failed: %s\n", command);
+		if (stderr_text && *stderr_text) log_printf("dupe: stderr: %s\n", stderr_text);
+		g_free(stderr_text);
+		return FALSE;
+		}
+
+	g_free(stderr_text);
+	return TRUE;
+}
+
+static gboolean dupe_video_parse_positive_double(const gchar *text, gdouble *value)
+{
+	if (!text || !value) return FALSE;
+
+	gchar *trimmed = g_strstrip(g_strdup(text));
+	if (!trimmed || !*trimmed || g_ascii_strcasecmp(trimmed, "N/A") == 0)
+		{
+		g_free(trimmed);
+		return FALSE;
+		}
+
+	gchar *endptr = nullptr;
+	gdouble parsed = g_ascii_strtod(trimmed, &endptr);
+	const gboolean valid = (endptr && *endptr == '\0' && parsed > 0.0);
+
+	g_free(trimmed);
+	if (!valid) return FALSE;
+
+	*value = parsed;
+	return TRUE;
+}
+
+static GdkPixbuf *dupe_video_generate_sim_pixbuf(FileData *fd)
+{
+	if (!fd || !fd->path) return nullptr;
+
+	g_autofree gchar *video_path = g_shell_quote(fd->path);
+	g_autofree gchar *duration_cmd = g_strdup_printf("ffprobe -v error -select_streams v:0 -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %s", video_path);
+	gchar *duration_out = nullptr;
+	gdouble duration = 0.0;
+
+	if (!dupe_video_run_command(duration_cmd, &duration_out) || !dupe_video_parse_positive_double(duration_out, &duration))
+		{
+		g_free(duration_out);
+		duration_out = nullptr;
+
+		g_autofree gchar *frames_cmd = g_strdup_printf("ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 %s", video_path);
+		if (!dupe_video_run_command(frames_cmd, &duration_out) || !dupe_video_parse_positive_double(duration_out, &duration))
+			{
+			g_free(duration_out);
+			return nullptr;
+			}
+		duration /= 32.0;
+		}
+	g_free(duration_out);
+
+	const gdouble fps_interval = (duration + 1.8) / 36.0;
+	if (fps_interval <= 0.0) return nullptr;
+
+	gchar *tmp_file = nullptr;
+	const gint fd_out = g_file_open_tmp("geeqie-dupe-video-XXXXXX.jpeg", &tmp_file, nullptr);
+	if (fd_out < 0) return nullptr;
+	close(fd_out);
+
+	g_autofree gchar *tmp_path = tmp_file;
+	g_autofree gchar *tmp_path_quoted = g_shell_quote(tmp_path);
+	g_autofree gchar *ffmpeg_cmd = g_strdup_printf(
+		"ffmpeg -hide_banner -loglevel error -i %s -frames:v 1 -vf \"fps=1/%.6f,scale=160:120,tile=6x6\" -an -y %s",
+		video_path, fps_interval, tmp_path_quoted);
+
+	if (!dupe_video_run_command(ffmpeg_cmd, nullptr))
+		{
+		g_unlink(tmp_path);
+		return nullptr;
+		}
+
+	GError *error = nullptr;
+	GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(tmp_path, &error);
+	if (!pixbuf)
+		{
+		if (error)
+			{
+			log_printf("dupe: cannot load generated video thumbnail for %s: %s\n", fd->path, error->message);
+			g_error_free(error);
+			}
+		g_unlink(tmp_path);
+		return nullptr;
+		}
+
+	g_unlink(tmp_path);
+	return pixbuf;
 }
 
 /*
@@ -2181,7 +2296,7 @@ static void dupe_loader_done_cb(ImageLoader *il, gpointer data)
 			di->width = gdk_pixbuf_get_width(pixbuf);
 			di->height = gdk_pixbuf_get_height(pixbuf);
 			}
-		if (options->thumbnails.enable_caching)
+		if (dupe_item_use_sim_cache(di))
 			{
 			dupe_item_write_cache(di);
 			}
@@ -2243,7 +2358,7 @@ static gboolean create_checksums_dimensions(DupeWindow *dw, GList *list)
 					dupe_window_update_progress(dw, _("Reading checksums..."),
 						dw->setup_count == 0 ? 0.0 : static_cast<gdouble>(dw->setup_n - 1) / dw->setup_count, FALSE);
 
-					if (options->thumbnails.enable_caching)
+					if (dupe_item_use_sim_cache(di))
 						{
 						dupe_item_read_cache(di);
 						if (di->md5sum)
@@ -2253,7 +2368,7 @@ static gboolean create_checksums_dimensions(DupeWindow *dw, GList *list)
 						}
 
 					di->md5sum = md5_text_from_file_utf8(di->fd->path, "");
-					if (options->thumbnails.enable_caching)
+					if (dupe_item_use_sim_cache(di))
 						{
 						dupe_item_write_cache(di);
 						}
@@ -2279,7 +2394,7 @@ static gboolean create_checksums_dimensions(DupeWindow *dw, GList *list)
 					dupe_window_update_progress(dw, _("Reading dimensions..."),
 						dw->setup_count == 0 ? 0.0 : static_cast<gdouble>(dw->setup_n - 1) / dw->setup_count, FALSE);
 
-					if (options->thumbnails.enable_caching)
+					if (dupe_item_use_sim_cache(di))
 						{
 						dupe_item_read_cache(di);
 						if (di->width != 0 || di->height != 0)
@@ -2290,7 +2405,7 @@ static gboolean create_checksums_dimensions(DupeWindow *dw, GList *list)
 
 					image_load_dimensions(di->fd, &di->width, &di->height);
 					di->dimensions = (di->width << 16) + di->height;
-					if (options->thumbnails.enable_caching)
+					if (dupe_item_use_sim_cache(di))
 						{
 						dupe_item_write_cache(di);
 						}
@@ -2372,12 +2487,29 @@ static gboolean dupe_check_cb(gpointer data)
 					dupe_window_update_progress(dw, _("Reading similarity data..."),
 						dw->setup_count == 0 ? 0.0 : static_cast<gdouble>(dw->setup_n) / dw->setup_count, FALSE);
 
-					if (options->thumbnails.enable_caching)
+					if (dupe_item_use_sim_cache(di))
 						{
 						dupe_item_read_cache(di);
 						if (cache_sim_data_filled(di->simd))
 							{
 							image_sim_alternate_processing(di->simd);
+							return G_SOURCE_CONTINUE;
+							}
+						}
+
+					if (di->fd->format_class == FORMAT_CLASS_VIDEO)
+						{
+						GdkPixbuf *video_sim_pixbuf = dupe_video_generate_sim_pixbuf(di->fd);
+
+						if (video_sim_pixbuf)
+							{
+							di->simd = image_sim_new_from_pixbuf(video_sim_pixbuf);
+							g_object_unref(video_sim_pixbuf);
+							image_sim_alternate_processing(di->simd);
+							if (dupe_item_use_sim_cache(di))
+								{
+								dupe_item_write_cache(di);
+								}
 							return G_SOURCE_CONTINUE;
 							}
 						}
