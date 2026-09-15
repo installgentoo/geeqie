@@ -227,8 +227,6 @@ void FileData::set_path(const gchar *new_path)
 	g_assert(new_path /* && *new_path*/); /* view_dir_tree uses FileData with zero length path */
 	g_assert(context->file_data_pool);
 
-	g_free(path);
-
 	if (original_path)
 		{
 		g_hash_table_remove(context->file_data_pool, original_path);
@@ -238,6 +236,14 @@ void FileData::set_path(const gchar *new_path)
 	original_path = g_strdup(new_path);
 	G_GNUC_UNUSED const gboolean new_key = g_hash_table_insert(context->file_data_pool, original_path, this);
 	g_assert(new_key);
+
+	set_path_fields(new_path);
+}
+
+/* path, name, extension and format_class; touches nothing shared */
+void FileData::set_path_fields(const gchar *new_path)
+{
+	g_free(path);
 
 	format_class = FORMAT_CLASS_UNKNOWN;
 
@@ -303,18 +309,9 @@ GlobalFileDataContext &GlobalFileDataContext::get_instance()
  * create or reuse Filedata
  *-----------------------------------------------------------------------------
  */
-FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileDataContext *context)
+FileData *FileData::file_data_lookup(const gchar *path_utf8, struct stat *st, FileDataContext *context)
 {
-	if (context == nullptr)
-		{
-		context = FileData::DefaultFileDataContext();
-		}
-
-	FileData *fd;
-
-	DEBUG_2("file_data_new: '%s'", path_utf8);
-
-	fd = static_cast<FileData *>(g_hash_table_lookup(context->file_data_pool, path_utf8));
+	auto *fd = static_cast<FileData *>(g_hash_table_lookup(context->file_data_pool, path_utf8));
 	if (fd)
 		{
 		::file_data_ref(fd);
@@ -348,15 +345,14 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileD
 		file_data_apply_stat(fd, st);
 
 		DEBUG_2("file_data_pool hit: '%s' %s", fd->path, changed ? "(changed)" : "");
-
-		return fd;
 		}
 
-	fd = g_new0(FileData, 1);
-#ifdef DEBUG_FILEDATA
-	context->global_file_data_count++;
-	DEBUG_2("file data count++: %d", context->global_file_data_count);
-#endif
+	return fd;
+}
+
+FileData *FileData::file_data_alloc(const gchar *path_utf8, const struct stat *st, FileDataContext *context)
+{
+	auto *fd = g_new0(FileData, 1);
 
 	fd->context = context;
 	if (st)
@@ -375,7 +371,44 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileD
 	fd->page_num = 0;
 	fd->page_total = 0;
 
-	fd->set_path(path_utf8); /* set path, name, original_path */
+	fd->original_path = g_strdup(path_utf8);
+	fd->set_path_fields(path_utf8);
+
+	return fd;
+}
+
+void FileData::file_data_register(FileData *fd)
+{
+#ifdef DEBUG_FILEDATA
+	fd->context->global_file_data_count++;
+	DEBUG_2("file data count++: %d", fd->context->global_file_data_count);
+#endif
+
+	G_GNUC_UNUSED const gboolean new_key = g_hash_table_insert(fd->context->file_data_pool, fd->original_path, fd);
+	g_assert(new_key);
+}
+
+void FileData::file_data_discard(FileData *fd)
+{
+	g_free(fd->path);
+	g_free(fd->original_path);
+	g_free(fd);
+}
+
+FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileDataContext *context)
+{
+	if (context == nullptr)
+		{
+		context = FileData::DefaultFileDataContext();
+		}
+
+	DEBUG_2("file_data_new: '%s'", path_utf8);
+
+	FileData *fd = file_data_lookup(path_utf8, st, context);
+	if (fd) return fd;
+
+	fd = file_data_alloc(path_utf8, st, context);
+	file_data_register(fd);
 
 	return fd;
 }

@@ -261,12 +261,19 @@ class FileData {
     protected:
 	static FileData *file_data_new_local(const gchar *path, struct stat *st, FileDataContext *context = nullptr);
 
+	/* file_data_new in steps, so that the steps not touching the file pool can run off the main thread */
+	static FileData *file_data_lookup(const gchar *path_utf8, struct stat *st, FileDataContext *context); /**< the file already known at this path, updated from st */
+	static FileData *file_data_alloc(const gchar *path_utf8, const struct stat *st, FileDataContext *context); /**< thread-safe; not in the pool yet */
+	static void file_data_register(FileData *fd); /**< puts a file_data_alloc result in the pool */
+	static void file_data_discard(FileData *fd); /**< frees a file_data_alloc result that was not registered */
+
 	static void file_data_free(FileData *fd);
 	static void file_data_consider_free(FileData *fd);
 	static void file_data_update_ci_dest(FileData *fd, const gchar *dest_path);
 
 	// static methods that have already been switched to C++-style.
 	void set_path(const gchar *new_path);
+	void set_path_fields(const gchar *new_path);
 	void planned_change_remove();
 	void update_planned_change_hash(const gchar *old_path, gchar *new_path);
 };
@@ -306,6 +313,9 @@ class FileData::FileList
 
     protected:
 	static gboolean read_list_real(const gchar *dir_path, GList **files, GList **dirs, gboolean follow_symlinks);
+	struct ListEntry;
+	struct ListRequest;
+	static void list_entries_make(ListEntry *begin, ListEntry *end, const ListRequest *request);
 	static gint sort_file_cb(gconstpointer a, gconstpointer b, gpointer data);
 	static gint sort_path_cb(gconstpointer a, gconstpointer b);
 	static void recursive_append(GList **list, GList *dirs);

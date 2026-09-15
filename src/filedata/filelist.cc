@@ -29,15 +29,19 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <thread>
 #include <utility>
+#include <vector>
 
 #include <glib.h>
 #include "debug.h"
 #include "filefilter.h"
 #include "main.h"
+#include "misc.h"
 #include "options.h"
 #include "typedefs.h"
 #include "ui-fileops.h"
@@ -51,6 +55,66 @@
 gboolean FileData::FileList::lists_file(const gchar *name)
 {
 	return filter_name_exists(name);
+}
+
+struct FileData::FileList::ListEntry
+{
+	gsize name_offset; /**< into the listing's name arena */
+	guchar d_type;
+
+	/* set by list_entries_make */
+	FileData *fd; /**< unregistered (file_data_alloc) */
+	struct stat *st_unconverted; /**< instead of fd, when the name needs path_to_utf8, which may show a dialog */
+	gint stat_errno;
+};
+
+struct FileData::FileList::ListRequest
+{
+	const gchar *names;
+	gint dir_fd;
+	gboolean follow_symlinks;
+	gboolean want_files;
+	gboolean want_dirs;
+	const gchar *dir_path;
+	const gchar *dir_separator;
+	FileDataContext *context;
+};
+
+/* Runs on worker threads, so it touches nothing shared: fstatat on a directory fd, g_filename_to_utf8, the
+ * extension table and file_data_alloc are thread-safe, while the file pool, path_to_utf8 and log_printf are left
+ * to the main thread. */
+void FileData::FileList::list_entries_make(ListEntry *begin, ListEntry *end, const ListRequest *request)
+{
+	for (ListEntry *entry = begin; entry < end; entry++)
+		{
+		const gchar *name = request->names + entry->name_offset;
+
+		/* The stat is the cost of listing a large folder, so it is skipped for entries this listing would drop
+		 * anyway: d_type tells directories apart without one, except DT_UNKNOWN (filesystems that do not fill
+		 * it) and symlinks, whose target type needs the stat. */
+		const gboolean may_be_dir = entry->d_type == DT_DIR || entry->d_type == DT_UNKNOWN ||
+		                            (request->follow_symlinks && entry->d_type == DT_LNK);
+		const gboolean wanted_file = request->want_files && entry->d_type != DT_DIR && lists_file(name);
+		if (!(request->want_dirs && may_be_dir) && !wanted_file) continue;
+
+		struct stat st;
+		if (fstatat(request->dir_fd, name, &st, request->follow_symlinks ? 0 : AT_SYMLINK_NOFOLLOW) < 0)
+			{
+			entry->stat_errno = errno;
+			continue;
+			}
+		if (S_ISDIR(st.st_mode) ? !request->want_dirs : !wanted_file) continue;
+
+		g_autofree gchar *name_utf8 = g_filename_to_utf8(name, -1, nullptr, nullptr, nullptr);
+		if (!name_utf8)
+			{
+			entry->st_unconverted = static_cast<struct stat *>(g_memdup2(&st, sizeof(st)));
+			continue;
+			}
+
+		g_autofree gchar *path_utf8 = g_strconcat(request->dir_path, request->dir_separator, name_utf8, NULL);
+		entry->fd = file_data_alloc(path_utf8, &st, request->context);
+		}
 }
 
 gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files, GList **dirs, gboolean follow_symlinks)
@@ -70,39 +134,82 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 	if (dp == nullptr) return FALSE;
 
 	const gsize dir_path_len = strlen(dir_path);
-	const gchar *dir_separator = (dir_path_len > 0 && dir_path[dir_path_len - 1] == G_DIR_SEPARATOR) ? "" : G_DIR_SEPARATOR_S;
+	std::vector<ListEntry> entries;
+	std::vector<gchar> names;
 
 	struct dirent *dir;
 	while ((dir = readdir(dp)) != nullptr)
 		{
 		const gchar *name = dir->d_name;
-
 		if (name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0'))) continue;
+		if (!dirs && dir->d_type == DT_DIR) continue;
 
-		/* The stat is the cost of listing a large folder, so it is skipped for entries this listing would drop
-		 * anyway: d_type tells directories apart without one, except DT_UNKNOWN (filesystems that do not fill it)
-		 * and symlinks, whose target type needs the stat. */
-		const gboolean may_be_dir = dir->d_type == DT_DIR || dir->d_type == DT_UNKNOWN ||
-		                            (follow_symlinks && dir->d_type == DT_LNK);
-		const gboolean wanted_file = files && dir->d_type != DT_DIR && lists_file(name);
-		if (!(dirs && may_be_dir) && !wanted_file) continue;
+		ListEntry entry{};
+		entry.name_offset = names.size();
+		entry.d_type = dir->d_type;
+		entries.push_back(entry);
+		names.insert(names.end(), name, name + strlen(name) + 1);
+		}
 
-		struct stat ent_sbuf;
-		if (fstatat(dirfd(dp), name, &ent_sbuf, follow_symlinks ? 0 : AT_SYMLINK_NOFOLLOW) < 0)
+	const ListRequest request{names.data(), dirfd(dp), follow_symlinks, files != nullptr, dirs != nullptr, dir_path,
+	                          (dir_path_len > 0 && dir_path[dir_path_len - 1] == G_DIR_SEPARATOR) ? "" : G_DIR_SEPARATOR_S,
+	                          FileData::DefaultFileDataContext()};
+
+	/* Entries are made in parallel: on a cold cache each stat waits for the disk, and SSDs serve concurrent reads
+	 * almost as fast as a single one. Small listings stay on this thread, where a thread start would cost more. */
+	constexpr gsize ENTRIES_PER_THREAD = 1024;
+	const gsize thread_count = CLAMP(entries.size() / ENTRIES_PER_THREAD, 1, static_cast<gsize>(MAX(get_cpu_cores(), 1)));
+	const gsize chunk = (entries.size() + thread_count - 1) / thread_count;
+
+	std::vector<std::thread> workers;
+	for (gsize t = 1; t < thread_count; t++)
+		{
+		workers.emplace_back(list_entries_make, entries.data() + std::min(t * chunk, entries.size()),
+		                     entries.data() + std::min((t + 1) * chunk, entries.size()), &request);
+		}
+	list_entries_make(entries.data(), entries.data() + std::min(chunk, entries.size()), &request);
+	for (std::thread &worker : workers) worker.join();
+
+	for (ListEntry &entry : entries)
+		{
+		if (entry.stat_errno == EOVERFLOW)
 			{
-			if (errno == EOVERFLOW)
+			log_printf("stat(): EOVERFLOW, skip '%s/%s'", pathl, names.data() + entry.name_offset);
+			}
+
+		FileData *fd = entry.fd;
+		if (fd)
+			{
+			struct stat st{};
+			st.st_size = fd->size;
+			st.st_mtime = fd->date;
+			st.st_ctime = fd->cdate;
+			st.st_mode = fd->mode;
+
+			FileData *known = file_data_lookup(fd->original_path, &st, request.context);
+			if (known)
 				{
-				log_printf("stat(): EOVERFLOW, skip '%s/%s'", pathl, name);
+				file_data_discard(fd);
+				fd = known;
 				}
+			else
+				{
+				file_data_register(fd);
+				}
+			}
+		else if (entry.st_unconverted)
+			{
+			g_autofree gchar *name_utf8 = path_to_utf8(names.data() + entry.name_offset);
+			g_autofree gchar *path_utf8 = g_strconcat(dir_path, request.dir_separator, name_utf8, NULL);
+			fd = file_data_new(path_utf8, entry.st_unconverted);
+			g_free(entry.st_unconverted);
+			}
+		else
+			{
 			continue;
 			}
 
-		if (S_ISDIR(ent_sbuf.st_mode) ? !dirs : !wanted_file) continue;
-
-		g_autofree gchar *name_utf8 = path_to_utf8(name);
-		g_autofree gchar *filepath = g_strconcat(dir_path, dir_separator, name_utf8, NULL);
-		FileData *fd = file_data_new(filepath, &ent_sbuf);
-		if (S_ISDIR(ent_sbuf.st_mode))
+		if (S_ISDIR(fd->mode))
 			{
 			dlist = g_list_prepend(dlist, fd);
 			}
