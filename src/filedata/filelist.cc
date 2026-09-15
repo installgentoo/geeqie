@@ -57,6 +57,13 @@ gboolean FileData::FileList::lists_file(const gchar *name)
 	return filter_name_exists(name);
 }
 
+/* d_type tells directories apart without a stat, except DT_UNKNOWN (filesystems that do not fill it) and a
+ * followed symlink, whose target decides */
+static gboolean entry_may_be_dir(guchar d_type, gboolean follow_symlinks)
+{
+	return d_type == DT_DIR || d_type == DT_UNKNOWN || (follow_symlinks && d_type == DT_LNK);
+}
+
 struct FileData::FileList::ListEntry
 {
 	gsize name_offset; /**< into the listing's name arena */
@@ -89,13 +96,9 @@ void FileData::FileList::list_entries_make(ListEntry *begin, ListEntry *end, con
 		{
 		const gchar *name = request->names + entry->name_offset;
 
-		/* The stat is the cost of listing a large folder, so it is skipped for entries this listing would drop
-		 * anyway: d_type tells directories apart without one, except DT_UNKNOWN (filesystems that do not fill
-		 * it) and symlinks, whose target type needs the stat. */
-		const gboolean may_be_dir = entry->d_type == DT_DIR || entry->d_type == DT_UNKNOWN ||
-		                            (request->follow_symlinks && entry->d_type == DT_LNK);
+		/* The stat is the cost of listing a large folder, so it is skipped for entries this listing would drop */
 		const gboolean wanted_file = request->want_files && entry->d_type != DT_DIR && lists_file(name);
-		if (!(request->want_dirs && may_be_dir) && !wanted_file) continue;
+		if (!(request->want_dirs && entry_may_be_dir(entry->d_type, request->follow_symlinks)) && !wanted_file) continue;
 
 		struct stat st;
 		if (fstatat(request->dir_fd, name, &st, request->follow_symlinks ? 0 : AT_SYMLINK_NOFOLLOW) < 0)
@@ -142,7 +145,7 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 		{
 		const gchar *name = dir->d_name;
 		if (name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0'))) continue;
-		if (!dirs && dir->d_type == DT_DIR) continue;
+		if (!(dirs && entry_may_be_dir(dir->d_type, follow_symlinks)) && !(files && dir->d_type != DT_DIR)) continue;
 
 		ListEntry entry{};
 		entry.name_offset = names.size();
