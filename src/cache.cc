@@ -91,9 +91,6 @@ struct CachePathParts
 			case CACHE_TYPE_SIM:
 				ext = GQ_CACHE_EXT_SIM;
 				break;
-			case CACHE_TYPE_SIM_AVG:
-				ext = GQ_CACHE_EXT_SIM_AVG;
-				break;
 			}
 	}
 
@@ -114,12 +111,6 @@ struct CachePathParts
 };
 
 constexpr gint CACHE_LOAD_LINE_NOISE = 8;
-
-CacheType cache_sim_cache_type(FileData *fd)
-{
-	return (fd && fd->format_class == FORMAT_CLASS_VIDEO)
-		? CACHE_TYPE_SIM_AVG : CACHE_TYPE_SIM;
-}
 
 gboolean cache_video_tools_available()
 {
@@ -680,7 +671,7 @@ CacheData *cache_sim_data_load_from_file(FileData *fd)
 {
 	if (!fd || !fd->path) return nullptr;
 
-	g_autofree gchar *path = cache_find_location(cache_sim_cache_type(fd), fd->path);
+	g_autofree gchar *path = cache_find_location(CACHE_TYPE_SIM, fd->path);
 	if (!path) return nullptr;
 	if (filetime(fd->path) != filetime(path)) return nullptr;
 
@@ -691,11 +682,11 @@ gboolean cache_sim_data_save_to_file(FileData *fd, CacheData *cd)
 {
 	if (!fd || !fd->path || !cd) return FALSE;
 
-	g_autofree gchar *base = cache_create_location(cache_sim_cache_type(fd), fd->path);
+	g_autofree gchar *base = cache_create_location(CACHE_TYPE_SIM, fd->path);
 	if (!base) return FALSE;
 
 	g_free(cd->path);
-	cd->path = cache_get_location(cache_sim_cache_type(fd), fd->path);
+	cd->path = cache_get_location(CACHE_TYPE_SIM, fd->path);
 	g_free(cd->uri);
 	cd->uri = cache_source_uri(fd->path);
 	if (!cache_sim_data_save(cd)) return FALSE;

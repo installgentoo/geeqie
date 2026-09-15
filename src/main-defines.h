@@ -95,7 +95,6 @@
 
 // might need replacing
 #define GQ_ICON_PREFERENCES "preferences-system"
-#define GQ_ICON_EXPORT "document-export" // use collection icon?
 
 // not available in some themes
 #define GQ_ICON_OK "emblem-ok"

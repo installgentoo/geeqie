@@ -273,7 +273,7 @@ static gboolean cache_maintain_home_cb(gpointer data)
 				const gchar *path = fd_list->path;
 				gboolean keep;
 
-				if (file_extension_match(path, GQ_CACHE_EXT_SIM) || file_extension_match(path, GQ_CACHE_EXT_SIM_AVG))
+				if (file_extension_match(path, GQ_CACHE_EXT_SIM))
 					{
 					/* named by md5 of the source; only the URI inside leads back. Files from the old
 					 * mirrored-path layout carry no URI and are dropped here, which migrates the cache. */
@@ -453,7 +453,6 @@ static void cache_maint_moved(FileData *fd)
 
 	cache_move(CACHE_TYPE_THUMB);
 	cache_move(CACHE_TYPE_SIM);
-	cache_move(CACHE_TYPE_SIM_AVG);
 
 	if (options->thumbnails.enable_caching)
 		thumb_std_maint_moved(src, dest);
@@ -474,7 +473,6 @@ static void cache_maint_removed(FileData *fd)
 
 	cache_remove(CACHE_TYPE_THUMB);
 	cache_remove(CACHE_TYPE_SIM);
-	cache_remove(CACHE_TYPE_SIM_AVG);
 
 	if (options->thumbnails.enable_caching)
 		thumb_std_maint_removed(fd->path);

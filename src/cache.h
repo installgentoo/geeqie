@@ -34,13 +34,11 @@ class FileData;
 
 #define GQ_CACHE_EXT_THUMB      ".png"
 #define GQ_CACHE_EXT_SIM        ".sim"
-#define GQ_CACHE_EXT_SIM_AVG   ".avg_sim"
 
 
 enum CacheType {
 	CACHE_TYPE_THUMB,
-	CACHE_TYPE_SIM,
-	CACHE_TYPE_SIM_AVG
+	CACHE_TYPE_SIM
 };
 
 struct CacheData

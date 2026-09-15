@@ -24,7 +24,6 @@
 #include <sys/time.h>
 
 #include <array>
-#include <cinttypes>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -39,7 +38,6 @@
 #include "debug.h"
 #include "dnd.h"
 #include "filedata.h"
-#include "history-list.h"
 #include "intl.h"
 #include "layout-util.h"
 #include "layout.h"
@@ -147,8 +145,6 @@ static void dupe_dnd_init(DupeWindow *dw);
 static void dupe_notify_cb(FileData *fd, NotifyType type, gpointer data);
 static void delete_finished_cb(gboolean success, const gchar *dest_path, gpointer data);
 
-static GtkWidget *submenu_add_export(GtkWidget *menu, GtkWidget **menu_item, GCallback func, gpointer data);
-static void dupe_pop_menu_export_cb(GtkWidget *widget, gpointer data);
 
 static void dupe_init_list_cache(DupeWindow *dw);
 static void dupe_destroy_list_cache(DupeWindow *dw);
@@ -3132,10 +3128,6 @@ static GtkWidget *dupe_menu_popup_main(DupeWindow *dw, DupeItem *di)
 				G_CALLBACK(dupe_menu_select_dupes_set2_cb), dw);
 	menu_item_add_divider(menu);
 
-	submenu_add_export(menu, &item, G_CALLBACK(dupe_pop_menu_export_cb), dw);
-	gtk_widget_set_sensitive(item, on_row);
-	menu_item_add_divider(menu);
-
 	editmenu_fd_list = dupe_window_get_fd_list(dw);
 	g_signal_connect(G_OBJECT(menu), "destroy",
 			 G_CALLBACK(dupe_menu_popup_destroy_cb), editmenu_fd_list);
@@ -4731,241 +4723,6 @@ static void delete_finished_cb(gboolean success, const gchar *, gpointer data)
 
 	dupe_window_remove_selection(dw, dw->listview, TRUE);
 	dupe_delete_in_progress = FALSE;
-}
-
-/*
- *-------------------------------------------------------------------
- * Export duplicates data
- *-------------------------------------------------------------------
- */
-
-enum SeparatorType {
-	EXPORT_CSV = 0,
-	EXPORT_TSV
-};
-
-struct ExportDupesData
-{
-	FileDialog *dialog;
-	SeparatorType separator;
-	DupeWindow *dupewindow;
-};
-
-static void export_duplicates_close(ExportDupesData *edd)
-{
-	if (edd->dialog) file_dialog_close(edd->dialog);
-	edd->dialog = nullptr;
-}
-
-static void export_duplicates_data_cancel_cb(FileDialog *, gpointer data)
-{
-	auto edd = static_cast<ExportDupesData *>(data);
-
-	export_duplicates_close(edd);
-}
-
-static void export_duplicates_data_save_cb(FileDialog *fdlg, gpointer data)
-{
-	auto edd = static_cast<ExportDupesData *>(data);
-	GError *error = nullptr;
-	GtkTreeModel *store;
-	GtkTreeIter iter;
-	DupeItem *di;
-	GFileOutputStream *gfstream;
-	GFile *out_file;
-	GString *output_string;
-	gchar* rank;
-	GList *work;
-	GtkTreeSelection *selection;
-	GList *slist;
-	gchar *thumb_cache;
-	gchar **rank_split;
-	GtkTreePath *tpath;
-	gboolean color_old = FALSE;
-	gboolean color_new = FALSE;
-	gint match_count;
-	gchar *name;
-
-	history_list_add_to_key("export_duplicates", fdlg->dest_path, -1);
-
-	out_file = g_file_new_for_path(fdlg->dest_path);
-
-	gfstream = g_file_replace(out_file, nullptr, TRUE, G_FILE_CREATE_NONE, nullptr, &error);
-	if (error)
-		{
-		log_printf(_("Error creating Export duplicates data file: Error: %s\n"), error->message);
-		g_error_free(error);
-		return;
-		}
-
-	const gchar *sep = (edd->separator == EXPORT_CSV) ?  "," : "\t";
-	output_string = g_string_new(g_strjoin(sep, _("Match"), _("Group"), _("Similarity"), _("Set"), _("Thumbnail"), _("Name"), _("Size"), _("Date"), _("Width"), _("Height"), _("Path\n"), NULL));
-
-	selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(edd->dupewindow->listview));
-	slist = gtk_tree_selection_get_selected_rows(selection, &store);
-	work = slist;
-
-	tpath = static_cast<GtkTreePath *>(work->data);
-	gtk_tree_model_get_iter(store, &iter, tpath);
-	gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, DUPE_COLUMN_COLOR, &color_new, -1);
-	color_old = !color_new;
-	match_count = 0;
-
-	while (work)
-		{
-		tpath = static_cast<GtkTreePath *>(work->data);
-		gtk_tree_model_get_iter(store, &iter, tpath);
-
-		gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, DUPE_COLUMN_POINTER, &di, -1);
-
-		gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, DUPE_COLUMN_COLOR, &color_new, -1);
-		if (color_new != color_old)
-			{
-			match_count++;
-			}
-		color_old = color_new;
-		g_string_append_printf(output_string, "%d", match_count);
-		output_string = g_string_append(output_string, sep);
-
-		if ((dupe_match_find_parent(edd->dupewindow, di) == di))
-			{
-			output_string = g_string_append(output_string, "1");
-			}
-		else
-			{
-			output_string = g_string_append(output_string, "2");
-			}
-		output_string = g_string_append(output_string, sep);
-
-		gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, DUPE_COLUMN_RANK, &rank, -1);
-		rank_split = g_strsplit_set(rank, " [(", -1);
-		if (rank_split[0] == nullptr)
-			{
-			output_string = g_string_append(output_string, "");
-			}
-		else
-			{
-			output_string = g_string_append(output_string, rank_split[0]);
-			}
-		output_string = g_string_append(output_string, sep);
-		g_free(rank);
-		g_strfreev(rank_split);
-
-		g_string_append_printf(output_string, "%d", di->second + 1);
-		output_string = g_string_append(output_string, sep);
-
-		thumb_cache = cache_find_location(CACHE_TYPE_THUMB, di->fd->path);
-		if (thumb_cache)
-			{
-			output_string = g_string_append(output_string, thumb_cache);
-			g_free(thumb_cache);
-			}
-		else
-			{
-			output_string = g_string_append(output_string, "");
-			}
-		output_string = g_string_append(output_string, sep);
-
-		gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, DUPE_COLUMN_NAME, &name, -1);
-		output_string = g_string_append(output_string, name);
-		output_string = g_string_append(output_string, sep);
-		g_free(name);
-
-		g_string_append_printf(output_string, "%" PRId64, di->fd->size);
-		output_string = g_string_append(output_string, sep);
-		output_string = g_string_append(output_string, text_from_time(di->fd->date));
-		output_string = g_string_append(output_string, sep);
-		g_string_append_printf(output_string, "%d", di->width);
-		output_string = g_string_append(output_string, sep);
-		g_string_append_printf(output_string, "%d", di->height);
-		output_string = g_string_append(output_string, sep);
-		output_string = g_string_append(output_string, di->fd->path);
-		output_string = g_string_append_c(output_string, '\n');
-
-		work = work->next;
-		}
-
-	g_output_stream_write(G_OUTPUT_STREAM(gfstream), output_string->str, output_string->len, nullptr, &error);
-
-	g_string_free(output_string, TRUE);
-	g_object_unref(gfstream);
-	g_object_unref(out_file);
-
-	export_duplicates_close(edd);
-}
-
-static void pop_menu_export(GList *, gpointer dupe_window, gpointer data)
-{
-	const gint index = GPOINTER_TO_INT(data);
-	auto dw = static_cast<DupeWindow *>(dupe_window);
-	const gchar *title = _("Export duplicates data");
-	const gchar *default_path = "/tmp/";
-	gchar *file_extension;
-	ExportDupesData *edd;
-	const gchar *previous_path;
-
-	edd = g_new0(ExportDupesData, 1);
-	edd->dialog = file_util_file_dlg(title, "export_duplicates", nullptr, export_duplicates_data_cancel_cb, edd);
-
-	switch (index)
-		{
-		case EXPORT_CSV:
-			edd->separator = EXPORT_CSV;
-			file_extension = g_strdup(".csv");
-			break;
-		case EXPORT_TSV:
-			edd->separator = EXPORT_TSV;
-			file_extension = g_strdup(".tsv");
-			break;
-		default:
-			return;
-		}
-
-	generic_dialog_add_message(GENERIC_DIALOG(edd->dialog), nullptr, title, nullptr, FALSE);
-	file_dialog_add_button(edd->dialog, GQ_ICON_SAVE, _("Save"), export_duplicates_data_save_cb, TRUE);
-
-	previous_path = history_list_find_last_path_by_key("export_duplicates");
-
-	file_dialog_add_path_widgets(edd->dialog, default_path, previous_path, "export_duplicates", file_extension, _("Export Files"));
-
-	edd->dupewindow = dw;
-
-	gtk_widget_show(GENERIC_DIALOG(edd->dialog)->dialog);
-
-	g_free(file_extension);
-}
-
-static void dupe_pop_menu_export_cb(GtkWidget *widget, gpointer data)
-{
-	DupeWindow *dw;
-	GList *selection_list;
-
-	dw = static_cast<DupeWindow *>(submenu_item_get_data(widget));
-	selection_list = dupe_listview_get_selection(dw, dw->listview);
-	pop_menu_export(selection_list, dw, data);
-
-	filelist_free(selection_list);
-}
-
-static GtkWidget *submenu_add_export(GtkWidget *menu, GtkWidget **menu_item, GCallback func, gpointer data)
-{
-	GtkWidget *item;
-	GtkWidget *submenu;
-
-	item = menu_item_add(menu, _("_Export"), nullptr, nullptr);
-
-	submenu = gtk_menu_new();
-	g_object_set_data(G_OBJECT(submenu), "submenu_data", data);
-
-	menu_item_add_icon_sensitive(submenu, _("Export to csv"),
-					GQ_ICON_EXPORT, TRUE, G_CALLBACK(func), GINT_TO_POINTER(0));
-	menu_item_add_icon_sensitive(submenu, _("Export to tab-delimited"),
-					GQ_ICON_EXPORT, TRUE, G_CALLBACK(func), GINT_TO_POINTER(1));
-
-	gtk_menu_item_set_submenu(GTK_MENU_ITEM(item), submenu);
-	if (menu_item) *menu_item = item;
-
-	return submenu;
 }
 
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
