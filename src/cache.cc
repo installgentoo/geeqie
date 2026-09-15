@@ -225,10 +225,13 @@ SimDb *sim_db()
 		recursive_mkdir_if_not_exists(dir, 0755);
 
 		/* NOMUTEX: SimDb::mutex already serialises every use of the connection.
-		 * The busy timeout comes first: switching to WAL takes a lock another geeqie instance may hold. */
+		 * The busy timeout comes first: switching to WAL takes a lock another geeqie instance may hold.
+		 * page_size must precede anything that writes, and only takes effect when the file is created: a ~3.1 KB
+		 * row fills a 4 KB page on its own, while 16 KB pages share the slack (measured 20% smaller, same speed). */
 		if (sqlite3_open_v2(pathl, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX, nullptr) == SQLITE_OK &&
 		    sqlite3_busy_timeout(db, 5000) == SQLITE_OK &&
-		    sim_db_exec(db, "PRAGMA journal_mode=WAL;"
+		    sim_db_exec(db, "PRAGMA page_size=16384;"
+		                    "PRAGMA journal_mode=WAL;"
 		                    "PRAGMA synchronous=NORMAL;"
 		                    "CREATE TABLE IF NOT EXISTS sim("
 		                    "path TEXT NOT NULL UNIQUE, mtime INTEGER NOT NULL,"
