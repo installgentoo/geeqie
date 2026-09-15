@@ -178,6 +178,8 @@ static void dupe_comparison_func(gpointer d1, gpointer d2)
 
 	if (!dw->abort)
 		{
+		image_sim_needle_prepare(dqi->needle->simd);
+
 		GList *work = dqi->work;
 		while (work)
 			{
@@ -213,6 +215,8 @@ static void dupe_comparison_func(gpointer d1, gpointer d2)
 		g_mutex_lock(&dw->search_matches_mutex);
 		dw->search_matches = g_list_concat(dw->search_matches, matches);
 		g_mutex_unlock(&dw->search_matches_mutex);
+
+		image_sim_needle_release(dqi->needle->simd);
 		}
 
 	g_mutex_lock(&dw->thread_count_mutex);

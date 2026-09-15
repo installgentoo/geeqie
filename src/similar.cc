@@ -24,7 +24,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <functional>
 #include <vector>
 
 #include "options.h"
@@ -58,8 +57,6 @@
 namespace
 {
 
-using ImageSimilarityCheckAbort = std::function<bool(gdouble)>;
-
 void image_sim_channel_equal(guint8 *pix, gsize len)
 {
 	struct IndexedPix
@@ -92,45 +89,78 @@ void image_sim_channel_equal(guint8 *pix, gsize len)
  * = 8 tests
  * = change dir of x, change dir of y, exchange x and y = 2^3 = 8
  */
-gdouble image_sim_data_compare_transfo(const ImageSimilarityData *a, const ImageSimilarityData *b, gchar transfo, const ImageSimilarityCheckAbort &check_abort)
+constexpr gint SIM_GRID_BYTES = 3 * 1024;
+constexpr gint SIM_ISOMETRIES = 8;
+
+/* Isometry t of the 32x32 grid: bit 0 swaps the axes, bit 1 flips j, bit 2 flips i.
+ * t == 0 is the identity and is never written; transforms[t - 1] holds the rest. */
+void image_sim_transform(const ImageSimilarityData *sd, gchar t, guint8 *out)
+{
+	const guint8 *in = sd->avg_r;
+	for (gint j1 = 0; j1 < 32; j1++)
+		{
+		const gint jj = (t & 2) ? 31 - j1 : j1;
+		for (gint i1 = 0; i1 < 32; i1++)
+			{
+			const gint ii = (t & 4) ? 31 - i1 : i1;
+			const gint src = (t & 1) ? (jj * 32 + ii) : (ii * 32 + jj);
+			const gint dst = i1 * 32 + j1;
+			out[dst] = in[src];
+			out[1024 + dst] = in[1024 + src];
+			out[2048 + dst] = in[2048 + src];
+			}
+		}
+}
+
+/* Sum of absolute differences over the block, giving up once it exceeds limit.
+ * Written so the compiler emits psadbw / vpsadbw; keep it free of calls and branches per byte. */
+#if defined(__x86_64__) && defined(__GNUC__)
+__attribute__((target_clones("avx2", "default")))
+#endif
+gint image_sim_sad(const guint8 *a, const guint8 *b, gint limit)
+{
+	gint sim = 0;
+	for (gint row = 0; row < SIM_GRID_BYTES; row += 128)
+		{
+		gint s = 0;
+		for (gint k = 0; k < 128; k++)
+			{
+			s += abs(a[row + k] - b[row + k]);
+			}
+		sim += s;
+		if (sim > limit) return sim;
+		}
+	return sim;
+}
+
+/* Best score over the isometries in use; limit is the abort threshold as a raw difference sum. */
+gdouble image_sim_data_compare(const ImageSimilarityData *a, const ImageSimilarityData *b, gint limit)
 {
 	if (!a || !b || !a->filled || !b->filled) return 0.0;
 
-	gint sim = 0.0;
-	gint i2;
-	gint *i;
-	gint j2;
-	gint *j;
+	gint best = image_sim_sad(a->avg_r, b->avg_r, limit);
 
-	if (transfo & 1) { i = &j2; j = &i2; } else { i = &i2; j = &j2; }
-	for (gint j1 = 0; j1 < 32; j1++)
+	if (options->rot_invariant_sim)
 		{
-		if (transfo & 2) *j = 31-j1; else *j = j1;
-		for (gint i1 = 0; i1 < 32; i1++)
+		guint8 local[SIM_GRID_BYTES];
+		for (gchar t = 1; t < SIM_ISOMETRIES; t++)
 			{
-			if (transfo & 4) *i = 31-i1; else *i = i1;
-			sim += abs(a->avg_r[i1*32+j1] - b->avg_r[i2*32+j2]);
-			sim += abs(a->avg_g[i1*32+j1] - b->avg_g[i2*32+j2]);
-			sim += abs(a->avg_b[i1*32+j1] - b->avg_b[i2*32+j2]);
-			/* check for abort, if so return 0.0 */
-			if (check_abort(sim)) return 0.0;
+			const guint8 *bt;
+			if (b->transforms)
+				{
+				bt = b->transforms[t - 1];
+				}
+			else
+				{
+				image_sim_transform(b, t, local);
+				bt = local;
+				}
+			best = std::min(best, image_sim_sad(a->avg_r, bt, std::min(limit, best)));
 			}
 		}
 
-	return 1.0 - (static_cast<gdouble>(sim) / (255.0 * 1024.0 * 3.0));
-}
-
-gdouble image_sim_data_compare(const ImageSimilarityData *a, const ImageSimilarityData *b, const ImageSimilarityCheckAbort &check_abort)
-{
-	gchar max_t = (options->rot_invariant_sim ? 8 : 1);
-	gdouble max_score = 0;
-
-	for (gchar t = 0; t < max_t; t++)
-	{
-		max_score = std::max(image_sim_data_compare_transfo(a, b, t, check_abort), max_score);
-	}
-
-	return max_score;
+	if (best > limit) return 0.0;
+	return 1.0 - (static_cast<gdouble>(best) / (255.0 * 1024.0 * 3.0));
 }
 
 } // namespace
@@ -144,7 +174,27 @@ ImageSimilarityData *image_sim_new()
 
 void image_sim_free(ImageSimilarityData *sd)
 {
+	if (!sd) return;
+	g_free(sd->transforms);
 	g_free(sd);
+}
+
+void image_sim_needle_prepare(ImageSimilarityData *sd)
+{
+	if (!sd || sd->transforms) return;
+
+	sd->transforms = static_cast<guint8 (*)[SIM_GRID_BYTES]>(g_malloc(static_cast<gsize>(SIM_GRID_BYTES) * (SIM_ISOMETRIES - 1)));
+	for (gchar t = 1; t < SIM_ISOMETRIES; t++)
+		{
+		image_sim_transform(sd, t, sd->transforms[t - 1]);
+		}
+}
+
+void image_sim_needle_release(ImageSimilarityData *sd)
+{
+	if (!sd) return;
+	g_free(sd->transforms);
+	sd->transforms = nullptr;
 }
 
 static void image_sim_channel_norm(guint8 *pix, gint len)
@@ -357,7 +407,7 @@ static gdouble alternate_image_sim_compare_fast(const ImageSimilarityData *a, co
 
 gdouble image_sim_compare(ImageSimilarityData *a, ImageSimilarityData *b)
 {
-	return image_sim_data_compare(a, b, [](gdouble){ return false; });
+	return image_sim_data_compare(a, b, G_MAXINT);
 }
 
 /* this uses a cutoff point so that it can abort early when it gets to
@@ -372,6 +422,6 @@ gdouble image_sim_compare_fast(ImageSimilarityData *a, ImageSimilarityData *b, g
 		return alternate_image_sim_compare_fast(a, b, min);
 		}
 
-	return image_sim_data_compare(a, b, [min](gdouble sim){ return (sim / (255.0 * 1024.0 * 3.0)) > min; });
+	return image_sim_data_compare(a, b, static_cast<gint>(min * 255.0 * 1024.0 * 3.0));
 }
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
