@@ -226,9 +226,9 @@ gint FileData::FileList::sort_compare_filedata(
 	return strcmp(fa->original_path, fb->original_path);
 }
 
-gint FileData::FileList::sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascending)
+gint FileData::FileList::sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascending, gboolean case_sensitive)
 {
-	SortSettings settings = {method, ascending, /*case_sensitive=*/TRUE};
+	SortSettings settings = {method, ascending, case_sensitive};
 	return sort_compare_filedata(fa, fb, &settings);
 }
 

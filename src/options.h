@@ -85,11 +85,8 @@ struct ConfOptions
 	/* file ops */
 	struct {
 		gboolean confirm_delete;
-		gboolean enable_delete_key;
-		gboolean safe_delete_enable;
-		gboolean use_system_trash;
+		gboolean use_trash;
 		gchar *safe_delete_path;
-		gboolean no_trash;
 	} file_ops;
 
 	/* image */

@@ -58,11 +58,8 @@ ConfOptions *init_options(ConfOptions *options)
 	options->hide_window_decorations = FALSE;
 
 	options->file_ops.confirm_delete = TRUE;
-	options->file_ops.enable_delete_key = TRUE;
-	options->file_ops.use_system_trash = TRUE;
-	options->file_ops.safe_delete_enable = TRUE;
+	options->file_ops.use_trash = TRUE;
 	options->file_ops.safe_delete_path = nullptr;
-	options->file_ops.no_trash = FALSE;
 
 	options->file_sort.case_sensitive = FALSE;
 

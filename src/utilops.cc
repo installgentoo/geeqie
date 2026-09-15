@@ -1523,7 +1523,7 @@ static void box_append_safe_delete_status(GenericDialog *gd)
 	GtkWidget *label;
 	gchar *buf;
 
-	buf = file_util_safe_delete_status();
+	buf = file_util_delete_status();
 	label = pref_label_new(gd->vbox, buf);
 	g_free(buf);
 
@@ -2083,7 +2083,7 @@ static void file_util_delete_full(FileData *source_fd, GList *flist, GtkWidget *
 
 	if (g_list_length(flist) > 1)
 		{
-		if(options->file_ops.safe_delete_enable)
+		if (options->file_ops.use_trash)
 			{
 			message = g_strdup_printf("%s%d%s", _("⚠ This will move the following    "), g_list_length(flist), _("    files to the Trash bin"));
 			}
@@ -2095,7 +2095,7 @@ static void file_util_delete_full(FileData *source_fd, GList *flist, GtkWidget *
 		}
 	else
 		{
-		if(options->file_ops.safe_delete_enable)
+		if (options->file_ops.use_trash)
 			{
 			message = _("This will move the following file to the Trash bin");
 			}

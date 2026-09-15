@@ -21,8 +21,8 @@
 
 #include <glib.h>
 
-gboolean file_util_safe_unlink(const gchar *path);
-gchar *file_util_safe_delete_status();
+gboolean file_util_move_to_trash(const gchar *path);
+gchar *file_util_delete_status();
 
 #endif /* TRASH_H */
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

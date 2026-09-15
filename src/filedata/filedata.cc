@@ -161,55 +161,43 @@ void FileData::file_data_increment_version(FileData *fd)
 		}
 }
 
-static gboolean file_data_check_changed_single_file(FileData *fd, struct stat *st)
+/* Applies a stat result (nullptr when the stat failed) to an existing FileData; returns whether it changed. */
+static gboolean file_data_apply_stat(FileData *fd, const struct stat *st)
 {
-	if (fd->size != st->st_size ||
-	    fd->date != st->st_mtime)
+	if (st)
 		{
+		if (!fd->missing && fd->size == st->st_size && fd->date == st->st_mtime) return FALSE;
+
+		fd->missing = FALSE;
 		fd->size = st->st_size;
 		fd->date = st->st_mtime;
 		fd->cdate = st->st_ctime;
 		fd->mode = st->st_mode;
-		if (fd->thumb_pixbuf) g_object_unref(fd->thumb_pixbuf);
-		fd->thumb_pixbuf = nullptr;
-		file_data_increment_version(fd);
-		file_data_send_notification(fd, NOTIFY_REREAD);
-		return TRUE;
+		g_clear_object(&fd->thumb_pixbuf);
 		}
-	return FALSE;
-}
+	else
+		{
+		if (fd->missing) return FALSE;
 
-static gboolean file_data_check_changed_files_recursive(FileData *fd, struct stat *st)
-{
-	return file_data_check_changed_single_file(fd, st);
-}
+		fd->missing = TRUE;
+		}
 
+	::file_data_ref(fd);
+	file_data_increment_version(fd);
+	file_data_send_notification(fd, NOTIFY_REREAD);
+	::file_data_unref(fd);
+	return TRUE;
+}
 
 gboolean FileData::file_data_check_changed_files(FileData *fd)
 {
-	gboolean ret = FALSE;
 	struct stat st;
 
 	if (fd->parent) fd = fd->parent;
 
-	if (!stat_utf8(fd->path, &st))
-		{
-		/* parent is missing, we have to rebuild whole group */
-		ret = TRUE;
-		fd->size = 0;
-		fd->date = 0;
+	gboolean changed = file_data_apply_stat(fd, stat_utf8(fd->path, &st) ? &st : nullptr);
 
-		::file_data_ref(fd);
-		file_data_increment_version(fd);
-		file_data_send_notification(fd, NOTIFY_REREAD);
-		::file_data_unref(fd);
-		}
-	else
-		{
-		ret |= file_data_check_changed_files_recursive(fd, &st);
-		}
-
-	return ret;
+	return changed || fd->missing;
 }
 
 /*
@@ -362,7 +350,7 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileD
 #ifdef DEBUG_FILEDATA
 		gboolean changed =
 #endif
-		file_data_check_changed_single_file(fd, st);
+		file_data_apply_stat(fd, st);
 
 		DEBUG_2("file_data_pool hit: '%s' %s", fd->path, changed ? "(changed)" : "");
 
@@ -376,10 +364,17 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileD
 #endif
 
 	fd->context = context;
-	fd->size = st->st_size;
-	fd->date = st->st_mtime;
-	fd->cdate = st->st_ctime;
-	fd->mode = st->st_mode;
+	if (st)
+		{
+		fd->size = st->st_size;
+		fd->date = st->st_mtime;
+		fd->cdate = st->st_ctime;
+		fd->mode = st->st_mode;
+		}
+	else
+		{
+		fd->missing = TRUE;
+		}
 	fd->ref = 1;
 	fd->magick = FD_MAGICK;
 	fd->format_class = filter_file_get_class(path_utf8);
@@ -402,14 +397,6 @@ FileData *FileData::file_data_new_local(const gchar *path, struct stat *st, File
 
 FileData *FileData::file_data_new_simple(const gchar *path_utf8, FileDataContext *context)
 {
-	struct stat st{};
-
-	if (!stat_utf8(path_utf8, &st))
-		{
-		st.st_size = 0;
-		st.st_mtime = 0;
-		}
-
 	if (context == nullptr)
 		{
 		context = FileData::DefaultFileDataContext();
@@ -418,7 +405,7 @@ FileData *FileData::file_data_new_simple(const gchar *path_utf8, FileDataContext
 	auto *fd = static_cast<FileData *>(g_hash_table_lookup(context->file_data_pool, path_utf8));
 	if (!fd)
 		{
-		fd = file_data_new(path_utf8, &st, context);
+		fd = file_data_new(path_utf8, context);
 		}
 	else
 		{
@@ -432,29 +419,18 @@ FileData *FileData::file_data_new(const gchar *path_utf8, FileDataContext *conte
 {
 	struct stat st;
 
-	if (!stat_utf8(path_utf8, &st))
-		{
-		st.st_size = 0;
-		st.st_mtime = 0;
-		}
-
-	return file_data_new(path_utf8, &st, context);
+	return file_data_new(path_utf8, stat_utf8(path_utf8, &st) ? &st : nullptr, context);
 }
 
 FileData *FileData::file_data_new_dir(const gchar *path_utf8, FileDataContext *context)
 {
 	struct stat st;
+	gboolean exists = stat_utf8(path_utf8, &st);
 
-	if (!stat_utf8(path_utf8, &st))
-		{
-		st.st_size = 0;
-		st.st_mtime = 0;
-		}
-	else
-		/* dir or non-existing yet */
-		g_assert(S_ISDIR(st.st_mode));
+	/* dir or non-existing yet */
+	g_assert(!exists || S_ISDIR(st.st_mode));
 
-	return file_data_new(path_utf8, &st, context);
+	return file_data_new(path_utf8, exists ? &st : nullptr, context);
 }
 
 /*
@@ -1404,8 +1380,8 @@ static gboolean file_data_perform_delete(FileData *fd)
 	if (isdir(fd->path) && !islink(fd->path))
 		return rmdir_utf8(fd->path);
 
-	if (options->file_ops.safe_delete_enable)
-		return file_util_safe_unlink(fd->path);
+	if (options->file_ops.use_trash)
+		return file_util_move_to_trash(fd->path);
 
 	return unlink_file(fd->path);
 }

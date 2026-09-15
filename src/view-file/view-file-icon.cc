@@ -732,7 +732,7 @@ static void vficon_select_closest(ViewFile *vf, FileData *sel_fd)
 		fd = static_cast<FileData *>(work->data);
 		work = work->next;
 
-		match = filelist_sort_compare_filedata_full(fd, sel_fd, vf->sort_method, vf->sort_ascend);
+		match = filelist_sort_compare_filedata_full(fd, sel_fd, vf->sort_method, vf->sort_ascend, vf->sort_case);
 
 		if (match >= 0) break;
 		}
@@ -1546,7 +1546,7 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean reread_filelist)
 				continue;
 				}
 
-			match = filelist_sort_compare_filedata_full(fd, new_fd, vf->sort_method, vf->sort_ascend);
+			match = filelist_sort_compare_filedata_full(fd, new_fd, vf->sort_method, vf->sort_ascend, vf->sort_case);
 			if (match == 0) g_warning("multiple fd for the same path");
 			}
 		else if (work)
@@ -1749,6 +1749,8 @@ gboolean vficon_set_fd(ViewFile *vf, FileData *dir_fd)
 
 	if (!dir_fd) return FALSE;
 	if (vf->dir_fd == dir_fd) return TRUE;
+
+	vf_thumb_cleanup(vf);
 
 	file_data_unref(vf->dir_fd);
 	vf->dir_fd = file_data_ref(dir_fd);

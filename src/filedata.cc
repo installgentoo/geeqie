@@ -106,9 +106,9 @@ void file_data_change_info_free(FileDataChangeInfo *fdci, FileData *fd)
 }
 
 
-gint filelist_sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend)
+gint filelist_sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend, gboolean case_sensitive)
 {
-	return FileData::FileList::sort_compare_filedata_full(fa, fb, method, ascend);
+	return FileData::FileList::sort_compare_filedata_full(fa, fb, method, ascend, case_sensitive);
 }
 
 GList *filelist_sort(GList *list, SortType method, gboolean ascend, gboolean case_sensitive)

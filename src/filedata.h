@@ -139,6 +139,7 @@ class FileData {
 	time_t date;
 	time_t cdate;
 	mode_t mode; /**< this is needed at least for notification in view_dir because it is preserved after the file/directory is deleted */
+	gboolean missing; /**< the last stat failed; size, date, cdate and mode keep their last observed values, because views still sort and position a vanished file by them until they drop it */
 
 
 	FileData *parent; /**< parent file if this is a sidecar file, NULL otherwise */
@@ -167,7 +168,7 @@ class FileData {
 	 * should be used on helper files which can't have sidecars
 	 */
 	static FileData *file_data_new(const gchar *path_utf8, FileDataContext *context = nullptr);
-	static FileData *file_data_new(const gchar *path_utf8, struct stat *st, FileDataContext *context = nullptr);
+	static FileData *file_data_new(const gchar *path_utf8, struct stat *st, FileDataContext *context = nullptr); /**< st is nullptr when the stat failed */
 
 	/**
 	 * @headerfile file_data_new_dir
@@ -290,7 +291,7 @@ class FileData::FileList
 	};
 
 	static gint sort_compare_filedata(const FileData *fa, const FileData *fb, SortSettings *settings);
-	static gint sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend);
+	static gint sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend, gboolean case_sensitive);
 	static GList *sort(GList *list, SortType method, gboolean ascending, gboolean case_sensitive);
 
 	static gboolean read_list(FileData *dir_fd, GList **files, GList **dirs);
@@ -358,7 +359,7 @@ void file_data_increment_version(FileData *fd);
 
 void file_data_change_info_free(FileDataChangeInfo *fdci, FileData *fd);
 
-gint filelist_sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend);
+gint filelist_sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend, gboolean case_sensitive);
 GList *filelist_sort(GList *list, SortType method, gboolean ascending, gboolean case_sensitive);
 
 gboolean filelist_read(FileData *dir_fd, GList **files, GList **dirs);

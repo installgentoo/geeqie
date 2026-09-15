@@ -362,11 +362,8 @@ static void write_global_attributes(GString *outstr, gint indent)
 
 	/* File operations Options */
 	WRITE_NL(); WRITE_BOOL(*options, file_ops.confirm_delete);
-	WRITE_NL(); WRITE_BOOL(*options, file_ops.enable_delete_key);
-	WRITE_NL(); WRITE_BOOL(*options, file_ops.use_system_trash);
-	WRITE_NL(); WRITE_BOOL(*options, file_ops.safe_delete_enable);
+	WRITE_NL(); WRITE_BOOL(*options, file_ops.use_trash);
 	WRITE_NL(); WRITE_CHAR(*options, file_ops.safe_delete_path);
-	WRITE_NL(); WRITE_BOOL(*options, file_ops.no_trash);
 
 	/* Properties dialog Options */
 	WRITE_NL(); WRITE_CHAR(*options, properties.tabs_order);
@@ -671,11 +668,8 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 
 		/* File operations *options */
 		if (READ_BOOL(*options, file_ops.confirm_delete)) continue;
-		if (READ_BOOL(*options, file_ops.enable_delete_key)) continue;
-		if (READ_BOOL(*options, file_ops.use_system_trash)) continue;
-		if (READ_BOOL(*options, file_ops.safe_delete_enable)) continue;
+		if (READ_BOOL(*options, file_ops.use_trash)) continue;
 		if (READ_CHAR(*options, file_ops.safe_delete_path)) continue;
-		if (READ_BOOL(*options, file_ops.no_trash)) continue;
 
 		/* Fullscreen options */
 		if (READ_INT(*options, fullscreen.screen)) continue;

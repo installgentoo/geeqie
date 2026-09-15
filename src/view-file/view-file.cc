@@ -523,8 +523,6 @@ gboolean vf_refresh_filter(ViewFile *vf)
 
 gboolean vf_set_fd(ViewFile *vf, FileData *dir_fd)
 {
-	vf_thumb_cleanup(vf);
-
 	return vficon_set_fd(vf, dir_fd);
 }
 

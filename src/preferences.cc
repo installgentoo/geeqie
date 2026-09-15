@@ -217,9 +217,7 @@ static void config_window_apply()
 	if (options->file_filter.disable != c_options->file_filter.disable) refresh = TRUE;
 
 	options->file_ops.confirm_delete = c_options->file_ops.confirm_delete;
-	options->file_ops.enable_delete_key = c_options->file_ops.enable_delete_key;
-	options->file_ops.use_system_trash = c_options->file_ops.use_system_trash;
-	options->file_ops.no_trash = c_options->file_ops.no_trash;
+	options->file_ops.use_trash = c_options->file_ops.use_trash;
 	options->hide_window_decorations = c_options->hide_window_decorations;
 	options->image.scroll_reset_method = c_options->image.scroll_reset_method;
 	options->image.zoom_2pass = c_options->image.zoom_2pass;
@@ -1677,32 +1675,6 @@ static void config_tab_files(GtkWidget *notebook)
 }
 
 /* behavior tab */
-static void use_geeqie_trash_cb(GtkWidget *widget, gpointer)
-{
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
-		{
-		c_options->file_ops.use_system_trash = FALSE;
-		c_options->file_ops.no_trash = FALSE;
-		}
-}
-
-static void use_system_trash_cb(GtkWidget *widget, gpointer)
-{
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
-		{
-		c_options->file_ops.use_system_trash = TRUE;
-		c_options->file_ops.no_trash = FALSE;
-		}
-}
-
-static void use_no_cache_cb(GtkWidget *widget, gpointer)
-{
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
-		{
-		c_options->file_ops.no_trash = TRUE;
-		}
-}
-
 static void config_tab_behavior(GtkWidget *notebook)
 {
 	GtkWidget *hbox;
@@ -1718,13 +1690,11 @@ static void config_tab_behavior(GtkWidget *notebook)
 
 	group = pref_group_new(vbox, FALSE, _("Delete"), GTK_ORIENTATION_VERTICAL);
 
-	pref_checkbox_new_int(group, _("Confirm permanent file delete"),
+	pref_checkbox_new_int(group, _("Confirm file delete"),
 			      options->file_ops.confirm_delete, &c_options->file_ops.confirm_delete);
-	pref_checkbox_new_int(group, _("Enable Delete key"),
-			      options->file_ops.enable_delete_key, &c_options->file_ops.enable_delete_key);
 
-	ct_button = pref_radiobutton_new(group, nullptr, _("Use Geeqie trash location"),
-					!options->file_ops.use_system_trash && !options->file_ops.no_trash, G_CALLBACK(use_geeqie_trash_cb),nullptr);
+	ct_button = pref_checkbox_new_int(group, _("Move deleted files to trash folder"),
+					  options->file_ops.use_trash, &c_options->file_ops.use_trash);
 
 	hbox = pref_box_new(group, FALSE, GTK_ORIENTATION_HORIZONTAL, PREF_PAD_SPACE);
 	pref_checkbox_link_sensitivity(ct_button, hbox);
@@ -1736,15 +1706,6 @@ static void config_tab_behavior(GtkWidget *notebook)
 	tab_completion_add_select_button(safe_delete_path_entry, nullptr, TRUE);
 	gq_gtk_box_pack_start(GTK_BOX(hbox), tabcomp, TRUE, TRUE, 0);
 	gtk_widget_show(tabcomp);
-
-	c_options->file_ops.no_trash = options->file_ops.no_trash;
-	c_options->file_ops.use_system_trash = options->file_ops.use_system_trash;
-
-	pref_radiobutton_new(group, ct_button, _("Use system Trash bin"),
-					options->file_ops.use_system_trash && !options->file_ops.no_trash, G_CALLBACK(use_system_trash_cb), nullptr);
-
-	pref_radiobutton_new(group, ct_button, _("Use no trash at all"),
-			options->file_ops.no_trash, G_CALLBACK(use_no_cache_cb), nullptr);
 
 	pref_spacer(group, PREF_PAD_GROUP);
 

@@ -21,11 +21,7 @@
 
 #include "trash.h"
 
-#include <unistd.h>
-
 #include <cstdlib>
-
-#include <gio/gio.h>
 
 #include "debug.h"
 #include "editors.h"
@@ -91,112 +87,44 @@ static gchar *file_util_safe_dest(const gchar *path)
 	return dest;
 }
 
-gboolean file_util_safe_unlink(const gchar *path)
+gboolean file_util_move_to_trash(const gchar *path)
 {
 	static GenericDialog *gd = nullptr;
-	gchar *result = nullptr;
-	gboolean success = TRUE;
-	gchar *message;
+	const gchar *result = nullptr;
 
 	if (!isfile(path)) return FALSE;
 
-	if (options->file_ops.no_trash)
+	if (!isdir(options->file_ops.safe_delete_path))
 		{
-		if (!unlink_file(path))
+		DEBUG_1("creating trash: %s", options->file_ops.safe_delete_path);
+		if (!options->file_ops.safe_delete_path || !mkdir_utf8(options->file_ops.safe_delete_path, 0755))
 			{
-			file_util_warning_dialog(_("Delete failed"),
-						 _("Unable to remove file"),
-						 GQ_ICON_DIALOG_WARNING, nullptr);
-			success = FALSE;
+			result = _("Could not create folder");
 			}
 		}
-	else if (!options->file_ops.use_system_trash)
+
+	if (!result)
 		{
-		if (!isdir(options->file_ops.safe_delete_path))
-			{
-			DEBUG_1("creating trash: %s", options->file_ops.safe_delete_path);
-			if (!options->file_ops.safe_delete_path || !mkdir_utf8(options->file_ops.safe_delete_path, 0755))
-				{
-				result = _("Could not create folder");
-				success = FALSE;
-				}
-			}
+		g_autofree gchar *dest = file_util_safe_dest(path);
+		DEBUG_1("safe deleting %s to %s", path, dest);
+		if (move_file(path, dest)) return TRUE;
 
-		if (success)
-			{
-			gchar *dest;
-
-			dest = file_util_safe_dest(path);
-			if (dest)
-				{
-				DEBUG_1("safe deleting %s to %s", path, dest);
-				success = move_file(path, dest);
-				}
-			else
-				{
-				success = FALSE;
-				}
-
-			if (!success && !access_file(path, W_OK))
-				{
-				result = _("Permission denied");
-				}
-			g_free(dest);
-			}
-
-		if (result && !gd)
-			{
-			gchar *buf;
-
-			buf = g_strdup_printf(_("Unable to access or create the trash folder.\n\"%s\""), options->file_ops.safe_delete_path);
-			gd = file_util_warning_dialog(result, buf, GQ_ICON_DIALOG_WARNING, nullptr);
-			g_free(buf);
-			}
+		if (!access_file(path, W_OK)) result = _("Permission denied");
 		}
-	else
+
+	if (result && !gd)
 		{
-		GFile *tmp = g_file_new_for_path(path);
-		GError *error = nullptr;
+		g_autofree gchar *buf = g_strdup_printf(_("Unable to access or create the trash folder.\n\"%s\""), options->file_ops.safe_delete_path);
+		gd = file_util_warning_dialog(result, buf, GQ_ICON_DIALOG_WARNING, nullptr);
+		}
 
-		if (!g_file_trash(tmp, FALSE, &error) )
-			{
-			message = g_strconcat(_("See the Help file for a possible workaround.\n\n"), error->message, NULL);
-			gd = warning_dialog(_("Move to trash failed\n\n"), message, GQ_ICON_DIALOG_ERROR, nullptr);
-
-			g_free(message);
-			g_error_free(error);
-
-			/* A second warning dialog is not necessary */
-			}
-	}
-
-	return success;
+	return FALSE;
 }
 
-gchar *file_util_safe_delete_status()
+gchar *file_util_delete_status()
 {
-	gchar *buf = nullptr;
-
-	if (is_valid_editor_command(CMD_DELETE))
-		{
-		buf = g_strdup(_("Deletion by external command"));
-		}
-	else if (options->file_ops.no_trash)
-		{
-		buf = g_strdup(_("Deleting without trash"));
-		}
-	else if (options->file_ops.safe_delete_enable)
-		{
-		if (!options->file_ops.use_system_trash)
-			{
-			buf = g_strdup_printf(_("Using Geeqie Trash bin\n"));
-			}
-		else
-			{
-			buf = g_strdup(_("Using system Trash bin"));
-			}
-		}
-
-	return buf;
+	if (is_valid_editor_command(CMD_DELETE)) return g_strdup(_("Deletion by external command"));
+	if (options->file_ops.use_trash) return g_strdup(_("Using Geeqie Trash bin"));
+	return g_strdup(_("Deleting without trash"));
 }
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
