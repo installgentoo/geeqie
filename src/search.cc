@@ -1193,7 +1193,7 @@ static gboolean search_result_keypress_cb(GtkWidget *widget, GdkEventKey *event,
 		{
 		search_result_clear(sd);
 		}
-	else if (accel_action_matches("SubRemove", event))
+	else if (accel_action_matches("PermanentDelete", event))
 		{
 		search_result_remove_selection(sd);
 		}

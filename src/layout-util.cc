@@ -662,7 +662,7 @@ static GtkActionEntry menu_entries[] = {
   { "NextImage",             GQ_ICON_GO_DOWN,                   N_("_Next Image"),                                      "space",               N_("Next Image"),                                      CB(layout_menu_image_next_cb) },
   { "NextPage",              GQ_ICON_FORWARD_PAGE,              N_("_Next Page"),                                       "<control>Page_Down",  N_("Next Page of multi-page image"),                   CB(layout_menu_page_next_cb) },
   { "OpenWith",              GQ_ICON_OPEN_WITH,                 N_("Open With..."),                                     nullptr,               N_("Open With..."),                                    CB(layout_menu_open_with_cb) },
-  { "PermanentDelete",       GQ_ICON_DELETE,                    N_("Delete selection..."),                              "<shift>Delete",       N_("Delete selection..."),                             CB(layout_menu_delete_cb) },
+  { "PermanentDelete",       GQ_ICON_DELETE,                    N_("Delete selection..."),                              "Delete",              N_("Delete selection..."),                             CB(layout_menu_delete_cb) },
   { "Plugins",               GQ_ICON_PREFERENCES,               N_("Configure _Plugins..."),                            nullptr,               N_("Configure Plugins..."),                            CB(layout_menu_editors_cb) },
   { "Preferences",           GQ_ICON_PREFERENCES,               N_("P_references..."),                                  "<control>O",          N_("Preferences..."),                                  CB(layout_menu_config_cb) },
   { "PreferencesMenu",       nullptr,                           N_("P_references"),                                     nullptr,               nullptr,                                               nullptr },
@@ -824,7 +824,6 @@ void layout_actions_setup(LayoutWindow *lw)
 	{
 	GtkActionEntry subwindow_entries[] = {
 		/* shared across sub-windows */
-		{ "SubRemove",           nullptr, N_("Remove from list"),          "Delete",          N_("Remove selected from list"),       nullptr },
 		{ "SubClear",            nullptr, N_("Clear list"),                "<control>Delete", N_("Clear all results"),               nullptr },
 		{ "SubToggleThumbs",     nullptr, N_("Toggle thumbnails"),         "<control>T",      N_("Toggle thumbnail display"),        nullptr },
 		{ "SubCloseWindow",      nullptr, N_("Close window"),              "<control>W",      N_("Close sub-window"),                nullptr },

@@ -3862,10 +3862,6 @@ static gboolean dupe_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, g
 			{
 			file_util_rename(nullptr, dupe_listview_get_selection(dw, listview), dw->window);
 			}
-		else if (accel_action_matches("Delete", event))
-			{
-			file_util_delete(nullptr, dupe_listview_get_selection(dw, listview), dw->window);
-			}
 		else
 			{
 			stop_signal = FALSE;
@@ -3905,7 +3901,8 @@ static gboolean dupe_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, g
 			{
 			dupe_window_close(dw);
 			}
-		else if (accel_action_matches("SubRemove", event))
+		/* the main window's delete key only removes from this list; files are deleted from the context menu alone */
+		else if (accel_action_matches("PermanentDelete", event))
 			{
 			dupe_window_remove_selection(dw, listview, FALSE);
 			}
