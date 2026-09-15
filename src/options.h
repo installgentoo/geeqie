@@ -176,13 +176,6 @@ struct ConfOptions
 		gchar *tabs_order;
 	} properties;
 
-	/* External preview extraction */
-	struct {
-		gboolean enable;
-		gchar *select; /**< path to executable */
-		gchar *extract; /**< path to executable */
-	} external_preview;
-
 	/**
 	 * @struct cp_mv_rn
 	 * copy move rename

@@ -358,10 +358,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_BOOL(*options, log_window.timer_data);
 	WRITE_NL(); WRITE_CHAR(*options, log_window.action);
 
-	WRITE_NL(); WRITE_BOOL(*options, external_preview.enable);
-	WRITE_NL(); WRITE_CHAR(*options, external_preview.select);
-	WRITE_NL(); WRITE_CHAR(*options, external_preview.extract);
-
 	WRITE_NL(); WRITE_BOOL(*options, hide_window_in_fullscreen);
 
 	/* File operations Options */
@@ -638,10 +634,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_INT(*options, log_window_lines)) continue;
 		if (READ_BOOL(*options, log_window.timer_data)) continue;
 		if (READ_CHAR(*options, log_window.action)) continue;
-
-		if (READ_BOOL(*options, external_preview.enable)) continue;
-		if (READ_CHAR(*options, external_preview.select)) continue;
-		if (READ_CHAR(*options, external_preview.extract)) continue;
 
 		if (READ_BOOL(*options, hide_window_in_fullscreen)) continue;
 

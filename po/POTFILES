@@ -57,7 +57,6 @@ src/image-load-collection.cc
 src/image-load-cr3.cc
 src/image-load-dds.cc
 src/image-load-djvu.cc
-src/image-load-external.cc
 src/image-load-ffmpegthumbnailer.cc
 src/image-load-gdk.cc
 src/image-load-heif.cc

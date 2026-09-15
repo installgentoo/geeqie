@@ -52,8 +52,6 @@ main_sources = files(
 'image-load.h',
 'image-load-dds.cc',
 'image-load-dds.h',
-'image-load-external.cc',
-'image-load-external.h',
 'image-load-gdk.cc',
 'image-load-gdk.h',
 'image-load-psd.cc',

@@ -141,9 +141,6 @@ static GtkTreeStore *accel_store = nullptr;
 
 static GtkWidget *safe_delete_path_entry;
 
-static GtkWidget *external_preview_select_entry;
-static GtkWidget *external_preview_extract_entry;
-
 static GtkWidget *log_window_f1_entry;
 
 enum {
@@ -306,10 +303,6 @@ static void config_window_apply()
 	options->dnd_default_action = c_options->dnd_default_action;
 
 	options->hide_window_in_fullscreen = c_options->hide_window_in_fullscreen;
-
-	options->external_preview.enable = c_options->external_preview.enable;
-	config_entry_to_option(external_preview_select_entry, &options->external_preview.select, nullptr);
-	config_entry_to_option(external_preview_extract_entry, &options->external_preview.extract, nullptr);
 
 	options->threads.duplicates = c_options->threads.duplicates > 0 ? c_options->threads.duplicates : -1;
 
@@ -1971,71 +1964,14 @@ static void config_tab_accelerators(GtkWidget *notebook)
 /* advanced tab */
 static void config_tab_advanced(GtkWidget *notebook)
 {
-	GList *extensions_list = nullptr;
 	GtkWidget *dupes_threads_spin;
 	GtkWidget *group;
-	GtkWidget *tabcomp;
 	GtkWidget *threads_string_label;
-	GtkWidget *types_string_label;
 	GtkWidget *vbox;
 
 	vbox = scrolled_notebook_page(notebook, _("Advanced"));
-	group = pref_group_new(vbox, FALSE, _("External preview extraction"), GTK_ORIENTATION_VERTICAL);
-
-	pref_checkbox_new_int(group, _("Use external preview extraction -  Requires restart"), options->external_preview.enable, &c_options->external_preview.enable);
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	GSList *formats_list = gdk_pixbuf_get_formats();
-	for (GSList *work = formats_list; work; work = work->next)
-		{
-		auto *fm = static_cast<GdkPixbufFormat *>(work->data);
-		g_auto(GStrv) extensions = gdk_pixbuf_format_get_extensions(fm);
-		const guint extensions_count = g_strv_length(extensions);
-
-		for (guint i = 0; i < extensions_count; i++)
-			{
-			extensions_list = g_list_insert_sorted(extensions_list, g_strdup(extensions[i]), reinterpret_cast<GCompareFunc>(g_strcmp0));
-			}
-		}
-	g_slist_free(formats_list);
-
-	g_autoptr(GString) types_string = g_string_new(nullptr);
-	for (GList *work = extensions_list; work; work = work->next)
-		{
-		if (types_string->len > 0)
-			{
-			types_string = g_string_append(types_string, ", ");
-			}
-		types_string = g_string_append(types_string, static_cast<gchar *>(work->data));
-		}
-	g_list_free_full(extensions_list, g_free);
-
-	types_string = g_string_prepend(types_string, _("Usable file types:\n"));
-	types_string_label = pref_label_new(group, types_string->str);
-	gtk_label_set_line_wrap(GTK_LABEL(types_string_label), TRUE);
-
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	group = pref_group_new(vbox, FALSE, _("File identification tool"), GTK_ORIENTATION_VERTICAL);
-	external_preview_select_entry = gtk_entry_new();
-	tabcomp = tab_completion_new(&external_preview_select_entry, options->external_preview.select, nullptr, nullptr, nullptr, nullptr);
-	tab_completion_add_select_button(external_preview_select_entry, _("Select file identification tool"), FALSE);
-	gq_gtk_box_pack_start(GTK_BOX(group), tabcomp, TRUE, TRUE, 0);
-	gtk_widget_show(tabcomp);
-
-	group = pref_group_new(vbox, FALSE, _("Preview extraction tool"), GTK_ORIENTATION_VERTICAL);
-	external_preview_extract_entry = gtk_entry_new();
-	tabcomp = tab_completion_new(&external_preview_extract_entry, options->external_preview.extract, nullptr, nullptr, nullptr, nullptr);
-	tab_completion_add_select_button(external_preview_extract_entry, _("Select preview extraction tool"), FALSE);
-	gq_gtk_box_pack_start(GTK_BOX(group), tabcomp, TRUE, TRUE, 0);
-	gtk_widget_show(tabcomp);
-
 	gtk_widget_show(vbox);
 
-	pref_spacer(group, PREF_PAD_GROUP);
-
-	pref_line(vbox, PREF_PAD_SPACE);
 	group = pref_group_new(vbox, FALSE, _("Thread pool limits"), GTK_ORIENTATION_VERTICAL);
 
 	threads_string_label = pref_label_new(group, _("This option limits the number of threads (or cpu cores) that Geeqie will use when running duplicate checks and creating thumbnails.\nThe value 0 means all available cores will be used."));
