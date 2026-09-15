@@ -78,6 +78,7 @@ struct ViewFile
 	/* refresh */
 	guint refresh_idle_id; /**< event source id */
 	time_t time_refresh_set; /**< time when refresh_idle_id was set */
+	gboolean refresh_reread; /**< the pending refresh rereads the directory instead of reusing list_raw */
 
 	GList *editmenu_fd_list; /**< file list for edit menu */
 
@@ -95,7 +96,7 @@ void vf_set_layout(ViewFile *vf, LayoutWindow *layout);
 gboolean vf_set_fd(ViewFile *vf, FileData *fd);
 gboolean vf_refresh(ViewFile *vf);
 gboolean vf_refresh_filter(ViewFile *vf);
-void vf_refresh_idle(ViewFile *vf);
+void vf_refresh_idle(ViewFile *vf, gboolean reread);
 
 void vf_sort_set(ViewFile *vf, SortType type, gboolean ascend, gboolean case_sensitive);
 

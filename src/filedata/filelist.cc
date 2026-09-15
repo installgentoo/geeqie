@@ -77,6 +77,11 @@ gboolean FileData::FileList::is_hidden_file(const gchar *filepath)
 	return res;
 }
 
+gboolean FileData::FileList::lists_file(const gchar *filepath, const gchar *name)
+{
+	return (options->file_filter.show_hidden_files || !is_hidden_file(filepath)) && filter_name_exists(name);
+}
+
 gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files, GList **dirs, gboolean follow_symlinks)
 {
 	DIR *dp;
@@ -111,38 +116,29 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 		const gchar *name = dir->d_name;
 		g_autofree gchar *filepath = g_build_filename(pathl, name, NULL);
 
-		if (!options->file_filter.show_hidden_files && is_hidden_file(filepath))
-			{
-			continue;
-			}
-
 		struct stat ent_sbuf;
-		if (stat_func(filepath, &ent_sbuf) >= 0)
-			{
-			if (S_ISDIR(ent_sbuf.st_mode))
-				{
-				/* we ignore the .thumbnails dir for cleanliness */
-				if (dirs &&
-				    (name[0] != '.' || (name[1] != '\0' && (name[1] != '.' || name[2] != '\0'))))
-					{
-					dlist = g_list_prepend(dlist, file_data_new_local(filepath, &ent_sbuf));
-					}
-				}
-			else
-				{
-				if (files && filter_name_exists(name))
-					{
-					FileData *fd = file_data_new_local(filepath, &ent_sbuf);
-					flist = g_list_prepend(flist, fd);
-					}
-				}
-			}
-		else
+		if (stat_func(filepath, &ent_sbuf) < 0)
 			{
 			if (errno == EOVERFLOW)
 				{
 				log_printf("stat(): EOVERFLOW, skip '%s'", filepath);
 				}
+			continue;
+			}
+
+		if (S_ISDIR(ent_sbuf.st_mode))
+			{
+			/* we ignore the .thumbnails dir for cleanliness */
+			if (dirs &&
+			    (name[0] != '.' || (name[1] != '\0' && (name[1] != '.' || name[2] != '\0'))) &&
+			    (options->file_filter.show_hidden_files || !is_hidden_file(filepath)))
+				{
+				dlist = g_list_prepend(dlist, file_data_new_local(filepath, &ent_sbuf));
+				}
+			}
+		else if (files && lists_file(filepath, name))
+			{
+			flist = g_list_prepend(flist, file_data_new_local(filepath, &ent_sbuf));
 			}
 		}
 

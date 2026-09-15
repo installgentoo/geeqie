@@ -20,6 +20,8 @@
 
 #include "view-file.h"
 
+#include <sys/stat.h>
+
 #include <array>
 
 #include <gdk/gdk.h>
@@ -1115,9 +1117,16 @@ void vf_set_layout(ViewFile *vf, LayoutWindow *layout)
 static gboolean vf_refresh_idle_cb(gpointer data)
 {
 	auto vf = static_cast<ViewFile *>(data);
+	gboolean reread = vf->refresh_reread;
 
-	vf_refresh(vf);
 	vf->refresh_idle_id = 0;
+	vf->refresh_reread = FALSE;
+
+	if (reread)
+		vf_refresh(vf);
+	else
+		vf_refresh_filter(vf);
+
 	return G_SOURCE_REMOVE;
 }
 
@@ -1131,8 +1140,10 @@ void vf_refresh_idle_cancel(ViewFile *vf)
 }
 
 
-void vf_refresh_idle(ViewFile *vf)
+void vf_refresh_idle(ViewFile *vf, gboolean reread)
 {
+	vf->refresh_reread |= reread;
+
 	if (!vf->refresh_idle_id)
 		{
 		vf->time_refresh_set = time(nullptr);
@@ -1148,45 +1159,40 @@ void vf_refresh_idle(ViewFile *vf)
 		}
 }
 
+/* Keeps list_raw equal to what rereading the directory would list, using the state file_data_apply_ci records
+ * for geeqie's own operations; only a change reported on the directory itself (by the realtime monitor, for
+ * changes made elsewhere) rereads it. */
 void vf_notify_cb(FileData *fd, NotifyType type, gpointer data)
 {
 	auto vf = static_cast<ViewFile *>(data);
-	gboolean refresh;
 
-	auto interested = static_cast<NotifyType>(NOTIFY_CHANGE | NOTIFY_REREAD);
-	/** @FIXME NOTIFY_METADATA should be checked by the keyword-to-mark functions and converted to NOTIFY_MARKS only if there was a change */
+	if (!(type & (NOTIFY_CHANGE | NOTIFY_REREAD)) || !vf->dir_fd) return;
 
-	if (!(type & interested) || vf->refresh_idle_id || !vf->dir_fd) return;
-
-	refresh = (fd == vf->dir_fd);
-
-	if (!refresh)
+	if (fd == vf->dir_fd)
 		{
-		gchar *base = remove_level_from_path(fd->path);
-		refresh = (g_strcmp0(base, vf->dir_fd->path) == 0);
-		g_free(base);
+		DEBUG_1("Notify vf dir: %s %04x", fd->path, type);
+		vf_refresh_idle(vf, TRUE);
+		return;
 		}
 
-	if ((type & NOTIFY_CHANGE) && fd->change)
-		{
-		if (!refresh && fd->change->dest)
-			{
-			gchar *dest_base = remove_level_from_path(fd->change->dest);
-			refresh = (g_strcmp0(dest_base, vf->dir_fd->path) == 0);
-			g_free(dest_base);
-			}
+	g_autofree gchar *base = remove_level_from_path(fd->path);
+	gboolean listed = !fd->missing && !S_ISDIR(fd->mode) &&
+	                  g_strcmp0(base, vf->dir_fd->path) == 0 &&
+	                  filelist_lists_file(fd->path, fd->name);
+	GList *link = g_list_find(vf->list_raw, fd);
 
-		if (!refresh && fd->change->source)
-			{
-			gchar *source_base = remove_level_from_path(fd->change->source);
-			refresh = (g_strcmp0(source_base, vf->dir_fd->path) == 0);
-			g_free(source_base);
-			}
+	if (!link && !listed) return;
+
+	if (!listed)
+		{
+		vf->list_raw = g_list_delete_link(vf->list_raw, link);
+		file_data_unref(fd);
+		}
+	else if (!link)
+		{
+		vf->list_raw = g_list_prepend(vf->list_raw, file_data_ref(fd));
 		}
 
-	if (refresh)
-		{
-		DEBUG_1("Notify vf: %s %04x", fd->path, type);
-		vf_refresh_idle(vf);
-		}
+	DEBUG_1("Notify vf: %s %04x", fd->path, type);
+	vf_refresh_idle(vf, FALSE);
 }

@@ -152,6 +152,11 @@ GList *filelist_filter(GList *list, gboolean is_dir_list)
 	return FileData::FileList::filter(list, is_dir_list);
 }
 
+gboolean filelist_lists_file(const gchar *filepath, const gchar *name)
+{
+	return FileData::FileList::lists_file(filepath, name);
+}
+
 
 GList *filelist_sort_path(GList *list)
 {

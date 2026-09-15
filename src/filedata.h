@@ -302,6 +302,7 @@ class FileData::FileList
 	static GList *to_path_list(GList *list);
 
 	static GList *filter(GList *list, gboolean is_dir_list);
+	static gboolean lists_file(const gchar *filepath, const gchar *name); /**< whether read_list puts this non-directory in its files */
 
 	static GList *sort_path(GList *list);
 	static GList *recursive(FileData *dir_fd);
@@ -370,6 +371,7 @@ GList *filelist_from_path_list(GList *list);
 GList *filelist_to_path_list(GList *list);
 
 GList *filelist_filter(GList *list, gboolean is_dir_list);
+gboolean filelist_lists_file(const gchar *filepath, const gchar *name);
 
 GList *filelist_sort_path(GList *list);
 GList *filelist_recursive(FileData *dir_fd);

@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <array>
 #include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
@@ -161,8 +162,8 @@ void FileData::file_data_increment_version(FileData *fd)
 		}
 }
 
-/* Applies a stat result (nullptr when the stat failed) to an existing FileData; returns whether it changed. */
-static gboolean file_data_apply_stat(FileData *fd, const struct stat *st)
+/* Records a stat result (nullptr when the stat failed) in an existing FileData; returns whether it changed. */
+static gboolean file_data_update_stat(FileData *fd, const struct stat *st)
 {
 	if (st)
 		{
@@ -181,6 +182,21 @@ static gboolean file_data_apply_stat(FileData *fd, const struct stat *st)
 
 		fd->missing = TRUE;
 		}
+
+	return TRUE;
+}
+
+static gboolean file_data_update_stat(FileData *fd)
+{
+	struct stat st;
+
+	return file_data_update_stat(fd, stat_utf8(fd->path, &st) ? &st : nullptr);
+}
+
+/* Records a stat result like file_data_update_stat and reports a change as NOTIFY_REREAD. */
+static gboolean file_data_apply_stat(FileData *fd, const struct stat *st)
+{
+	if (!file_data_update_stat(fd, st)) return FALSE;
 
 	::file_data_ref(fd);
 	file_data_increment_version(fd);
@@ -1386,21 +1402,9 @@ static gboolean file_data_perform_delete(FileData *fd)
 	return unlink_file(fd->path);
 }
 
-gboolean FileData::file_data_perform_ci(FileData *fd)
+static gboolean file_data_perform_change(FileData *fd)
 {
-	/** @FIXME When a directory that is a symbolic link is deleted,
-	 * at this point fd->change is null because no FileDataChangeInfo
-	 * has been set up. Therefore there is a seg. fault.
-	 * This code simply aborts the delete.
-	 */
-	if (!fd->change)
-		{
-		return FALSE;
-		}
-
-	FileDataChangeType type = fd->change->type;
-
-	switch (type)
+	switch (fd->change->type)
 		{
 		case FILEDATA_CHANGE_MOVE:
 			return file_data_perform_move(fd);
@@ -1415,6 +1419,60 @@ gboolean FileData::file_data_perform_ci(FileData *fd)
 			break;
 		}
 	return TRUE;
+}
+
+static FileData *file_data_ref_known_parent(GHashTable *file_data_pool, const gchar *path)
+{
+	if (!path) return nullptr;
+
+	g_autofree gchar *dir = remove_level_from_path(path);
+	auto *dir_fd = static_cast<FileData *>(g_hash_table_lookup(file_data_pool, dir));
+
+	return dir_fd ? ::file_data_ref(dir_fd) : nullptr;
+}
+
+static gboolean file_data_stat_is_recorded(FileData *fd)
+{
+	struct stat st;
+
+	return !fd->missing && stat_utf8(fd->path, &st) && fd->size == st.st_size && fd->date == st.st_mtime;
+}
+
+gboolean FileData::file_data_perform_ci(FileData *fd)
+{
+	/** @FIXME When a directory that is a symbolic link is deleted,
+	 * at this point fd->change is null because no FileDataChangeInfo
+	 * has been set up. Therefore there is a seg. fault.
+	 * This code simply aborts the delete.
+	 */
+	if (!fd->change)
+		{
+		return FALSE;
+		}
+
+	/* The directories this operation changes get their new state recorded, so the realtime monitor does not
+	 * report our own change and views do not reread them; views learn of it from file_data_apply_ci instead.
+	 * A directory whose recorded state was already stale holds an unreported external change, so recording
+	 * over it would hide that change: it is left for the monitor. Dates are whole seconds, so an external
+	 * change in the same second as the last observation goes unseen here, as it does by the monitor. */
+	std::array<FileData *, 2> dirs{file_data_ref_known_parent(fd->context->file_data_pool, fd->change->source),
+	                               file_data_ref_known_parent(fd->context->file_data_pool, fd->change->dest)};
+	if (dirs[1] == dirs[0]) g_clear_pointer(&dirs[1], ::file_data_unref);
+	for (auto &dir : dirs)
+		{
+		if (dir && !file_data_stat_is_recorded(dir)) g_clear_pointer(&dir, ::file_data_unref);
+		}
+
+	gboolean ret = file_data_perform_change(fd);
+
+	for (FileData *dir : dirs)
+		{
+		if (!dir) continue;
+		if (ret) file_data_update_stat(dir);
+		::file_data_unref(dir);
+		}
+
+	return ret;
 }
 
 
@@ -1438,8 +1496,8 @@ gboolean FileData::file_data_sc_perform_ci(FileData *fd)
 gboolean FileData::file_data_apply_ci(FileData *fd)
 {
 	FileDataChangeType type = fd->change->type;
+	gboolean wrote_target = (type == FILEDATA_CHANGE_COPY);
 
-	/** @FIXME delete ?*/
 	if (type == FILEDATA_CHANGE_MOVE || type == FILEDATA_CHANGE_RENAME)
 		{
 		DEBUG_1("planned change: applying %s -> %s", fd->change->dest, fd->path);
@@ -1454,14 +1512,44 @@ gboolean FileData::file_data_apply_ci(FileData *fd)
 			/**  @FIXME maybe we could copy stuff like marks
 			*/
 			DEBUG_1("can't rename fd, target exists %s -> %s", fd->change->dest, fd->path);
+			wrote_target = TRUE;
 			}
 		else
 			{
 			fd->set_path(fd->change->dest);
 			}
 		}
+
+	/* The result is observed here, not left to the realtime monitor: a file that is gone is only flagged
+	 * missing, for views to drop on the NOTIFY_CHANGE below, while changed content is reported as
+	 * NOTIFY_REREAD so viewers reload it. */
+	if (file_data_update_stat(fd) && !fd->missing)
+		{
+		file_data_send_notification(fd, NOTIFY_REREAD);
+		}
+
 	file_data_increment_version(fd);
 	file_data_send_notification(fd, NOTIFY_CHANGE);
+
+	if (wrote_target)
+		{
+		auto *target = static_cast<FileData *>(g_hash_table_lookup(fd->context->file_data_pool, fd->change->dest));
+		if (target)
+			{
+			::file_data_ref(target);
+			file_data_update_stat(target);
+			/* size and date can match what was overwritten, so the content is assumed new regardless */
+			g_clear_object(&target->thumb_pixbuf);
+			}
+		else
+			{
+			target = file_data_new(fd->change->dest, fd->context);
+			}
+
+		file_data_increment_version(target);
+		file_data_send_notification(target, NOTIFY_REREAD);
+		::file_data_unref(target);
+		}
 
 	return TRUE;
 }
