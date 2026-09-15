@@ -1214,20 +1214,6 @@ static void vficon_clear_store(ViewFile *vf)
 	gtk_list_store_clear(GTK_LIST_STORE(store));
 }
 
-static GList *vficon_add_row(ViewFile *vf, GtkTreeIter *iter)
-{
-	GtkListStore *store;
-	GList *list = nullptr;
-	gint i;
-
-	for (i = 0; i < VFICON(vf)->columns; i++) list = g_list_prepend(list, nullptr);
-
-	store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview)));
-	gtk_list_store_insert_with_values(store, iter, -1, FILE_COLUMN_POINTER, list, -1);
-
-	return list;
-}
-
 static void vficon_populate(ViewFile *vf, gboolean resize)
 {
 	GtkTreeModel *store;
@@ -1283,58 +1269,53 @@ static void vficon_populate(ViewFile *vf, gboolean resize)
 		gtk_tree_view_set_fixed_height_mode(GTK_TREE_VIEW(vf->listview), TRUE);
 		}
 
-	r = -1;
-
-	valid = gtk_tree_model_iter_children(store, &iter, nullptr);
-
-	work = vf->list;
-	while (work)
+	/* Two passes, because changing, appending or removing a row makes GTK run the cell data function on other rows
+	 * as well (a removal re-measures the row the cursor moves to), and until now every row holds the previous files,
+	 * which may already be freed (a deleted file, or the previous folder's). So each existing row gets its new files,
+	 * or none if it is about to be removed, before GTK hears of any change. */
+	const auto fill_row = [&work](GList *list)
 		{
-		GList *list;
-		r++;
-		if (valid)
-			{
-			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-			}
-		else
-			{
-			list = vficon_add_row(vf, &iter);
-			}
-
 		for (GList *cell = list; cell; cell = cell->next)
 			{
-			FileData *fd;
-
-			if (work)
-				{
-				fd = static_cast<FileData *>(work->data);
-				work = work->next;
-				}
-			else
-				{
-				fd = nullptr;
-				}
-
-			cell->data = fd;
+			cell->data = work ? work->data : nullptr;
+			if (work) work = work->next;
 			}
+		};
 
-		/* GTK runs the cell data function for a changed row right away, so the row must already hold the new
-		 * files: the ones it held before may be freed by now (a deleted file, or the previous folder's). */
-		if (valid)
-			{
-			gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
-			valid = gtk_tree_model_iter_next(store, &iter);
-			}
+	work = vf->list;
+	gint reused_rows = 0;
+	for (valid = gtk_tree_model_iter_children(store, &iter, nullptr); valid; valid = gtk_tree_model_iter_next(store, &iter))
+		{
+		GList *list;
+		gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+		if (work) reused_rows++;
+		fill_row(list);
 		}
 
-	r++;
+	r = 0;
+	valid = gtk_tree_model_iter_children(store, &iter, nullptr);
+	for (; valid && r < reused_rows; r++)
+		{
+		GList *list;
+		gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+		gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
+		valid = gtk_tree_model_iter_next(store, &iter);
+		}
+
 	while (valid)
 		{
 		GList *list;
-
 		gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
 		valid = gtk_list_store_remove(GTK_LIST_STORE(store), &iter);
 		g_list_free(list);
+		}
+
+	for (; work; r++)
+		{
+		GList *list = nullptr;
+		for (gint i = 0; i < VFICON(vf)->columns; i++) list = g_list_prepend(list, nullptr);
+		fill_row(list);
+		gtk_list_store_insert_with_values(GTK_LIST_STORE(store), &iter, -1, FILE_COLUMN_POINTER, list, -1);
 		}
 
 	VFICON(vf)->rows = r;
