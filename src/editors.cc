@@ -1182,6 +1182,16 @@ static EditorFlags editor_command_next_start(EditorData *ed)
 	return editor_command_done(ed);
 }
 
+/* The command has exited, so what it did to its files is observable only now. A command that does not block its
+ * files (editor_blocks_file) had its file operation applied when it was spawned, before it ran. */
+static void editor_files_check_changed(GList *list)
+{
+	for (GList *work = list; work; work = work->next)
+		{
+		file_data_check_changed_files(static_cast<FileData *>(work->data));
+		}
+}
+
 static EditorFlags editor_command_next_finish(EditorData *ed, gint status)
 {
 	gint cont = ed->stopping ? EDITOR_CB_SKIP : EDITOR_CB_CONTINUE;
@@ -1195,6 +1205,7 @@ static EditorFlags editor_command_next_finish(EditorData *ed, gint status)
 		GList *fd_element = ed->list;
 
 		ed->list = g_list_remove_link(ed->list, fd_element);
+		editor_files_check_changed(fd_element);
 		if (ed->callback)
 			{
 			cont = ed->callback(ed->list ? ed : nullptr, ed->flags, fd_element, ed->data);
@@ -1205,6 +1216,7 @@ static EditorFlags editor_command_next_finish(EditorData *ed, gint status)
 	else
 		{
 		/* handle whole list */
+		editor_files_check_changed(ed->list);
 		if (ed->callback)
 			cont = ed->callback(nullptr, ed->flags, ed->list, ed->data);
 		filelist_free(ed->list);

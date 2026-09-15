@@ -120,8 +120,6 @@ static void vdlist_scroll_to_row(ViewDir *vd, FileData *fd, gfloat y_align)
 		gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(vd->view), tpath, nullptr, TRUE, y_align, 0.0);
 		gtk_tree_view_set_cursor(GTK_TREE_VIEW(vd->view), tpath, nullptr, FALSE);
 		gtk_tree_path_free(tpath);
-
-		if (!gtk_widget_has_focus(vd->view)) gtk_widget_grab_focus(vd->view);
 		}
 }
 
