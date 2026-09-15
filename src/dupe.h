@@ -27,7 +27,6 @@
 #include <gtk/gtk.h>
 
 class FileData;
-struct ImageLoader;
 struct ImageSimilarityData;
 struct ThumbLoader;
 
@@ -123,8 +122,6 @@ struct DupeWindow
 	ThumbLoader *thumb_loader;
 	DupeItem *thumb_item;
 
-	ImageLoader *img_loader;
-
 	GtkTreeSortable *sortable;
 	gint set_count; /**< Index/counter for number of duplicate sets found */
 
@@ -149,6 +146,8 @@ struct DupeWindow
 	gint thread_count; /**< Incremented each time a similarity check thread item is completed */
 	GMutex thread_count_mutex;
 	gboolean abort; /**< Stop the similarity check thread queue */
+
+	GList *sim_loads; /**< #DupeSimLoad in flight; \a setup_point is the next item not yet started */
 };
 
 

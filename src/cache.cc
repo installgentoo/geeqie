@@ -32,10 +32,14 @@
 
 #include <config.h>
 
+#include <glib/gstdio.h>
+
 #include "debug.h"
+#include "filedata.h"
 #include "intl.h"
 #include "main-defines.h"
 #include "md5-util.h"
+#include "options.h"
 #include "secure-save.h"
 #include "similar.h"
 #include "thumb-standard.h"
@@ -50,6 +54,7 @@
  *
  * SIMcache \n
  * #comment \n
+ * URI=<file:// URI of the source; the cache file is named by its md5, so without this line the file is an orphan> \n
  * Dimensions=[<width> x <height>] \n
  * Date=[<value in time_t format, or -1 if no embedded date>] \n
  * MD5sum=[<32 character ascii text digest>] \n
@@ -65,6 +70,13 @@
 namespace
 {
 
+/* Names the cache file (md5 of this) and is stored inside it; the two must agree or maintenance cannot trace the file back. */
+gchar *cache_source_uri(const gchar *source)
+{
+	g_autofree gchar *source_path = path_from_utf8(source);
+	return g_filename_to_uri(source_path, nullptr, nullptr);
+}
+
 struct CachePathParts
 {
 	CachePathParts(CacheType cache_type)
@@ -79,13 +91,21 @@ struct CachePathParts
 			case CACHE_TYPE_SIM:
 				ext = GQ_CACHE_EXT_SIM;
 				break;
+			case CACHE_TYPE_SIM_AVG:
+				ext = GQ_CACHE_EXT_SIM_AVG;
+				break;
 			}
 	}
 
 	gchar *build_path_rc(const gchar *source) const
 	{
-		g_autofree gchar *name = g_strconcat(source, ext, nullptr);
+		g_autofree gchar *uri = cache_source_uri(source);
+		if (!uri) return nullptr;
 
+		g_autofree gchar *md5_text = md5_get_string(reinterpret_cast<const guchar *>(uri), strlen(uri));
+		if (!md5_text) return nullptr;
+
+		g_autofree gchar *name = g_strconcat(md5_text, ext, nullptr);
 		return g_build_filename(rc, name, nullptr);
 	}
 
@@ -95,29 +115,137 @@ struct CachePathParts
 
 constexpr gint CACHE_LOAD_LINE_NOISE = 8;
 
+CacheType cache_sim_cache_type(FileData *fd)
+{
+	return (fd && fd->format_class == FORMAT_CLASS_VIDEO)
+		? CACHE_TYPE_SIM_AVG : CACHE_TYPE_SIM;
+}
+
+gboolean cache_video_tools_available()
+{
+	static gsize initialized = 0;
+	static gboolean available = FALSE;
+
+	if (g_once_init_enter(&initialized))
+		{
+		g_autofree gchar *ffmpeg = g_find_program_in_path("ffmpeg");
+		g_autofree gchar *ffprobe = g_find_program_in_path("ffprobe");
+
+		available = ffmpeg && ffprobe;
+		if (!available)
+			{
+			log_printf("cache: ffmpeg and/or ffprobe not found, video similarity generation disabled\n");
+			}
+
+		g_once_init_leave(&initialized, 1);
+		}
+
+	return available;
+}
+
+gboolean cache_video_run_command(const gchar *command, gchar **stdout_text)
+{
+	gchar *stderr_text = nullptr;
+	gint exit_status = -1;
+
+	if (!g_spawn_command_line_sync(command, stdout_text, &stderr_text, &exit_status, nullptr))
+		{
+		log_printf("cache: failed to run command: %s\n", command);
+		g_free(stderr_text);
+		return FALSE;
+		}
+
+	if (!g_spawn_check_exit_status(exit_status, nullptr))
+		{
+		log_printf("cache: command failed: %s\n", command);
+		if (stderr_text && *stderr_text) log_printf("cache: stderr: %s\n", stderr_text);
+		g_free(stderr_text);
+		return FALSE;
+		}
+
+	g_free(stderr_text);
+	return TRUE;
+}
+
+/* ffprobe prints one line per stream/format entry, "N/A" when a container has no value; the first positive one wins. */
+gboolean cache_video_parse_positive_double(const gchar *text, gdouble *value)
+{
+	if (!text || !value) return FALSE;
+
+	g_auto(GStrv) lines = g_strsplit(text, "\n", -1);
+	for (gchar **line = lines; line && *line; line++)
+		{
+		gchar *endptr = nullptr;
+		const gchar *trimmed = g_strstrip(*line);
+		const gdouble parsed = g_ascii_strtod(trimmed, &endptr);
+		if (*trimmed && endptr && *endptr == '\0' && parsed > 0.0)
+			{
+			*value = parsed;
+			return TRUE;
+			}
+		}
+
+	return FALSE;
+}
+
+} // namespace
+
+GdkPixbuf *cache_sim_video_pixbuf(FileData *fd)
+{
+	if (!fd || !fd->path) return nullptr;
+	if (!cache_video_tools_available()) return nullptr;
+
+	g_autofree gchar *video_path = g_shell_quote(fd->path);
+	g_autofree gchar *duration_cmd = g_strdup_printf("ffprobe -v error -select_streams v:0 -show_entries stream=duration:format=duration -of default=noprint_wrappers=1:nokey=1 %s", video_path);
+	g_autofree gchar *duration_out = nullptr;
+	gdouble duration = 0.0;
+
+	if (!cache_video_run_command(duration_cmd, &duration_out) || !cache_video_parse_positive_double(duration_out, &duration))
+		{
+		log_printf("cache: no duration for %s, cannot sample frames for similarity\n", fd->path);
+		return nullptr;
+		}
+
+	const gdouble fps_interval = (duration + 1.8) / 36.0;
+
+	gchar *tmp_file = nullptr;
+	const gint fd_out = g_file_open_tmp("geeqie-sim-video-XXXXXX.jpeg", &tmp_file, nullptr);
+	if (fd_out < 0) return nullptr;
+	close(fd_out);
+
+	g_autofree gchar *tmp_path = tmp_file;
+	g_autofree gchar *tmp_path_quoted = g_shell_quote(tmp_path);
+	g_autofree gchar *ffmpeg_cmd = g_strdup_printf(
+		"ffmpeg -hide_banner -loglevel error -i %s -frames:v 1 -vf \"fps=1/%.6f,scale=160:120,tile=6x6\" -an -y %s",
+		video_path, fps_interval, tmp_path_quoted);
+
+	GdkPixbuf *pixbuf = nullptr;
+	if (cache_video_run_command(ffmpeg_cmd, nullptr))
+		{
+		GError *error = nullptr;
+		pixbuf = gdk_pixbuf_new_from_file(tmp_path, &error);
+		if (error)
+			{
+			log_printf("cache: cannot load generated video similarity pixbuf for %s: %s\n", fd->path, error->message);
+			g_error_free(error);
+			}
+		}
+
+	g_unlink(tmp_path);
+	return pixbuf;
+}
+
+namespace
+{
+
 gchar *cache_get_location(CacheType type, const gchar *source, gint include_name, mode_t *mode)
 {
 	if (!source) return nullptr;
 
-	g_autofree gchar *base = remove_level_from_path(source);
-
 	const CachePathParts cache{type};
-
-	g_autofree gchar *name = nullptr;
-	if (include_name)
-		{
-		name = g_strconcat(filename_from_path(source), cache.ext, NULL);
-		}
-
-	gchar *path = nullptr;
-
-	if (!path)
-		{
-		path = g_build_filename(cache.rc, base, name, NULL);
-		if (mode) *mode = 0755;
-		}
-
-	return path;
+	if (mode) *mode = 0755;
+	if (!include_name) return g_strdup(cache.rc);
+	return cache.build_path_rc(source);
 }
 
 } // namespace
@@ -142,6 +270,7 @@ void cache_sim_data_free(CacheData *cd)
 	if (!cd) return;
 
 	g_free(cd->path);
+	g_free(cd->uri);
 	image_sim_free(cd->sim);
 	g_free(cd);
 }
@@ -224,6 +353,7 @@ gboolean cache_sim_data_save(CacheData *cd)
 		}
 
 	secure_fprintf(ssi, "SIMcache\n#%s %s\n", PACKAGE, VERSION);
+	if (cd->uri) secure_fprintf(ssi, "URI=%s\n", cd->uri);
 	cache_sim_write_dimensions(ssi, cd);
 	cache_sim_write_md5sum(ssi, cd);
 	cache_sim_write_similarity(ssi, cd);
@@ -259,6 +389,26 @@ static gboolean cache_sim_read_skipline(FILE *f, gint s)
 		}
 
 	return FALSE;
+}
+
+static gboolean cache_sim_read_uri(FILE *f, gchar *buf, gint s, CacheData *cd)
+{
+	if (!f || !buf || !cd) return FALSE;
+
+	if (s < 4 || strncmp("URI=", buf, 4) != 0) return FALSE;
+
+	if (fseek(f, 4 - s, SEEK_CUR) != 0) return FALSE;
+
+	GString *uri = g_string_new(nullptr);
+	gchar b;
+	while (fread(&b, sizeof(b), 1, f) == 1 && b != '\n')
+		{
+		g_string_append_c(uri, b);
+		}
+
+	g_free(cd->uri);
+	cd->uri = g_string_free(uri, FALSE);
+	return TRUE;
 }
 
 static gboolean cache_sim_read_dimensions(FILE *f, gchar *buf, gint s, CacheData *cd)
@@ -444,7 +594,8 @@ CacheData *cache_sim_data_load(const gchar *path)
 			}
 		else
 			{
-			if (!cache_sim_read_dimensions(f, buf, s, cd) &&
+			if (!cache_sim_read_uri(f, buf, s, cd) &&
+			    !cache_sim_read_dimensions(f, buf, s, cd) &&
 			    !cache_sim_read_md5sum(f, buf, s, cd) &&
 			    !cache_sim_read_similarity(f, buf, s, cd))
 				{
@@ -525,6 +676,57 @@ gboolean cache_sim_data_filled(ImageSimilarityData *sd)
 	return sd->filled;
 }
 
+CacheData *cache_sim_data_load_from_file(FileData *fd)
+{
+	if (!fd || !fd->path) return nullptr;
+
+	g_autofree gchar *path = cache_find_location(cache_sim_cache_type(fd), fd->path);
+	if (!path) return nullptr;
+	if (filetime(fd->path) != filetime(path)) return nullptr;
+
+	return cache_sim_data_load(path);
+}
+
+gboolean cache_sim_data_save_to_file(FileData *fd, CacheData *cd)
+{
+	if (!fd || !fd->path || !cd) return FALSE;
+
+	g_autofree gchar *base = cache_create_location(cache_sim_cache_type(fd), fd->path);
+	if (!base) return FALSE;
+
+	g_free(cd->path);
+	cd->path = cache_get_location(cache_sim_cache_type(fd), fd->path);
+	g_free(cd->uri);
+	cd->uri = cache_source_uri(fd->path);
+	if (!cache_sim_data_save(cd)) return FALSE;
+
+	filetime_set(cd->path, filetime(fd->path));
+	return TRUE;
+}
+
+gboolean cache_sim_data_use_cache(FileData *fd)
+{
+	return options->thumbnails.enable_caching ||
+	       (fd && fd->format_class == FORMAT_CLASS_VIDEO);
+}
+
+gboolean cache_sim_file_valid(const gchar *cache_path)
+{
+	CacheData *cd = cache_sim_data_load(cache_path);
+	if (!cd) return FALSE;
+
+	gboolean valid = FALSE;
+	if (cd->uri)
+		{
+		g_autofree gchar *source = g_filename_from_uri(cd->uri, nullptr, nullptr);
+		g_autofree gchar *source_utf8 = source ? path_to_utf8(source) : nullptr;
+		valid = source_utf8 && isfile(source_utf8) && filetime(source_utf8) == filetime(cache_path);
+		}
+
+	cache_sim_data_free(cd);
+	return valid;
+}
+
 /*
  *-------------------------------------------------------------------
  * cache path location utils
@@ -557,8 +759,8 @@ gchar *cache_find_location(CacheType type, const gchar *source)
 	if (!source) return nullptr;
 
 	const CachePathParts cache{type};
-
 	path = cache.build_path_rc(source);
+	if (!path) return nullptr;
 
 	if (!isfile(path))
 		{

@@ -33,6 +33,7 @@
 #include <glib.h>
 #include <gtk/gtk.h>
 
+#include "cache-loader.h"
 #include "cache.h"
 #include "compat.h"
 #include "debug.h"
@@ -192,7 +193,8 @@ struct SearchData
 	guint search_idle_id; /* event source id */
 	guint update_idle_id; /* event source id */
 
-	ImageLoader *img_loader;
+	ImageLoader *img_loader; /**< decode only: dimensions, broken-file test */
+	CacheLoader *cache_loader; /**< similarity, for the candidate or the reference image */
 	CacheData   *img_cd;
 
 	FileData *click_fd;
@@ -1417,6 +1419,8 @@ static void search_stop(SearchData *sd)
 
 	image_loader_free(sd->img_loader);
 	sd->img_loader = nullptr;
+	cache_loader_free(sd->cache_loader);
+	sd->cache_loader = nullptr;
 	cache_sim_data_free(sd->img_cd);
 	sd->img_cd = nullptr;
 
@@ -1447,6 +1451,7 @@ static void search_stop(SearchData *sd)
 static void search_file_load_process(SearchData *sd, CacheData *cd)
 {
 	GdkPixbuf *pixbuf;
+	FileData *fd = image_loader_get_fd(sd->img_loader);
 
 	pixbuf = image_loader_get_pixbuf(sd->img_loader);
 
@@ -1467,30 +1472,9 @@ static void search_file_load_process(SearchData *sd, CacheData *cd)
 							  gdk_pixbuf_get_height(pixbuf));
 			}
 
-		if (sd->match_similarity_enable && !cd->similarity)
+		if (fd && cache_sim_data_use_cache(fd))
 			{
-			ImageSimilarityData *sim;
-
-			sim = image_sim_new_from_pixbuf(pixbuf);
-			cache_sim_data_set_similarity(cd, sim);
-			image_sim_free(sim);
-			}
-
-		if (options->thumbnails.enable_caching &&
-		    sd->img_loader && image_loader_get_fd(sd->img_loader))
-			{
-			const gchar *path = image_loader_get_fd(sd->img_loader)->path;
-
-			g_autofree gchar *base = cache_create_location(CACHE_TYPE_SIM, path);
-			if (base)
-				{
-				g_free(cd->path);
-				cd->path = cache_get_location(CACHE_TYPE_SIM, path);
-				if (cache_sim_data_save(cd))
-					{
-					filetime_set(cd->path, filetime(image_loader_get_fd(sd->img_loader)->path));
-					}
-				}
+			cache_sim_data_save_to_file(fd, cd);
 			}
 		}
 
@@ -1506,6 +1490,27 @@ static void search_file_load_done_cb(ImageLoader *, gpointer data)
 	search_file_load_process(sd, sd->img_cd);
 }
 
+/* The loader's CacheData is a superset of sd->img_cd (loaded from the same file, then filled in), so it replaces it. */
+static void search_file_sim_done_cb(CacheLoader *cl, gint, gpointer data)
+{
+	auto sd = static_cast<SearchData *>(data);
+
+	cache_sim_data_free(sd->img_cd);
+	sd->img_cd = cl->cd;
+	cl->cd = nullptr;
+
+	/* nothing decodable: the broken-file marker, not persisted since the loader saved before we got here */
+	if (!sd->img_cd->dimensions && !sd->img_cd->similarity)
+		{
+		cache_sim_data_set_dimensions(sd->img_cd, -1, -1);
+		}
+
+	cache_loader_free(cl);
+	sd->cache_loader = nullptr;
+
+	sd->search_idle_id = g_idle_add(search_step_cb, sd);
+}
+
 static gboolean search_file_do_extra(SearchData *sd, FileData *fd, gint *match,
 				     gint *width, gint *height, gint *simval)
 {
@@ -1515,16 +1520,8 @@ static gboolean search_file_do_extra(SearchData *sd, FileData *fd, gint *match,
 
 	if (!sd->img_cd)
 		{
-		gchar *cd_path;
-
 		new_data = TRUE;
-
-		cd_path = cache_find_location(CACHE_TYPE_SIM, fd->path);
-		if (cd_path && filetime(fd->path) == filetime(cd_path))
-			{
-			sd->img_cd = cache_sim_data_load(cd_path);
-			}
-		g_free(cd_path);
+		sd->img_cd = cache_sim_data_load_from_file(fd);
 		}
 
 	if (!sd->img_cd)
@@ -1532,9 +1529,16 @@ static gboolean search_file_do_extra(SearchData *sd, FileData *fd, gint *match,
 		sd->img_cd = cache_sim_data_new();
 		}
 
+	/* new_data: a load that fails leaves the data incomplete, and must not be retried on re-entry */
 	if (new_data)
 		{
-		if ((sd->match_dimensions_enable && !sd->img_cd->dimensions) || (sd->match_similarity_enable && !sd->img_cd->similarity) || sd->match_broken_enable)
+		if (sd->match_similarity_enable && !sd->img_cd->similarity)
+			{
+			auto mask = static_cast<CacheDataType>(CACHE_LOADER_SIMILARITY | (sd->match_dimensions_enable ? CACHE_LOADER_DIMENSIONS : 0));
+			sd->cache_loader = cache_loader_new(fd, mask, search_file_sim_done_cb, sd);
+			if (sd->cache_loader) return TRUE;
+			}
+		else if ((sd->match_dimensions_enable && !sd->img_cd->dimensions) || sd->match_broken_enable)
 			{
 			sd->img_loader = image_loader_new(fd);
 			g_signal_connect(G_OBJECT(sd->img_loader), "error", (GCallback)search_file_load_done_cb, sd);
@@ -1942,10 +1946,18 @@ static gboolean search_step_cb(gpointer data)
 	return G_SOURCE_CONTINUE;
 }
 
-static void search_similarity_load_done_cb(ImageLoader *, gpointer data)
+static void search_similarity_load_done_cb(CacheLoader *cl, gint, gpointer data)
 {
 	auto sd = static_cast<SearchData *>(data);
-	search_file_load_process(sd, sd->search_similarity_cd);
+
+	cache_sim_data_free(sd->search_similarity_cd);
+	sd->search_similarity_cd = cl->cd;
+	cl->cd = nullptr;
+
+	cache_loader_free(cl);
+	sd->cache_loader = nullptr;
+
+	sd->search_idle_id = g_idle_add(search_step_cb, sd);
 }
 
 static void search_start(SearchData *sd)
@@ -1995,33 +2007,10 @@ static void search_start(SearchData *sd)
 	    !sd->search_similarity_cd &&
 	    isfile(sd->search_similarity_path))
 		{
-		gchar *cd_path;
-
-		cd_path = cache_find_location(CACHE_TYPE_SIM, sd->search_similarity_path);
-		if (cd_path && filetime(sd->search_similarity_path) == filetime(cd_path))
-			{
-			sd->search_similarity_cd = cache_sim_data_load(cd_path);
-			}
-		g_free(cd_path);
-
-		if (!sd->search_similarity_cd || !sd->search_similarity_cd->similarity)
-			{
-			if (!sd->search_similarity_cd)
-				{
-				sd->search_similarity_cd = cache_sim_data_new();
-				}
-
-			sd->img_loader = image_loader_new(file_data_new(sd->search_similarity_path));
-			g_signal_connect(G_OBJECT(sd->img_loader), "error", (GCallback)search_similarity_load_done_cb, sd);
-			g_signal_connect(G_OBJECT(sd->img_loader), "done", (GCallback)search_similarity_load_done_cb, sd);
-			if (image_loader_start(sd->img_loader))
-				{
-				return;
-				}
-			image_loader_free(sd->img_loader);
-			sd->img_loader = nullptr;
-			}
-
+		FileData *fd = file_data_new(sd->search_similarity_path);
+		sd->cache_loader = cache_loader_new(fd, CACHE_LOADER_SIMILARITY, search_similarity_load_done_cb, sd);
+		file_data_unref(fd);
+		if (sd->cache_loader) return;
 		}
 
 	sd->search_idle_id = g_idle_add(search_step_cb, sd);

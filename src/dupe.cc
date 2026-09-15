@@ -22,7 +22,6 @@
 #include "dupe.h"
 
 #include <sys/time.h>
-#include <unistd.h>
 
 #include <array>
 #include <cinttypes>
@@ -33,8 +32,8 @@
 #include <gdk/gdk.h>
 #include <gio/gio.h>
 #include <glib-object.h>
-#include <glib/gstdio.h>
 
+#include "cache-loader.h"
 #include "cache.h"
 #include "compat.h"
 #include "debug.h"
@@ -487,185 +486,165 @@ static gboolean dupe_item_remove_by_path_unused(DupeWindow *dw, const gchar *pat
  * ------------------------------------------------------------------
  */
 
-static void dupe_item_read_cache(DupeItem *di)
+/* The cache holds the raw grid; the alternate algorithm's transform is applied here, once, as the data enters the item. */
+static void dupe_item_apply_cache_data(DupeItem *di, CacheData *cd)
 {
-	gchar *path;
-	CacheData *cd;
+	if (!di || !cd) return;
 
-	if (!di) return;
-
-	path = cache_find_location(CACHE_TYPE_SIM, di->fd->path);
-	if (!path) return;
-
-	if (filetime(di->fd->path) != filetime(path))
+	if (!di->simd && cd->sim)
 		{
-		g_free(path);
-		return;
+		di->simd = cd->sim;
+		cd->sim = nullptr;
+		image_sim_alternate_processing(di->simd);
 		}
-
-	cd = cache_sim_data_load(path);
-	g_free(path);
-
-	if (cd)
+	if (di->width == 0 && di->height == 0 && cd->dimensions)
 		{
-		if (!di->simd && cd->sim)
-			{
-			di->simd = cd->sim;
-			cd->sim = nullptr;
-			}
-		if (di->width == 0 && di->height == 0 && cd->dimensions)
-			{
-			di->width = cd->width;
-			di->height = cd->height;
-			di->dimensions = (di->width << 16) + di->height;
-			}
-		if (!di->md5sum && cd->have_md5sum)
-			{
-			di->md5sum = md5_digest_to_text(cd->md5sum);
-			}
-		cache_sim_data_free(cd);
+		di->width = cd->width;
+		di->height = cd->height;
+		di->dimensions = (di->width << 16) + di->height;
+		}
+	if (!di->md5sum && cd->have_md5sum)
+		{
+		di->md5sum = md5_digest_to_text(cd->md5sum);
 		}
 }
 
+static void dupe_item_read_cache(DupeItem *di)
+{
+	if (!di) return;
+
+	CacheData *cd = cache_sim_data_load_from_file(di->fd);
+	if (!cd) return;
+
+	dupe_item_apply_cache_data(di, cd);
+	cache_sim_data_free(cd);
+}
+
+/* Adds what the item knows to the file; the grid is left to the CacheLoader, which is the only thing that computes it. */
 static void dupe_item_write_cache(DupeItem *di)
 {
 	if (!di) return;
 
-	g_autofree gchar *base = cache_create_location(CACHE_TYPE_SIM, di->fd->path);
-	if (base)
+	CacheData *cd = cache_sim_data_load_from_file(di->fd);
+	if (!cd) cd = cache_sim_data_new();
+
+	if (di->width != 0) cache_sim_data_set_dimensions(cd, di->width, di->height);
+	if (di->md5sum)
 		{
-		CacheData *cd;
-
-		cd = cache_sim_data_new();
-		cd->path = cache_get_location(CACHE_TYPE_SIM, di->fd->path);
-
-		if (di->width != 0) cache_sim_data_set_dimensions(cd, di->width, di->height);
-		if (di->md5sum)
-			{
-			guchar digest[16];
-			if (md5_digest_from_text(di->md5sum, digest)) cache_sim_data_set_md5sum(cd, digest);
-			}
-		if (di->simd) cache_sim_data_set_similarity(cd, di->simd);
-
-		if (cache_sim_data_save(cd))
-			{
-			filetime_set(cd->path, filetime(di->fd->path));
-			}
-		cache_sim_data_free(cd);
+		guchar digest[16];
+		if (md5_digest_from_text(di->md5sum, digest)) cache_sim_data_set_md5sum(cd, digest);
 		}
+
+	cache_sim_data_save_to_file(di->fd, cd);
+	cache_sim_data_free(cd);
 }
 
 static gboolean dupe_item_use_sim_cache(const DupeItem *di)
 {
-	return options->thumbnails.enable_caching ||
-	       (di && di->fd && di->fd->format_class == FORMAT_CLASS_VIDEO);
+	return cache_sim_data_use_cache(di ? di->fd : nullptr);
 }
 
-static gboolean dupe_video_run_command(const gchar *command, gchar **stdout_text)
+/*
+ * ------------------------------------------------------------------
+ * Similarity data: up to options->threads.duplicates CacheLoaders run at once.
+ * Each completion starts the next unstarted item (dw->setup_point); the last
+ * completion re-enters dupe_check_cb. Everything here runs on the main thread.
+ * ------------------------------------------------------------------
+ */
+
+struct DupeSimLoad
 {
-	gchar *stderr_text = nullptr;
-	gint exit_status = -1;
+	DupeWindow *dw;
+	DupeItem *di;
+	CacheLoader *cl;
+};
 
-	if (!g_spawn_command_line_sync(command, stdout_text, &stderr_text, &exit_status, nullptr))
-		{
-		log_printf("dupe: failed to run command: %s\n", command);
-		g_free(stderr_text);
-		return FALSE;
-		}
-
-	if (!g_spawn_check_exit_status(exit_status, nullptr))
-		{
-		log_printf("dupe: command failed: %s\n", command);
-		if (stderr_text && *stderr_text) log_printf("dupe: stderr: %s\n", stderr_text);
-		g_free(stderr_text);
-		return FALSE;
-		}
-
-	g_free(stderr_text);
-	return TRUE;
+static gint dupe_sim_load_limit()
+{
+	return options->threads.duplicates > 0 ? options->threads.duplicates : get_cpu_cores();
 }
 
-static gboolean dupe_video_parse_positive_double(const gchar *text, gdouble *value)
+static void dupe_sim_load_free(DupeWindow *dw, DupeSimLoad *sl)
 {
-	if (!text || !value) return FALSE;
-
-	gchar *trimmed = g_strstrip(g_strdup(text));
-	if (!trimmed || !*trimmed || g_ascii_strcasecmp(trimmed, "N/A") == 0)
-		{
-		g_free(trimmed);
-		return FALSE;
-		}
-
-	gchar *endptr = nullptr;
-	gdouble parsed = g_ascii_strtod(trimmed, &endptr);
-	const gboolean valid = (endptr && *endptr == '\0' && parsed > 0.0);
-
-	g_free(trimmed);
-	if (!valid) return FALSE;
-
-	*value = parsed;
-	return TRUE;
+	dw->sim_loads = g_list_remove(dw->sim_loads, sl);
+	cache_loader_free(sl->cl);
+	g_free(sl);
 }
 
-static GdkPixbuf *dupe_video_generate_sim_pixbuf(FileData *fd)
+static void dupe_sim_load_cancel_all(DupeWindow *dw)
 {
-	if (!fd || !fd->path) return nullptr;
-
-	g_autofree gchar *video_path = g_shell_quote(fd->path);
-	g_autofree gchar *duration_cmd = g_strdup_printf("ffprobe -v error -select_streams v:0 -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %s", video_path);
-	gchar *duration_out = nullptr;
-	gdouble duration = 0.0;
-
-	if (!dupe_video_run_command(duration_cmd, &duration_out) || !dupe_video_parse_positive_double(duration_out, &duration))
+	while (dw->sim_loads)
 		{
-		g_free(duration_out);
-		duration_out = nullptr;
+		dupe_sim_load_free(dw, static_cast<DupeSimLoad *>(dw->sim_loads->data));
+		}
+}
 
-		g_autofree gchar *frames_cmd = g_strdup_printf("ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 %s", video_path);
-		if (!dupe_video_run_command(frames_cmd, &duration_out) || !dupe_video_parse_positive_double(duration_out, &duration))
+static DupeSimLoad *dupe_sim_load_find(DupeWindow *dw, DupeItem *di)
+{
+	for (GList *work = dw->sim_loads; work; work = work->next)
+		{
+		auto sl = static_cast<DupeSimLoad *>(work->data);
+		if (sl->di == di) return sl;
+		}
+	return nullptr;
+}
+
+static void dupe_sim_load_done_cb(CacheLoader *cl, gint, gpointer data);
+static void dupe_setup_reset(DupeWindow *dw);
+static GList *dupe_setup_point_step(DupeWindow *dw, GList *p);
+
+/* Starts loaders until the limit is reached or the lists are exhausted; TRUE while anything is still in flight. */
+static gboolean dupe_sim_load_fill(DupeWindow *dw)
+{
+	while (dw->setup_point && g_list_length(dw->sim_loads) < static_cast<guint>(dupe_sim_load_limit()))
+		{
+		auto di = static_cast<DupeItem *>(dw->setup_point->data);
+		dw->setup_point = dupe_setup_point_step(dw, dw->setup_point);
+
+		if (di->simd)
 			{
-			g_free(duration_out);
-			return nullptr;
+			dw->setup_n++;
+			continue;
 			}
-		duration /= 32.0;
-		}
-	g_free(duration_out);
 
-	const gdouble fps_interval = (duration + 1.8) / 36.0;
-	if (fps_interval <= 0.0) return nullptr;
-
-	gchar *tmp_file = nullptr;
-	const gint fd_out = g_file_open_tmp("geeqie-dupe-video-XXXXXX.jpeg", &tmp_file, nullptr);
-	if (fd_out < 0) return nullptr;
-	close(fd_out);
-
-	g_autofree gchar *tmp_path = tmp_file;
-	g_autofree gchar *tmp_path_quoted = g_shell_quote(tmp_path);
-	g_autofree gchar *ffmpeg_cmd = g_strdup_printf(
-		"ffmpeg -hide_banner -loglevel error -i %s -frames:v 1 -vf \"fps=1/%.6f,scale=160:120,tile=6x6\" -an -y %s",
-		video_path, fps_interval, tmp_path_quoted);
-
-	if (!dupe_video_run_command(ffmpeg_cmd, nullptr))
-		{
-		g_unlink(tmp_path);
-		return nullptr;
-		}
-
-	GError *error = nullptr;
-	GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(tmp_path, &error);
-	if (!pixbuf)
-		{
-		if (error)
+		auto sl = g_new0(DupeSimLoad, 1);
+		sl->dw = dw;
+		sl->di = di;
+		sl->cl = cache_loader_new(di->fd, CACHE_LOADER_SIMILARITY, dupe_sim_load_done_cb, sl);
+		if (!sl->cl)
 			{
-			log_printf("dupe: cannot load generated video thumbnail for %s: %s\n", fd->path, error->message);
-			g_error_free(error);
+			g_free(sl);
+			di->simd = image_sim_new();
+			dw->setup_n++;
+			continue;
 			}
-		g_unlink(tmp_path);
-		return nullptr;
+		dw->sim_loads = g_list_prepend(dw->sim_loads, sl);
 		}
 
-	g_unlink(tmp_path);
-	return pixbuf;
+	return dw->sim_loads != nullptr;
+}
+
+static void dupe_sim_load_done_cb(CacheLoader *cl, gint, gpointer data)
+{
+	auto sl = static_cast<DupeSimLoad *>(data);
+	DupeWindow *dw = sl->dw;
+	DupeItem *di = sl->di;
+
+	dupe_item_apply_cache_data(di, cl->cd);
+	/* unfilled data compares as 0.0 to everything, so a file that could not be read never matches */
+	if (!di->simd) di->simd = image_sim_new();
+
+	dupe_sim_load_free(dw, sl);
+	dw->setup_n++;
+	dupe_window_update_progress(dw, _("Reading similarity data..."),
+		dw->setup_count == 0 ? 0.0 : static_cast<gdouble>(dw->setup_n) / dw->setup_count, FALSE);
+
+	if (!dupe_sim_load_fill(dw))
+		{
+		dw->setup_mask = static_cast<DupeMatchType>(dw->setup_mask | DUPE_MATCH_SIM_MED);
+		dupe_setup_reset(dw);
+		dw->idle_id = g_idle_add(dupe_check_cb, dw);
+		}
 }
 
 /*
@@ -2231,13 +2210,9 @@ static void dupe_check_stop(DupeWindow *dw)
 	g_list_free(dw->search_matches);
 	dw->search_matches = nullptr;
 
-	if (dw->idle_id || dw->img_loader || dw->thumb_loader)
+	if (dw->sim_loads || dw->thumb_loader)
 		{
-		if (dw->idle_id > 0)
-			{
-			g_source_remove(dw->idle_id);
-			dw->idle_id = 0;
-			}
+		dupe_sim_load_cancel_all(dw);
 		dupe_window_update_progress(dw, nullptr, 0.0, FALSE);
 		widget_set_cursor(dw->listview, -1);
 		}
@@ -2259,9 +2234,6 @@ static void dupe_check_stop(DupeWindow *dw)
 
 	thumb_loader_free(dw->thumb_loader);
 	dw->thumb_loader = nullptr;
-
-	image_loader_free(dw->img_loader);
-	dw->img_loader = nullptr;
 }
 
 static void dupe_check_stop_cb(GtkWidget *, gpointer data)
@@ -2269,45 +2241,6 @@ static void dupe_check_stop_cb(GtkWidget *, gpointer data)
 	auto dw = static_cast<DupeWindow *>(data);
 
 	dupe_check_stop(dw);
-}
-
-static void dupe_loader_done_cb(ImageLoader *il, gpointer data)
-{
-	auto dw = static_cast<DupeWindow *>(data);
-	GdkPixbuf *pixbuf;
-
-	pixbuf = image_loader_get_pixbuf(il);
-
-	if (dw->setup_point)
-		{
-		auto di = static_cast<DupeItem *>(dw->setup_point->data);
-
-		if (!di->simd)
-			{
-			di->simd = image_sim_new_from_pixbuf(pixbuf);
-			}
-		else
-			{
-			image_sim_fill_data(di->simd, pixbuf);
-			}
-
-		if (di->width == 0 && di->height == 0 && pixbuf)
-			{
-			di->width = gdk_pixbuf_get_width(pixbuf);
-			di->height = gdk_pixbuf_get_height(pixbuf);
-			}
-		if (dupe_item_use_sim_cache(di))
-			{
-			dupe_item_write_cache(di);
-			}
-
-		image_sim_alternate_processing(di->simd);
-		}
-
-	image_loader_free(dw->img_loader);
-	dw->img_loader = nullptr;
-
-	dw->idle_id = g_idle_add(dupe_check_cb, dw);
 }
 
 static void dupe_setup_reset(DupeWindow *dw)
@@ -2475,65 +2408,16 @@ static gboolean dupe_check_cb(gpointer data)
 		     dw->match_mask & DUPE_MATCH_SIM_CUSTOM) &&
 		    !(dw->setup_mask & DUPE_MATCH_SIM_MED) )
 			{
-			/* Similarity only */
-			if (!dw->setup_point) dw->setup_point = dw->list;
-
-			while (dw->setup_point)
+			/* Similarity only: the loaders drive this phase; the last one to finish re-adds dupe_check_cb */
+			dw->setup_point = dw->list;
+			if (dupe_sim_load_fill(dw))
 				{
-				auto di = static_cast<DupeItem *>(dw->setup_point->data);
-
-				if (!di->simd)
-					{
-					dupe_window_update_progress(dw, _("Reading similarity data..."),
-						dw->setup_count == 0 ? 0.0 : static_cast<gdouble>(dw->setup_n) / dw->setup_count, FALSE);
-
-					if (dupe_item_use_sim_cache(di))
-						{
-						dupe_item_read_cache(di);
-						if (cache_sim_data_filled(di->simd))
-							{
-							image_sim_alternate_processing(di->simd);
-							return G_SOURCE_CONTINUE;
-							}
-						}
-
-					if (di->fd->format_class == FORMAT_CLASS_VIDEO)
-						{
-						GdkPixbuf *video_sim_pixbuf = dupe_video_generate_sim_pixbuf(di->fd);
-
-						if (video_sim_pixbuf)
-							{
-							di->simd = image_sim_new_from_pixbuf(video_sim_pixbuf);
-							g_object_unref(video_sim_pixbuf);
-							image_sim_alternate_processing(di->simd);
-							if (dupe_item_use_sim_cache(di))
-								{
-								dupe_item_write_cache(di);
-								}
-							return G_SOURCE_CONTINUE;
-							}
-						}
-
-					dw->img_loader = image_loader_new(di->fd);
-					image_loader_set_buffer_size(dw->img_loader, 8);
-					g_signal_connect(G_OBJECT(dw->img_loader), "error", (GCallback)dupe_loader_done_cb, dw);
-					g_signal_connect(G_OBJECT(dw->img_loader), "done", (GCallback)dupe_loader_done_cb, dw);
-
-					if (!image_loader_start(dw->img_loader))
-						{
-						image_sim_free(di->simd);
-						di->simd = image_sim_new();
-						image_loader_free(dw->img_loader);
-						dw->img_loader = nullptr;
-						return G_SOURCE_CONTINUE;
-						}
-					dw->idle_id = 0;
-					return G_SOURCE_REMOVE;
-					}
-
-				dw->setup_point = dupe_setup_point_step(dw, dw->setup_point);
-				dw->setup_n++;
+				dupe_window_update_progress(dw, _("Reading similarity data..."),
+					dw->setup_count == 0 ? 0.0 : static_cast<gdouble>(dw->setup_n) / dw->setup_count, FALSE);
+				dw->idle_id = 0;
+				return G_SOURCE_REMOVE;
 				}
+
 			dw->setup_mask = static_cast<DupeMatchType>(dw->setup_mask | DUPE_MATCH_SIM_MED);
 			dupe_setup_reset(dw);
 			}
@@ -2653,6 +2537,9 @@ static gboolean dupe_check_cb(gpointer data)
 
 static void dupe_check_start(DupeWindow *dw)
 {
+	/* a restart resets setup_point; a loader finishing afterwards would schedule a second dupe_check_cb */
+	dupe_sim_load_cancel_all(dw);
+
 	dw->setup_done = FALSE;
 
 	dw->setup_count = g_list_length(dw->list);
@@ -2706,10 +2593,15 @@ static void dupe_item_remove(DupeWindow *dw, DupeItem *di)
 	if (dw->setup_point && dw->setup_point->data == di)
 		{
 		dw->setup_point = dupe_setup_point_step(dw, dw->setup_point);
-		if (dw->img_loader)
+		}
+	DupeSimLoad *sl = dupe_sim_load_find(dw, di);
+	if (sl)
+		{
+		dupe_sim_load_free(dw, sl);
+		if (!dupe_sim_load_fill(dw))
 			{
-			image_loader_free(dw->img_loader);
-			dw->img_loader = nullptr;
+			dw->setup_mask = static_cast<DupeMatchType>(dw->setup_mask | DUPE_MATCH_SIM_MED);
+			dupe_setup_reset(dw);
 			dw->idle_id = g_idle_add(dupe_check_cb, dw);
 			}
 		}
@@ -4168,6 +4060,8 @@ void dupe_window_close(DupeWindow *dw)
 	file_data_unregister_notify_func(dupe_notify_cb, dw);
 
 	g_thread_pool_free(dw->dupe_comparison_thread_pool, TRUE, TRUE);
+	g_mutex_clear(&dw->thread_count_mutex);
+	g_mutex_clear(&dw->search_matches_mutex);
 
 	g_free(dw);
 }

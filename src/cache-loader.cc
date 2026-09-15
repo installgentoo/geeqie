@@ -19,6 +19,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+
 #include "cache-loader.h"
 
 #include <ctime>
@@ -29,6 +30,7 @@
 #include "cache.h"
 #include "filedata.h"
 #include "image-load.h"
+#include "misc.h"
 #include "options.h"
 #include "similar.h"
 #include "typedefs.h"
@@ -37,10 +39,93 @@
 
 static gboolean cache_loader_phase2_idle_cb(gpointer data);
 
+/*
+ * Video: the contact sheet is rendered by ffmpeg on a worker thread. The worker
+ * touches only the job; the loader is reached again from the main thread via idle.
+ * Freeing the loader detaches the job (cl = nullptr) and the job then frees itself.
+ */
+
+struct CacheLoaderVideoJob {
+	FileData *fd;
+	CacheLoader *cl; /**< main thread only; nullptr once the loader is gone */
+	GdkPixbuf *pixbuf;
+	gint cancelled; /**< atomic; lets a queued job skip the render */
+};
+
+static GThreadPool *cache_loader_video_pool = nullptr;
+
+static void cache_loader_video_job_free(CacheLoaderVideoJob *job)
+{
+	if (job->pixbuf) g_object_unref(job->pixbuf);
+	file_data_unref(job->fd);
+	g_free(job);
+}
+
+static gboolean cache_loader_video_done_idle_cb(gpointer data)
+{
+	auto job = static_cast<CacheLoaderVideoJob *>(data);
+	CacheLoader *cl = job->cl;
+
+	if (cl)
+		{
+		cl->video_job = nullptr;
+		cl->pixbuf = job->pixbuf;
+		job->pixbuf = nullptr;
+		if (!cl->pixbuf) cl->error = TRUE;
+		cl->idle_id = g_idle_add(cache_loader_phase2_idle_cb, cl);
+		}
+
+	cache_loader_video_job_free(job);
+	return G_SOURCE_REMOVE;
+}
+
+static void cache_loader_video_thread_run(gpointer data, gpointer)
+{
+	auto job = static_cast<CacheLoaderVideoJob *>(data);
+
+	if (!g_atomic_int_get(&job->cancelled))
+		{
+		job->pixbuf = cache_sim_video_pixbuf(job->fd);
+		}
+
+	g_idle_add(cache_loader_video_done_idle_cb, job);
+}
+
+static void cache_loader_video_start(CacheLoader *cl)
+{
+	if (!cache_loader_video_pool)
+		{
+		const gint threads = options->threads.duplicates > 0 ? options->threads.duplicates : get_cpu_cores();
+		cache_loader_video_pool = g_thread_pool_new(cache_loader_video_thread_run, nullptr, threads, FALSE, nullptr);
+		}
+
+	auto job = g_new0(CacheLoaderVideoJob, 1);
+	job->fd = file_data_ref(cl->fd);
+	job->cl = cl;
+
+	cl->video_job = job;
+	g_thread_pool_push(cache_loader_video_pool, job, nullptr);
+}
+
+static void cache_loader_video_cancel(CacheLoader *cl)
+{
+	if (!cl->video_job) return;
+
+	g_atomic_int_set(&cl->video_job->cancelled, 1);
+	cl->video_job->cl = nullptr;
+	cl->video_job = nullptr;
+}
+
+/*
+ * Still images: the ImageLoader decodes on its own thread pool and signals back on the main thread.
+ */
+
 static void cache_loader_phase1_done_cb(ImageLoader *, gpointer data)
 {
 	auto cl = static_cast<CacheLoader *>(data);
 
+	cl->pixbuf = image_loader_get_pixbuf(cl->il);
+	if (cl->pixbuf) g_object_ref(cl->pixbuf);
 	cl->idle_id = g_idle_add(cache_loader_phase2_idle_cb, cl);
 }
 
@@ -54,21 +139,25 @@ static void cache_loader_phase1_error_cb(ImageLoader *, gpointer data)
 
 static gboolean cache_loader_phase1_process(CacheLoader *cl)
 {
-	if (cl->todo_mask & CACHE_LOADER_SIMILARITY && !cl->cd->similarity)
+	if (cl->todo_mask & CACHE_LOADER_SIMILARITY && !cl->cd->similarity && !cl->error)
 		{
-
-		if (!cl->il && !cl->error)
+		if (cl->fd->format_class == FORMAT_CLASS_VIDEO)
 			{
-			cl->il = image_loader_new(cl->fd);
-			g_signal_connect(G_OBJECT(cl->il), "error", (GCallback)cache_loader_phase1_error_cb, cl);
-			g_signal_connect(G_OBJECT(cl->il), "done", (GCallback)cache_loader_phase1_done_cb, cl);
-			if (image_loader_start(cl->il))
-				{
-				return G_SOURCE_REMOVE;
-				}
-
-			cl->error = TRUE;
+			cache_loader_video_start(cl);
+			cl->idle_id = 0;
+			return G_SOURCE_REMOVE;
 			}
+
+		cl->il = image_loader_new(cl->fd);
+		g_signal_connect(G_OBJECT(cl->il), "error", (GCallback)cache_loader_phase1_error_cb, cl);
+		g_signal_connect(G_OBJECT(cl->il), "done", (GCallback)cache_loader_phase1_done_cb, cl);
+		if (image_loader_start(cl->il))
+			{
+			cl->idle_id = 0;
+			return G_SOURCE_REMOVE;
+			}
+
+		cl->error = TRUE;
 		}
 
 	cl->idle_id = g_idle_add(cache_loader_phase2_idle_cb, cl);
@@ -78,39 +167,33 @@ static gboolean cache_loader_phase1_process(CacheLoader *cl)
 
 static gboolean cache_loader_phase2_process(CacheLoader *cl)
 {
-	if (cl->todo_mask & CACHE_LOADER_SIMILARITY && !cl->cd->similarity && cl->il)
+	if (cl->todo_mask & CACHE_LOADER_SIMILARITY && !cl->cd->similarity)
 		{
-		GdkPixbuf *pixbuf;
-		pixbuf = image_loader_get_pixbuf(cl->il);
-		if (pixbuf)
+		if (cl->pixbuf && !cl->error)
 			{
-			if (!cl->error)
+			ImageSimilarityData *sim = image_sim_new_from_pixbuf(cl->pixbuf);
+			cache_sim_data_set_similarity(cl->cd, sim);
+			image_sim_free(sim);
+
+			cl->done_mask = static_cast<CacheDataType>(cl->done_mask | CACHE_LOADER_SIMILARITY);
+			}
+
+		/* a video's pixbuf is the contact sheet, not the frame; its dimensions mean nothing */
+		if (cl->pixbuf && !cl->cd->dimensions && cl->fd->format_class != FORMAT_CLASS_VIDEO)
+			{
+			cache_sim_data_set_dimensions(cl->cd, gdk_pixbuf_get_width(cl->pixbuf),
+							      gdk_pixbuf_get_height(cl->pixbuf));
+			if (cl->todo_mask & CACHE_LOADER_DIMENSIONS)
 				{
-				ImageSimilarityData *sim;
-
-				sim = image_sim_new_from_pixbuf(pixbuf);
-				cache_sim_data_set_similarity(cl->cd, sim);
-				image_sim_free(sim);
-
-				cl->todo_mask = static_cast<CacheDataType>(cl->todo_mask & ~CACHE_LOADER_SIMILARITY);
-				cl->done_mask = static_cast<CacheDataType>(cl->done_mask | CACHE_LOADER_SIMILARITY);
-				}
-
-			/* we have the dimensions via pixbuf */
-			if (!cl->cd->dimensions)
-				{
-				cache_sim_data_set_dimensions(cl->cd, gdk_pixbuf_get_width(pixbuf),
-								      gdk_pixbuf_get_height(pixbuf));
-				if (cl->todo_mask & CACHE_LOADER_DIMENSIONS)
-					{
-					cl->todo_mask = static_cast<CacheDataType>(cl->todo_mask & ~CACHE_LOADER_DIMENSIONS);
-					cl->done_mask = static_cast<CacheDataType>(cl->done_mask | CACHE_LOADER_DIMENSIONS);
-					}
+				cl->todo_mask = static_cast<CacheDataType>(cl->todo_mask & ~CACHE_LOADER_DIMENSIONS);
+				cl->done_mask = static_cast<CacheDataType>(cl->done_mask | CACHE_LOADER_DIMENSIONS);
 				}
 			}
 
 		image_loader_free(cl->il);
 		cl->il = nullptr;
+		if (cl->pixbuf) g_object_unref(cl->pixbuf);
+		cl->pixbuf = nullptr;
 
 		cl->todo_mask = static_cast<CacheDataType>(cl->todo_mask & ~CACHE_LOADER_SIMILARITY);
 		}
@@ -148,19 +231,10 @@ static gboolean cache_loader_phase2_process(CacheLoader *cl)
 	else
 		{
 		/* done, save then call done function */
-		if (options->thumbnails.enable_caching &&
+		if (cache_sim_data_use_cache(cl->fd) &&
 		    cl->done_mask != CACHE_LOADER_NONE)
 			{
-			g_autofree gchar *base = cache_create_location(CACHE_TYPE_SIM, cl->fd->path);
-			if (base)
-				{
-				g_free(cl->cd->path);
-				cl->cd->path = cache_get_location(CACHE_TYPE_SIM, cl->fd->path);
-				if (cache_sim_data_save(cl->cd))
-					{
-					filetime_set(cl->cd->path, filetime(cl->fd->path));
-					}
-				}
+			cache_sim_data_save_to_file(cl->fd, cl->cd);
 			}
 
 		cl->idle_id = 0;
@@ -194,7 +268,6 @@ CacheLoader *cache_loader_new(FileData *fd, CacheDataType load_mask,
 			      CacheLoader::DoneFunc done_func, gpointer done_data)
 {
 	CacheLoader *cl;
-	gchar *found;
 
 	if (!fd || !isfile(fd->path)) return nullptr;
 
@@ -204,22 +277,13 @@ CacheLoader *cache_loader_new(FileData *fd, CacheDataType load_mask,
 	cl->done_func = done_func;
 	cl->done_data = done_data;
 
-	found = cache_find_location(CACHE_TYPE_SIM, cl->fd->path);
-	if (found && filetime(found) == filetime(cl->fd->path))
-		{
-		cl->cd = cache_sim_data_load(found);
-		}
-	g_free(found);
-
+	cl->cd = cache_sim_data_load_from_file(cl->fd);
 	if (!cl->cd) cl->cd = cache_sim_data_new();
 
 	cl->todo_mask = load_mask;
 	cl->done_mask = CACHE_LOADER_NONE;
 
-	cl->il = nullptr;
 	cl->idle_id = g_idle_add(cache_loader_phase1_idle_cb, cl);
-
-	cl->error = FALSE;
 
 	return cl;
 }
@@ -234,7 +298,9 @@ void cache_loader_free(CacheLoader *cl)
 		cl->idle_id = 0;
 		}
 
+	cache_loader_video_cancel(cl);
 	image_loader_free(cl->il);
+	if (cl->pixbuf) g_object_unref(cl->pixbuf);
 	cache_sim_data_free(cl->cd);
 
 	file_data_unref(cl->fd);

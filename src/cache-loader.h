@@ -22,9 +22,11 @@
 #ifndef CACHE_LOADER_H
 #define CACHE_LOADER_H
 
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <glib.h>
 
 struct CacheData;
+struct CacheLoaderVideoJob;
 class FileData;
 struct ImageLoader;
 
@@ -48,7 +50,9 @@ struct CacheLoader {
 
 	gboolean error;
 
-	ImageLoader *il;
+	ImageLoader *il; /**< still images decode here */
+	CacheLoaderVideoJob *video_job; /**< videos render a contact sheet on a worker thread */
+	GdkPixbuf *pixbuf; /**< whichever of the two produced it; similarity is computed from this */
 	guint idle_id; /**< event source id */
 };
 

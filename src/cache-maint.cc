@@ -270,21 +270,32 @@ static gboolean cache_maintain_home_cb(gpointer data)
 			while (work)
 				{
 				auto fd_list = static_cast<FileData *>(work->data);
-				gchar *path_buf = g_strdup(fd_list->path);
+				const gchar *path = fd_list->path;
+				gboolean keep;
 
-				gchar *dot = strrchr(path_buf, '.');
-
-				if (dot) *dot = '\0';
-				if ((strlen(path_buf) > base_length && !isfile(path_buf + base_length)))
+				if (file_extension_match(path, GQ_CACHE_EXT_SIM) || file_extension_match(path, GQ_CACHE_EXT_SIM_AVG))
 					{
-					if (dot) *dot = '.';
-					if (!unlink_file(path_buf)) log_printf("failed to delete:%s\n", path_buf);
+					/* named by md5 of the source; only the URI inside leads back. Files from the old
+					 * mirrored-path layout carry no URI and are dropped here, which migrates the cache. */
+					keep = cache_sim_file_valid(path);
 					}
 				else
 					{
+					/* legacy layout: <cache root>/<source path>.<ext> */
+					g_autofree gchar *path_buf = g_strdup(path);
+					gchar *dot = strrchr(path_buf, '.');
+					if (dot) *dot = '\0';
+					keep = !(strlen(path_buf) > base_length && !isfile(path_buf + base_length));
+					}
+
+				if (keep)
+					{
 					still_have_a_file = TRUE;
 					}
-				g_free(path_buf);
+				else if (!unlink_file(path))
+					{
+					log_printf("failed to delete:%s\n", path);
+					}
 				work = work->next;
 				}
 			}
@@ -442,6 +453,7 @@ static void cache_maint_moved(FileData *fd)
 
 	cache_move(CACHE_TYPE_THUMB);
 	cache_move(CACHE_TYPE_SIM);
+	cache_move(CACHE_TYPE_SIM_AVG);
 
 	if (options->thumbnails.enable_caching)
 		thumb_std_maint_moved(src, dest);
@@ -462,6 +474,7 @@ static void cache_maint_removed(FileData *fd)
 
 	cache_remove(CACHE_TYPE_THUMB);
 	cache_remove(CACHE_TYPE_SIM);
+	cache_remove(CACHE_TYPE_SIM_AVG);
 
 	if (options->thumbnails.enable_caching)
 		thumb_std_maint_removed(fd->path);

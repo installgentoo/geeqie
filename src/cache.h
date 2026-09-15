@@ -24,24 +24,29 @@
 
 #include <sys/types.h>
 
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <glib.h>
 
 struct ImageSimilarityData;
+class FileData;
 
 #define GQ_CACHE_THUMB		"thumbnails"
 
 #define GQ_CACHE_EXT_THUMB      ".png"
 #define GQ_CACHE_EXT_SIM        ".sim"
+#define GQ_CACHE_EXT_SIM_AVG   ".avg_sim"
 
 
 enum CacheType {
 	CACHE_TYPE_THUMB,
-	CACHE_TYPE_SIM
+	CACHE_TYPE_SIM,
+	CACHE_TYPE_SIM_AVG
 };
 
 struct CacheData
 {
 	gchar *path;
+	gchar *uri; /**< source file; the cache file name is its md5, so this is the only way back */
 	gint width;
 	gint height;
 	guchar md5sum[16];
@@ -63,6 +68,16 @@ void cache_sim_data_set_dimensions(CacheData *cd, gint w, gint h);
 void cache_sim_data_set_md5sum(CacheData *cd, const guchar digest[16]);
 void cache_sim_data_set_similarity(CacheData *cd, ImageSimilarityData *sd);
 gint cache_sim_data_filled(ImageSimilarityData *sd);
+CacheData *cache_sim_data_load_from_file(FileData *fd);
+gboolean cache_sim_data_save_to_file(FileData *fd, CacheData *cd);
+gboolean cache_sim_data_use_cache(FileData *fd);
+gboolean cache_sim_file_valid(const gchar *cache_path);
+
+/**
+ * Contact sheet of evenly spaced frames, the image a video's similarity data is computed from.
+ * Blocking (spawns ffprobe/ffmpeg); touches nothing but fd->path, so safe off the main thread.
+ */
+GdkPixbuf *cache_sim_video_pixbuf(FileData *fd);
 
 gchar *cache_create_location(CacheType cache_type, const gchar *source);
 gchar *cache_get_location(CacheType cache_type, const gchar *source);
