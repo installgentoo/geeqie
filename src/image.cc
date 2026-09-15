@@ -1138,19 +1138,6 @@ void image_to_root_window(ImageWindow *, gboolean)
 {
 }
 
-void image_grab_focus(ImageWindow *imd)
-{
-	if (imd->has_frame)
-		{
-		gtk_widget_grab_focus(imd->frame);
-		}
-	else
-		{
-		gtk_widget_grab_focus(imd->widget);
-		}
-}
-
-
 /*
  *-------------------------------------------------------------------
  * prefs sync

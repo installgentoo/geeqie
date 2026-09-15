@@ -139,7 +139,6 @@ void image_set_state_func(ImageWindow *imd,
 			  void (*func)(ImageWindow *imd, ImageState state, gpointer data),
 			  gpointer data);
 
-void image_grab_focus(ImageWindow *imd);
 /* path, name */
 const gchar *image_get_path(ImageWindow *imd);
 const gchar *image_get_name(ImageWindow *imd);

@@ -1071,7 +1071,7 @@ static void layout_grid_setup(LayoutWindow *lw)
 
 	gtk_paned_set_position(GTK_PANED(lw->h_pane), lw->options.main_window.hdivider_pos);
 
-	image_grab_focus(lw->image);
+	gtk_widget_grab_focus(lw->vf->listview);
 }
 
 /*
