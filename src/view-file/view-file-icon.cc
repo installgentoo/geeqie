@@ -1224,7 +1224,7 @@ static void vficon_populate(ViewFile *vf, gboolean resize)
 
 	vficon_verify_selections(vf);
 
-	store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+	store = GTK_TREE_MODEL(VFICON(vf)->store);
 
 
 	if (resize)
@@ -1411,6 +1411,7 @@ gboolean vficon_thumb_wanted(ViewFile *vf, GList **wanted)
 	*wanted = nullptr;
 
 	GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+	if (!store) return FALSE;
 	const gint rows = gtk_tree_model_iter_n_children(store, nullptr);
 	if (rows == 0) return TRUE;
 
@@ -1763,10 +1764,17 @@ gboolean vficon_set_fd(ViewFile *vf, FileData *dir_fd)
 	filelist_free(vf->list);
 	vf->list = nullptr;
 
-	/* NOTE: populate will clear the store for us */
+	/* The rows are rebuilt with the store detached: attached, every row insert and removal runs the tree view's
+	 * handlers, which for a large folder cost more than building the rows, while a reattach rebuilds the view's
+	 * rows in one pass. */
+	g_object_ref(VFICON(vf)->store);
+	gtk_tree_view_set_model(GTK_TREE_VIEW(vf->listview), nullptr);
 	ret = vficon_refresh_real(vf, TRUE);
+	gtk_tree_view_set_model(GTK_TREE_VIEW(vf->listview), GTK_TREE_MODEL(VFICON(vf)->store));
+	g_object_unref(VFICON(vf)->store);
 
 	vficon_move_focus(vf, 0, 0, FALSE);
+	vf_thumb_update(vf);
 
 	return ret;
 }
@@ -1798,6 +1806,7 @@ ViewFile *vficon_new(ViewFile *vf)
 	store = gtk_list_store_new(1, G_TYPE_POINTER);
 	vf->listview = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
 	g_object_unref(store);
+	VFICON(vf)->store = store;
 
 	selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(vf->listview));
 	gtk_tree_selection_set_mode(GTK_TREE_SELECTION(selection), GTK_SELECTION_NONE);

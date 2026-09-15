@@ -49,6 +49,8 @@ struct ViewFileInfoIcon
 	gint focus_column;
 
 	gboolean show_text;
+
+	GtkListStore *store; /**< the rows; owned by listview, except while vficon_set_fd has it detached */
 };
 
 #define VFICON(_vf_) ((ViewFileInfoIcon *)((_vf_)->info))
