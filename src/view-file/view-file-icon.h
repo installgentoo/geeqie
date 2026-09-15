@@ -91,9 +91,8 @@ void vficon_select_invert(ViewFile *vf);
 void vficon_select_by_fd(ViewFile *vf, FileData *fd);
 
 
-void vficon_thumb_progress_count(const GList *list, gint &count, gint &done);
 void vficon_set_thumb_fd(ViewFile *vf, FileData *fd);
-FileData *vficon_thumb_next_fd(ViewFile *vf);
+GList *vficon_thumb_wanted(ViewFile *vf);
 
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

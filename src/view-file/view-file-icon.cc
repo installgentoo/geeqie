@@ -1382,101 +1382,70 @@ void vficon_sort_set(ViewFile *vf, SortType type, gboolean ascend, gboolean case
  *-----------------------------------------------------------------------------
  */
 
-void vficon_thumb_progress_count(const GList *list, gint &count, gint &done)
-{
-	for (const GList *work = list; work; work = work->next)
-		{
-		auto fd = static_cast<FileData *>(work->data);
-
-		if (fd->thumb_pixbuf) done++;
-		count++;
-		}
-}
-
+/* Redraws the cell if it is on screen; an off-screen cell picks the pixbuf up when it scrolls in. */
 void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 {
-	GtkTreeModel *store;
+	GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
 	GtkTreeIter iter;
 	GList *list;
 
-	if (!g_list_find(vf->list, fd)) return;
-	store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-
-	/* Fast path: most thumbnail updates are for currently visible rows. */
-	gboolean found = FALSE;
-	if (g_autoptr(GtkTreePath) tpath = nullptr;
-	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr) &&
-	    gtk_tree_model_get_iter(store, &iter, tpath))
+	g_autoptr(GtkTreePath) tpath = nullptr;
+	if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr) ||
+	    !gtk_tree_model_get_iter(store, &iter, tpath))
 		{
-		gboolean valid = TRUE;
-		while (valid && tree_view_row_get_visibility(GTK_TREE_VIEW(vf->listview), &iter, FALSE) == 0)
-			{
-			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-			if (g_list_find(list, fd))
-				{
-				found = TRUE;
-				break;
-				}
-			valid = gtk_tree_model_iter_next(store, &iter);
-			}
+		return;
 		}
 
-	if (!found && !vficon_find_iter(vf, fd, &iter, nullptr)) return;
-
-	gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
+	gboolean valid = TRUE;
+	while (valid && tree_view_row_get_visibility(GTK_TREE_VIEW(vf->listview), &iter, FALSE) == 0)
+		{
+		gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+		if (g_list_find(list, fd))
+			{
+			gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
+			return;
+			}
+		valid = gtk_tree_model_iter_next(store, &iter);
+		}
 }
 
-/* Returns the next fd without a loaded pixbuf, so the thumb-loader can load the pixbuf for it. */
-FileData *vficon_thumb_next_fd(ViewFile *vf)
+/* Files on the visible rows, then one screen of rows below, then one above: the order thumbnails load in. */
+GList *vficon_thumb_wanted(ViewFile *vf)
 {
-	/* First see if there are visible files that don't have a loaded thumb... */
 	g_autoptr(GtkTreePath) start_path = nullptr;
 	g_autoptr(GtkTreePath) end_path = nullptr;
-	if (gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path))
+	if (!gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path)) return nullptr;
+
+	GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+	const gint first = gtk_tree_path_get_indices(start_path)[0];
+	const gint last = gtk_tree_path_get_indices(end_path)[0];
+	const gint margin = last - first + 1;
+	const gint rows = gtk_tree_model_iter_n_children(store, nullptr);
+
+	GList *wanted = nullptr;
+	const auto add_rows = [&](gint from, gint to)
 		{
-		GtkTreeModel *store;
+		from = MAX(from, 0);
+		to = MIN(to, rows - 1);
 		GtkTreeIter iter;
-		gboolean valid = TRUE;
-
-		store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
-		if (!gtk_tree_model_get_iter(store, &iter, start_path)) valid = FALSE;
-
-		while (valid)
+		gboolean valid = from <= to && gtk_tree_model_iter_nth_child(store, &iter, nullptr, from);
+		for (gint row = from; valid && row <= to; row++)
 			{
 			GList *list;
 			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-
-			/** @todo (xsdg): for loop here. */
 			for (; list; list = list->next)
 				{
-				auto fd = static_cast<FileData *>(list->data);
-				if (fd && vf->thumbs_priority) g_hash_table_add(vf->thumbs_priority, fd);
-					if (fd && !fd->thumb_pixbuf && !vf_thumb_loading(vf, fd)) return fd;
-					}
-
-			if (g_autoptr(GtkTreePath) current = gtk_tree_model_get_path(store, &iter);
-			    gtk_tree_path_compare(current, end_path) >= 0)
-				{
-				break;
+				if (list->data) wanted = g_list_prepend(wanted, list->data);
 				}
-
 			valid = gtk_tree_model_iter_next(store, &iter);
 			}
-		}
+		};
 
-	/* Then iterate through the entire list to load all of them. */
-	GList *work;
-	for (work = vf->list; work; work = work->next)
-		{
-		auto fd = static_cast<FileData *>(work->data);
+	add_rows(first, last);
+	add_rows(last + 1, last + margin);
+	add_rows(first - margin, first - 1);
 
-		// Note: This implementation differs from view-file-list.cc because sidecar files are not
-		// distinct list elements here, as they are in the list view.
-		if (!fd->thumb_pixbuf && !vf_thumb_loading(vf, fd)) return fd;
-		}
-
-	return nullptr;
+	return g_list_reverse(wanted);
 }
 
 /*

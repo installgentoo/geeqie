@@ -521,11 +521,9 @@ gboolean vf_refresh_filter(ViewFile *vf)
 	return vficon_refresh_filter(vf);
 }
 
-static void vf_thumb_stop(ViewFile *vf);
 gboolean vf_set_fd(ViewFile *vf, FileData *dir_fd)
 {
-	vf_thumb_stop(vf);
-	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
+	vf_thumb_cleanup(vf);
 
 	return vficon_set_fd(vf, dir_fd);
 }
@@ -883,15 +881,9 @@ void vf_set_status_func(ViewFile *vf, void (*func)(ViewFile *vf, gpointer data),
 	vf->data_status = data;
 }
 
-void vf_set_thumb_status_func(ViewFile *vf, void (*func)(ViewFile *vf, gdouble val, const gchar *text, gpointer data), gpointer data)
-{
-	vf->func_thumb_status = func;
-	vf->data_thumb_status = data;
-}
-
 static gboolean vf_thumb_scroll_idle_cb(gpointer data);
-constexpr guint THUMB_LRU_LIMIT = 360;
 
+/* One recompute per main-loop idle, so thumbnails keep loading while scrolling. */
 static void vf_thumb_scroll_changed_cb(GtkAdjustment *, gpointer data)
 {
 	auto vf = static_cast<ViewFile *>(data);
@@ -905,95 +897,15 @@ static gboolean vf_thumb_scroll_idle_cb(gpointer data)
 	auto vf = static_cast<ViewFile *>(data);
 	vf->thumbs_scroll_id = 0;
 
-	if (!gtk_widget_get_realized(vf->listview)) return G_SOURCE_REMOVE;
-	if (vf->thumbs_running) return G_SOURCE_REMOVE;
-
 	vf_thumb_update(vf);
 	return G_SOURCE_REMOVE;
-}
-
-static void vf_thumb_lru_add(ViewFile *vf, FileData *fd)
-{
-	if (!fd || !fd->thumb_pixbuf) return;
-
-	if (!vf->thumbs_lru) vf->thumbs_lru = g_queue_new();
-	if (!vf->thumbs_lru_index) vf->thumbs_lru_index = g_hash_table_new(g_direct_hash, g_direct_equal);
-
-	if (g_hash_table_contains(vf->thumbs_lru_index, fd))
-		{
-		if (GList *link = g_queue_find(vf->thumbs_lru, fd); link)
-			{
-			g_queue_unlink(vf->thumbs_lru, link);
-			g_queue_push_head_link(vf->thumbs_lru, link);
-			}
-		return;
-		}
-
-	file_data_ref(fd);
-	g_queue_push_head(vf->thumbs_lru, fd);
-	g_hash_table_add(vf->thumbs_lru_index, fd);
-
-	while (vf->thumbs_lru->length > THUMB_LRU_LIMIT)
-		{
-		auto old_fd = static_cast<FileData *>(g_queue_pop_tail(vf->thumbs_lru));
-		if (!old_fd) break;
-
-		g_hash_table_remove(vf->thumbs_lru_index, old_fd);
-		if (old_fd->thumb_pixbuf)
-			{
-			g_object_unref(old_fd->thumb_pixbuf);
-			old_fd->thumb_pixbuf = nullptr;
-			}
-		file_data_unref(old_fd);
-		}
-}
-
-static gdouble vf_thumb_progress(ViewFile *vf)
-{
-	gint count = 0;
-	gint done = 0;
-
-	
-	{
-
-	vficon_thumb_progress_count(vf->list, count, done);
-	}
-
-	DEBUG_1("thumb progress: %d of %d", done, count);
-	return static_cast<gdouble>(done) / count;
-}
-
-static void vf_set_thumb_fd(ViewFile *vf, FileData *fd)
-{
-	
-	{
-
-	vficon_set_thumb_fd(vf, fd);
-	}
-}
-
-static void vf_thumb_status(ViewFile *vf, gdouble val, const gchar *text)
-{
-	if (vf->func_thumb_status)
-		{
-		vf->func_thumb_status(vf, val, text, vf->data_thumb_status);
-		}
-}
-
-static void vf_thumb_do(ViewFile *vf, FileData *fd)
-{
-	if (!fd) return;
-
-	vf_set_thumb_fd(vf, fd);
-	vf_thumb_lru_add(vf, fd);
-	vf_thumb_status(vf, vf_thumb_progress(vf), _("Loading thumbs..."));
 }
 
 struct VfThumbLoad
 {
 	ViewFile *vf;
 	ThumbLoader *tl;
-	FileData *fd;
+	FileData *fd; /**< ref held */
 };
 
 static gint vf_thumb_load_limit()
@@ -1001,7 +913,7 @@ static gint vf_thumb_load_limit()
 	return options->threads.duplicates > 0 ? options->threads.duplicates : get_cpu_cores();
 }
 
-gboolean vf_thumb_loading(ViewFile *vf, FileData *fd)
+static gboolean vf_thumb_loading(ViewFile *vf, FileData *fd)
 {
 	for (GList *work = vf->thumbs_loads; work; work = work->next)
 		{
@@ -1010,109 +922,110 @@ gboolean vf_thumb_loading(ViewFile *vf, FileData *fd)
 	return FALSE;
 }
 
+/* Freeing a loader that is still decoding blocks until the worker finishes (image_loader_stop waits on can_destroy),
+ * so loads are only freed once done, or at cleanup; a scroll never cancels one. */
 static void vf_thumb_load_free(ViewFile *vf, VfThumbLoad *load)
 {
 	vf->thumbs_loads = g_list_remove(vf->thumbs_loads, load);
 	thumb_loader_free(load->tl);
+	if (load->fd) file_data_unref(load->fd);
 	g_free(load);
+}
+
+static void vf_thumb_unref_fd(gpointer data)
+{
+	file_data_unref(static_cast<FileData *>(data));
+}
+
+/* Keeps a thumbnail that is still near the screen, or drops one that scrolled away while it was loading. */
+static void vf_thumb_set(ViewFile *vf, FileData *fd)
+{
+	if (!fd->thumb_pixbuf) return;
+
+	if (!vf->thumbs_wanted || !g_hash_table_contains(vf->thumbs_wanted, fd))
+		{
+		g_clear_object(&fd->thumb_pixbuf);
+		return;
+		}
+
+	if (!vf->thumbs_loaded) vf->thumbs_loaded = g_hash_table_new_full(g_direct_hash, g_direct_equal, vf_thumb_unref_fd, nullptr);
+	if (!g_hash_table_contains(vf->thumbs_loaded, fd)) g_hash_table_add(vf->thumbs_loaded, file_data_ref(fd));
+
+	vficon_set_thumb_fd(vf, fd);
+}
+
+static void vf_thumb_fill(ViewFile *vf);
+
+static void vf_thumb_done_cb(ThumbLoader *, gpointer data)
+{
+	auto load = static_cast<VfThumbLoad *>(data);
+	ViewFile *vf = load->vf;
+	FileData *fd = g_steal_pointer(&load->fd);
+
+	vf_thumb_load_free(vf, load);
+	vf_thumb_set(vf, fd);
+	file_data_unref(fd);
+
+	vf_thumb_fill(vf);
+}
+
+static void vf_thumb_fill(ViewFile *vf)
+{
+	while (vf->thumbs_queue && g_list_length(vf->thumbs_loads) < static_cast<guint>(vf_thumb_load_limit()))
+		{
+		auto fd = static_cast<FileData *>(vf->thumbs_queue->data);
+		vf->thumbs_queue = g_list_delete_link(vf->thumbs_queue, vf->thumbs_queue);
+
+		if (fd->thumb_pixbuf)
+			{
+			file_data_unref(fd);
+			continue;
+			}
+
+		auto load = g_new0(VfThumbLoad, 1);
+		load->vf = vf;
+		load->fd = fd; /* the queue's ref moves to the load */
+		load->tl = thumb_loader_new(options->thumbnails.save_width, options->thumbnails.display_width);
+		thumb_loader_set_callbacks(load->tl, vf_thumb_done_cb, vf_thumb_done_cb, nullptr, load);
+		vf->thumbs_loads = g_list_prepend(vf->thumbs_loads, load);
+
+		if (!thumb_loader_start(load->tl, fd))
+			{
+			/* not thumbnailable; thumb_loader_start has set a fallback icon */
+			DEBUG_1("thumb loader start failed %s", fd->path);
+			fd = file_data_ref(fd);
+			vf_thumb_load_free(vf, load);
+			vf_thumb_set(vf, fd);
+			file_data_unref(fd);
+			}
+		}
+}
+
+static gboolean vf_thumb_drop_unwanted_cb(gpointer key, gpointer, gpointer data)
+{
+	auto vf = static_cast<ViewFile *>(data);
+	auto fd = static_cast<FileData *>(key);
+
+	if (vf->thumbs_wanted && g_hash_table_contains(vf->thumbs_wanted, fd)) return FALSE;
+
+	g_clear_object(&fd->thumb_pixbuf);
+	return TRUE;
 }
 
 void vf_thumb_cleanup(ViewFile *vf)
 {
-	vf_thumb_status(vf, 0.0, nullptr);
-
-	vf->thumbs_running = FALSE;
-
 	while (vf->thumbs_loads)
 		{
 		vf_thumb_load_free(vf, static_cast<VfThumbLoad *>(vf->thumbs_loads->data));
 		}
 
-	g_clear_pointer(&vf->thumbs_priority, g_hash_table_destroy);
+	g_list_free_full(g_steal_pointer(&vf->thumbs_queue), vf_thumb_unref_fd);
+
+	g_clear_pointer(&vf->thumbs_wanted, g_hash_table_destroy);
+	if (vf->thumbs_loaded) g_hash_table_foreach_remove(vf->thumbs_loaded, vf_thumb_drop_unwanted_cb, vf);
+	g_clear_pointer(&vf->thumbs_loaded, g_hash_table_destroy);
+
 	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
-}
-
-static void vf_thumb_stop(ViewFile *vf)
-{
-	if (vf->thumbs_running) vf_thumb_cleanup(vf);
-}
-
-static void vf_thumb_fill(ViewFile *vf);
-
-static void vf_thumb_common_cb(ThumbLoader *, gpointer data)
-{
-	auto load = static_cast<VfThumbLoad *>(data);
-	ViewFile *vf = load->vf;
-	FileData *fd = load->fd;
-
-	vf_thumb_load_free(vf, load);
-	vf_thumb_do(vf, fd);
-	vf_thumb_fill(vf);
-}
-
-static void vf_thumb_error_cb(ThumbLoader *tl, gpointer data)
-{
-	vf_thumb_common_cb(tl, data);
-}
-
-static void vf_thumb_done_cb(ThumbLoader *tl, gpointer data)
-{
-	vf_thumb_common_cb(tl, data);
-}
-
-/* Starts loaders until the limit is reached or nothing is left; the run ends (cleanup) when the last one finishes. */
-static void vf_thumb_fill(ViewFile *vf)
-{
-	if (!gtk_widget_get_realized(vf->listview))
-		{
-		vf_thumb_status(vf, 0.0, nullptr);
-		return;
-		}
-
-	while (g_list_length(vf->thumbs_loads) < static_cast<guint>(vf_thumb_load_limit()))
-		{
-		FileData *fd = vficon_thumb_next_fd(vf);
-
-		if (!fd)
-			{
-			/* done */
-			if (!vf->thumbs_loads) vf_thumb_cleanup(vf);
-			return;
-			}
-
-		if (vf->thumbs_priority &&
-		    g_hash_table_size(vf->thumbs_priority) > 0 &&
-		    !g_hash_table_contains(vf->thumbs_priority, fd))
-			{
-			/* only off-screen items are left: let the running loads finish, the last one ends the run */
-			if (!vf->thumbs_loads) vf_thumb_cleanup(vf);
-			return;
-			}
-
-		if (vf->thumbs_priority)
-			{
-			g_hash_table_remove(vf->thumbs_priority, fd);
-			}
-
-		auto load = g_new0(VfThumbLoad, 1);
-		load->vf = vf;
-		load->fd = fd;
-		load->tl = thumb_loader_new(options->thumbnails.save_width, options->thumbnails.display_width);
-		thumb_loader_set_callbacks(load->tl,
-					   vf_thumb_done_cb,
-					   vf_thumb_error_cb,
-					   nullptr,
-					   load);
-		vf->thumbs_loads = g_list_prepend(vf->thumbs_loads, load);
-
-		if (!thumb_loader_start(load->tl, fd))
-			{
-			/* set icon to unknown, continue */
-			DEBUG_1("thumb loader start failed %s", fd->path);
-			vf_thumb_load_free(vf, load);
-			vf_thumb_do(vf, fd);
-			}
-		}
 }
 
 static void vf_thumb_reset_all(ViewFile *vf)
@@ -1130,21 +1043,39 @@ static void vf_thumb_reset_all(ViewFile *vf)
 		}
 }
 
+/* Wanted = visible rows plus one screen either side (vficon_thumb_wanted). Thumbnails outside it are dropped,
+ * which is what bounds memory; the rest without a thumbnail are queued in on-screen order. */
 void vf_thumb_update(ViewFile *vf)
 {
-	vf_thumb_stop(vf);
-
-	g_clear_pointer(&vf->thumbs_priority, g_hash_table_destroy);
-	vf->thumbs_priority = g_hash_table_new(g_direct_hash, g_direct_equal);
-
-	vf_thumb_status(vf, 0.0, _("Loading thumbs..."));
-	vf->thumbs_running = TRUE;
+	if (!gtk_widget_get_realized(vf->listview)) return;
 
 	if (thumb_format_changed)
 		{
 		vf_thumb_reset_all(vf);
 		thumb_format_changed = FALSE;
 		}
+
+	GList *wanted = vficon_thumb_wanted(vf);
+
+	g_clear_pointer(&vf->thumbs_wanted, g_hash_table_destroy);
+	vf->thumbs_wanted = g_hash_table_new(g_direct_hash, g_direct_equal);
+	for (GList *work = wanted; work; work = work->next)
+		{
+		g_hash_table_add(vf->thumbs_wanted, work->data);
+		}
+
+	if (vf->thumbs_loaded) g_hash_table_foreach_remove(vf->thumbs_loaded, vf_thumb_drop_unwanted_cb, vf);
+
+	g_list_free_full(g_steal_pointer(&vf->thumbs_queue), vf_thumb_unref_fd);
+	for (GList *work = g_list_last(wanted); work; work = work->prev)
+		{
+		auto fd = static_cast<FileData *>(work->data);
+		if (!fd->thumb_pixbuf && !vf_thumb_loading(vf, fd))
+			{
+			vf->thumbs_queue = g_list_prepend(vf->thumbs_queue, file_data_ref(fd));
+			}
+		}
+	g_list_free(wanted);
 
 	vf_thumb_fill(vf);
 }

@@ -61,8 +61,6 @@ struct ViewFile
 	gboolean sort_case;
 
 	/* func list */
-	void (*func_thumb_status)(ViewFile *vf, gdouble val, const gchar *text, gpointer data);
-	gpointer data_thumb_status;
 
 	void (*func_status)(ViewFile *vf, gpointer data);
 	gpointer data_status;
@@ -72,12 +70,11 @@ struct ViewFile
 	GtkWidget *popup;
 
 	/* thumbs updates*/
-	gboolean thumbs_running;
 	GList *thumbs_loads; /**< #VfThumbLoad in flight, up to options->threads.duplicates of them */
-	GHashTable *thumbs_priority;
+	GList *thumbs_queue; /**< FileData (ref held) still to load, in on-screen order */
+	GHashTable *thumbs_wanted; /**< FileData near the screen; pointer keys only, never dereferenced */
+	GHashTable *thumbs_loaded; /**< FileData (ref held) whose thumb_pixbuf this view set; dropped when no longer wanted */
 	guint thumbs_scroll_id;
-	GQueue *thumbs_lru;
-	GHashTable *thumbs_lru_index;
 
 	/* refresh */
 	guint refresh_idle_id; /**< event source id */
@@ -93,7 +90,6 @@ void vf_send_update(ViewFile *vf);
 ViewFile *vf_new(FileData *dir_fd);
 
 void vf_set_status_func(ViewFile *vf, void (*func)(ViewFile *vf, gpointer data), gpointer data);
-void vf_set_thumb_status_func(ViewFile *vf, void (*func)(ViewFile *vf, gdouble val, const gchar *text, gpointer data), gpointer data);
 
 void vf_set_layout(ViewFile *vf, LayoutWindow *layout);
 
@@ -128,7 +124,6 @@ void vf_notify_cb(FileData *fd, NotifyType type, gpointer data);
 
 void vf_thumb_update(ViewFile *vf);
 void vf_thumb_cleanup(ViewFile *vf);
-gboolean vf_thumb_loading(ViewFile *vf, FileData *fd);
 void vf_file_filter_set(ViewFile *vf, gboolean enable);
 GRegex *vf_file_filter_get_filter(ViewFile *vf);
 
