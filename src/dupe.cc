@@ -40,7 +40,6 @@
 #include "dnd.h"
 #include "filedata.h"
 #include "history-list.h"
-#include "image-load.h"
 #include "intl.h"
 #include "layout-util.h"
 #include "layout.h"
@@ -1560,14 +1559,6 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 		return FALSE;
 		
 		}
-	if (mask & DUPE_MATCH_SIZE)
-		{
-		if (a->fd->size != b->fd->size) return FALSE;
-		}
-	if (mask & DUPE_MATCH_DATE)
-		{
-		if (a->fd->date != b->fd->date) return FALSE;
-		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		if (!a->md5sum) a->md5sum = md5_text_from_file_utf8(a->fd->path, "");
@@ -1575,12 +1566,6 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 		if (a->md5sum[0] == '\0' ||
 		    b->md5sum[0] == '\0' ||
 		    strcmp(a->md5sum, b->md5sum) != 0) return FALSE;
-		}
-	if (mask & DUPE_MATCH_DIM)
-		{
-		if (a->width == 0) image_load_dimensions(a->fd, &a->width, &a->height);
-		if (b->width == 0) image_load_dimensions(b->fd, &b->width, &b->height);
-		if (a->width != b->width || a->height != b->height) return FALSE;
 		}
 	if (mask & DUPE_MATCH_SIM_HIGH ||
 	    mask & DUPE_MATCH_SIM_MED ||
@@ -1687,30 +1672,9 @@ static DUPE_CHECK_RESULT dupe_match_check(DupeItem *di1, DupeItem *di2, gpointer
 			return DUPE_NO_MATCH;
 			}
 		}
-	if (mask & DUPE_MATCH_SIZE)
-		{
-		if (di1->fd->size != di2->fd->size)
-			{
-			return DUPE_NO_MATCH;
-			}
-		}
-	if (mask & DUPE_MATCH_DATE)
-		{
-		if (di1->fd->date != di2->fd->date)
-			{
-			return DUPE_NO_MATCH;
-			}
-		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		if (g_strcmp0(di1->md5sum, di2->md5sum) != 0)
-			{
-			return DUPE_NO_MATCH;
-			}
-		}
-	if (mask & DUPE_MATCH_DIM)
-		{
-		if (di1->dimensions != di2->dimensions)
 			{
 			return DUPE_NO_MATCH;
 			}
@@ -1762,21 +1726,9 @@ static gint dupe_match_binary_search_cb(gconstpointer a, gconstpointer b)
 		{
 		return strcmp(di1->fd->collate_key_name_nocase, di2->fd->collate_key_name_nocase);
 		}
-	if (mask & DUPE_MATCH_SIZE)
-		{
-		return (di1->fd->size - di2->fd->size);
-		}
-	if (mask & DUPE_MATCH_DATE)
-		{
-		return (di1->fd->date - di2->fd->date);
-		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		return g_strcmp0(di1->md5sum, di2->md5sum);
-		}
-	if (mask & DUPE_MATCH_DIM)
-		{
-		return (di1->dimensions - di2->dimensions);
 		}
 
 	return 0;
@@ -1822,14 +1774,6 @@ static gint dupe_match_sort_cb(gconstpointer a, gconstpointer b, gpointer data)
 		{
 		return strcmp(di1->fd->collate_key_name_nocase, di2->fd->collate_key_name_nocase);
 		}
-	if (mask & DUPE_MATCH_SIZE)
-		{
-		return (di1->fd->size - di2->fd->size);
-		}
-	if (mask & DUPE_MATCH_DATE)
-		{
-		return (di1->fd->date - di2->fd->date);
-		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		if (di1->md5sum[0] == '\0' || di2->md5sum[0] == '\0')
@@ -1838,14 +1782,6 @@ static gint dupe_match_sort_cb(gconstpointer a, gconstpointer b, gpointer data)
 			}
 
 		return strcmp(di1->md5sum, di2->md5sum);
-		}
-	if (mask & DUPE_MATCH_DIM)
-		{
-		if (!di1 || !di2 || !di1->width || !di1->height || !di2->width || !di2->height)
-			{
-			return -1;
-			}
-		return (di1->dimensions - di2->dimensions);
 		}
 
 	return 0; // should not execute
@@ -2263,14 +2199,14 @@ static GList *dupe_setup_point_step(DupeWindow *dw, GList *p)
 }
 
 /**
- * @brief Generates the sumcheck or dimensions
+ * @brief Generates the checksums
  * @param list Set1 or set2
  * @returns TRUE/FALSE = not completed/completed
  *
- * Ensures that the DIs contain the MD5SUM or dimensions for all items in
+ * Ensures that the DIs contain the MD5SUM for all items in
  * the list. One item at a time. Re-enters if not completed.
  */
-static gboolean create_checksums_dimensions(DupeWindow *dw, GList *list)
+static gboolean create_checksums(DupeWindow *dw, GList *list)
 {
 		if ((dw->match_mask & DUPE_MATCH_SUM) ||
 			(dw->match_mask & DUPE_MATCH_NAME_CONTENT) ||
@@ -2301,43 +2237,6 @@ static gboolean create_checksums_dimensions(DupeWindow *dw, GList *list)
 						}
 
 					di->md5sum = md5_text_from_file_utf8(di->fd->path, "");
-					if (dupe_item_use_sim_cache(di))
-						{
-						dupe_item_write_cache(di);
-						}
-					return TRUE;
-					}
-				}
-			dupe_setup_reset(dw);
-			}
-
-		if ((dw->match_mask & DUPE_MATCH_DIM)  )
-			{
-			/* Dimensions only */
-			if (!dw->setup_point) dw->setup_point = list;
-
-			while (dw->setup_point)
-				{
-				auto di = static_cast<DupeItem *>(dw->setup_point->data);
-
-				dw->setup_point = dupe_setup_point_step(dw, dw->setup_point);
-				dw->setup_n++;
-				if (di->width == 0 && di->height == 0)
-					{
-					dupe_window_update_progress(dw, _("Reading dimensions..."),
-						dw->setup_count == 0 ? 0.0 : static_cast<gdouble>(dw->setup_n - 1) / dw->setup_count, FALSE);
-
-					if (dupe_item_use_sim_cache(di))
-						{
-						dupe_item_read_cache(di);
-						if (di->width != 0 || di->height != 0)
-							{
-							return TRUE;
-							}
-						}
-
-					image_load_dimensions(di->fd, &di->width, &di->height);
-					di->dimensions = (di->width << 16) + di->height;
 					if (dupe_item_use_sim_cache(di))
 						{
 						dupe_item_write_cache(di);
@@ -2390,14 +2289,14 @@ static gboolean dupe_check_cb(gpointer data)
 		{
 		if (dw->list)
 			{
-			if (create_checksums_dimensions(dw, dw->list))
+			if (create_checksums(dw, dw->list))
 				{
 				return G_SOURCE_CONTINUE;
 				}
 			}
 		if (dw->second_list)
 			{
-			if (create_checksums_dimensions(dw, dw->second_list))
+			if (create_checksums(dw, dw->second_list))
 				{
 				return G_SOURCE_CONTINUE;
 				}
@@ -3646,9 +3545,6 @@ static void dupe_menu_setup(DupeWindow *dw)
 
 	dupe_menu_add_item(store, _("Name"), DUPE_MATCH_NAME, dw);
 	dupe_menu_add_item(store, _("Name case-insensitive"), DUPE_MATCH_NAME_CI, dw);
-	dupe_menu_add_item(store, _("Size"), DUPE_MATCH_SIZE, dw);
-	dupe_menu_add_item(store, _("Date"), DUPE_MATCH_DATE, dw);
-	dupe_menu_add_item(store, _("Dimensions"), DUPE_MATCH_DIM, dw);
 	dupe_menu_add_item(store, _("Checksum"), DUPE_MATCH_SUM, dw);
 	dupe_menu_add_item(store, _("Path"), DUPE_MATCH_PATH, dw);
 	dupe_menu_add_item(store, _("Similarity (high - 95)"), DUPE_MATCH_SIM_HIGH, dw);
@@ -4214,9 +4110,6 @@ DupeWindow *dupe_window_new()
 
 	dw->match_mask = DUPE_MATCH_NAME;
 	if (options->duplicates_match == DUPE_MATCH_NAME) dw->match_mask = DUPE_MATCH_NAME;
-	if (options->duplicates_match == DUPE_MATCH_SIZE) dw->match_mask = DUPE_MATCH_SIZE;
-	if (options->duplicates_match == DUPE_MATCH_DATE) dw->match_mask = DUPE_MATCH_DATE;
-	if (options->duplicates_match == DUPE_MATCH_DIM) dw->match_mask = DUPE_MATCH_DIM;
 	if (options->duplicates_match == DUPE_MATCH_SUM) dw->match_mask = DUPE_MATCH_SUM;
 	if (options->duplicates_match == DUPE_MATCH_PATH) dw->match_mask = DUPE_MATCH_PATH;
 	if (options->duplicates_match == DUPE_MATCH_SIM_HIGH) dw->match_mask = DUPE_MATCH_SIM_HIGH;

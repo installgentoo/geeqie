@@ -37,9 +37,6 @@ enum DupeMatchType
 {
 	DUPE_MATCH_NONE = 0,
 	DUPE_MATCH_NAME = 1 << 0,
-	DUPE_MATCH_SIZE = 1 << 1,
-	DUPE_MATCH_DATE = 1 << 2,
-	DUPE_MATCH_DIM  = 1 << 3,	/**< image dimensions */
 	DUPE_MATCH_SUM  = 1 << 4,	/**< MD5sum */
 	DUPE_MATCH_PATH = 1 << 5,
 	DUPE_MATCH_SIM_HIGH = 1 << 6,	/**< similarity */
