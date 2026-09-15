@@ -66,9 +66,6 @@ struct Dest_Data
 	GList *filter_text_list;
 	GtkWidget *filter_combo;
 
-	gboolean show_hidden;
-	GtkWidget *hidden_button;
-
 	GtkWidget *bookmark_list;
 
 	GtkTreePath *right_click_path;
@@ -166,14 +163,6 @@ static gint dest_sort_cb(gconstpointer a, gconstpointer b)
 	return CASE_SORT(static_cast<const gchar *>(a), static_cast<const gchar *>(b));
 }
 
-static gboolean is_hidden(const gchar *name)
-{
-	if (name[0] != '.') return FALSE;
-	if (name[1] == '\0') return FALSE;
-	if (name[1] == '.' && name[2] == '\0') return FALSE;
-	return TRUE;
-}
-
 static void dest_populate(Dest_Data *dd, const gchar *path)
 {
 	DIR *dp;
@@ -202,21 +191,18 @@ static void dest_populate(Dest_Data *dd, const gchar *path)
 		if (dir->d_name[0] == '.' && dir->d_name[1] == '.' && dir->d_name[2] == '\0'
 		    && pathl[0] == G_DIR_SEPARATOR && pathl[1] == '\0')
 			continue; /* no .. for root directory */
-		if (dd->show_hidden || !is_hidden(dir->d_name))
+		gchar *name = dir->d_name;
+		gchar *filepath = g_build_filename(pathl, name, NULL);
+		if (stat(filepath, &ent_sbuf) >= 0 && S_ISDIR(ent_sbuf.st_mode))
 			{
-			gchar *name = dir->d_name;
-			gchar *filepath = g_build_filename(pathl, name, NULL);
-			if (stat(filepath, &ent_sbuf) >= 0 && S_ISDIR(ent_sbuf.st_mode))
-				{
-				path_list = g_list_prepend(path_list, path_to_utf8(name));
-				}
-			else if (dd->f_view)
-				{
-				if (!dd->filter || (dd->filter && dest_check_filter(dd->filter, name)))
-					file_list = g_list_prepend(file_list, path_to_utf8(name));
-				}
-			g_free(filepath);
+			path_list = g_list_prepend(path_list, path_to_utf8(name));
 			}
+		else if (dd->f_view)
+			{
+			if (!dd->filter || (dd->filter && dest_check_filter(dd->filter, name)))
+				file_list = g_list_prepend(file_list, path_to_utf8(name));
+			}
+		g_free(filepath);
 		}
 	closedir(dp);
 	g_free(pathl);
@@ -824,18 +810,6 @@ static void dest_home_cb(GtkWidget *, gpointer data)
 	dest_change_dir(dd, homedir(), (dd->f_view != nullptr));
 }
 
-static void dest_show_hidden_cb(GtkWidget *, gpointer data)
-{
-	auto dd = static_cast<Dest_Data *>(data);
-	gchar *buf;
-
-	dd->show_hidden = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(dd->hidden_button));
-
-	buf = g_strdup(dd->path);
-	dest_populate(dd, buf);
-	g_free(buf);
-}
-
 static void dest_entry_changed_cb(GtkEditable *, gpointer data)
 {
 	auto dd = static_cast<Dest_Data *>(data);
@@ -1022,12 +996,6 @@ GtkWidget *path_selection_new_with_files(GtkWidget *entry, const gchar *path,
 			G_CALLBACK(dest_home_cb), dd);
 	pref_button_new(hbox1, nullptr, _("New folder"),
 			G_CALLBACK(dest_new_dir_cb), dd);
-
-	dd->hidden_button = gtk_check_button_new_with_label(_("Show hidden"));
-	g_signal_connect(G_OBJECT(dd->hidden_button), "clicked",
-			 G_CALLBACK(dest_show_hidden_cb), dd);
-	gq_gtk_box_pack_end(GTK_BOX(hbox1), dd->hidden_button, FALSE, FALSE, 0);
-	gtk_widget_show(dd->hidden_button);
 
 	gq_gtk_box_pack_start(GTK_BOX(table), hbox1, FALSE, FALSE, 0);
 	gq_gtk_widget_show_all(hbox1);

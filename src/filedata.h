@@ -302,13 +302,12 @@ class FileData::FileList
 	static GList *to_path_list(GList *list);
 
 	static GList *filter(GList *list, gboolean is_dir_list);
-	static gboolean lists_file(const gchar *filepath, const gchar *name); /**< whether read_list puts this non-directory in its files */
+	static gboolean lists_file(const gchar *name); /**< whether read_list puts this non-directory in its files */
 
 	static GList *sort_path(GList *list);
 	static GList *recursive(FileData *dir_fd);
 
     protected:
-	static gboolean is_hidden_file(const gchar *filepath);
 	static gboolean read_list_real(const gchar *dir_path, GList **files, GList **dirs, gboolean follow_symlinks);
 	static gint sort_file_cb(gconstpointer a, gconstpointer b, gpointer data);
 	static gint sort_path_cb(gconstpointer a, gconstpointer b);
@@ -371,7 +370,7 @@ GList *filelist_from_path_list(GList *list);
 GList *filelist_to_path_list(GList *list);
 
 GList *filelist_filter(GList *list, gboolean is_dir_list);
-gboolean filelist_lists_file(const gchar *filepath, const gchar *name);
+gboolean filelist_lists_file(const gchar *name);
 
 GList *filelist_sort_path(GList *list);
 GList *filelist_recursive(FileData *dir_fd);

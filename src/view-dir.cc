@@ -520,14 +520,6 @@ static void vd_pop_menu_refresh_cb(GtkWidget *, gpointer data)
 	if (vd->layout) layout_refresh(vd->layout);
 }
 
-static void vd_toggle_show_hidden_files_cb(GtkWidget *, gpointer data)
-{
-	auto vd = static_cast<ViewDir *>(data);
-
-	options->file_filter.show_hidden_files = !options->file_filter.show_hidden_files;
-	if (vd->layout) layout_refresh(vd->layout);
-}
-
 static void vd_pop_menu_new_folder_cb(gboolean success, const gchar *new_path, gpointer data)
 {
 	auto vd = static_cast<ViewDir *>(data);
@@ -675,9 +667,6 @@ GtkWidget *vd_pop_menu(ViewDir *vd, FileData *fd)
 	gtk_menu_item_set_submenu(GTK_MENU_ITEM(item), submenu);
 
 	menu_item_add_divider(menu);
-
-	menu_item_add_check(menu, _("Show _hidden files"), options->file_filter.show_hidden_files,
-			    G_CALLBACK(vd_toggle_show_hidden_files_cb), vd);
 
 	menu_item_add_icon(menu, _("Re_fresh"), GQ_ICON_REFRESH,
 			    G_CALLBACK(vd_pop_menu_refresh_cb), vd);

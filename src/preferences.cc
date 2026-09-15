@@ -211,7 +211,6 @@ static void config_window_apply()
 
 	config_entry_to_option(safe_delete_path_entry, &options->file_ops.safe_delete_path, remove_trailing_slash);
 
-	if (options->file_filter.show_hidden_files != c_options->file_filter.show_hidden_files) refresh = TRUE;
 	if (options->file_sort.case_sensitive != c_options->file_sort.case_sensitive) refresh = TRUE;
 	if (options->file_filter.disable_file_extension_checks != c_options->file_filter.disable_file_extension_checks) refresh = TRUE;
 	if (options->file_filter.disable != c_options->file_filter.disable) refresh = TRUE;
@@ -237,7 +236,6 @@ static void config_window_apply()
 		}
 	options->thumbnails.enable_caching = c_options->thumbnails.enable_caching;
 	options->thumbnails.use_ft_metadata = c_options->thumbnails.use_ft_metadata;
-	options->file_filter.show_hidden_files = c_options->file_filter.show_hidden_files;
 	options->file_filter.disable_file_extension_checks = c_options->file_filter.disable_file_extension_checks;
 
 	options->file_sort.case_sensitive = c_options->file_sort.case_sensitive;
@@ -1552,8 +1550,6 @@ static void config_tab_files(GtkWidget *notebook)
 
 	group = pref_box_new(vbox, FALSE, GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
 
-	pref_checkbox_new_int(group, _("Show hidden files or folders"),
-			      options->file_filter.show_hidden_files, &c_options->file_filter.show_hidden_files);
 	pref_checkbox_new_int(group, _("Case sensitive sort (Search and Collection windows, and tab completion)"), options->file_sort.case_sensitive, &c_options->file_sort.case_sensitive);
 	pref_checkbox_new_int(group, _("Disable file extension checks"),
 			      options->file_filter.disable_file_extension_checks, &c_options->file_filter.disable_file_extension_checks);

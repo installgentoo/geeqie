@@ -124,7 +124,6 @@ struct ConfOptions
 
 	/* file filtering */
 	struct {
-		gboolean show_hidden_files;
 		gboolean disable_file_extension_checks;
 		gboolean disable;
 	} file_filter;

@@ -52,7 +52,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->sort_totals = FALSE;
 
 	options->file_filter.disable = FALSE;
-	options->file_filter.show_hidden_files = FALSE;
 	options->file_filter.disable_file_extension_checks = FALSE;
 
 	options->hide_window_decorations = FALSE;

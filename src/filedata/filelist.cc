@@ -26,6 +26,7 @@
 #include "filedata.h"
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include <cerrno>
@@ -47,104 +48,66 @@
  * the main filelist function
  *-----------------------------------------------------------------------------
  */
-/**
- * @brief File hidden status
- * @param filepath Full path to file
- * @returns
- *
- * Takes into account the contents of a .hidden file.
- * The Preferences/File Filters/Show Hidden Files Or Folders
- * option will ultimately determine if the file is displayed.
- */
-gboolean FileData::FileList::is_hidden_file(const gchar *filepath)
+gboolean FileData::FileList::lists_file(const gchar *name)
 {
-	GFile *file;
-	GFileInfo *info;
-	gboolean res = FALSE;
-
-	file = g_file_new_for_path(filepath);
-	info = g_file_query_info(file, G_FILE_ATTRIBUTE_STANDARD_IS_HIDDEN, G_FILE_QUERY_INFO_NONE, nullptr, nullptr);
-
-	if (info)
-		{
-		res = g_file_info_get_is_hidden(info);
-
-		g_object_unref(info);
-		}
-
-	g_object_unref(file);
-
-	return res;
-}
-
-gboolean FileData::FileList::lists_file(const gchar *filepath, const gchar *name)
-{
-	return (options->file_filter.show_hidden_files || !is_hidden_file(filepath)) && filter_name_exists(name);
+	return filter_name_exists(name);
 }
 
 gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files, GList **dirs, gboolean follow_symlinks)
 {
-	DIR *dp;
-	struct dirent *dir;
-	gchar *pathl;
 	GList *dlist = nullptr;
 	GList *flist = nullptr;
-	gint (*stat_func)(const gchar *path, struct stat *buf);
 
 	g_assert(files || dirs);
 
 	if (files) *files = nullptr;
 	if (dirs) *dirs = nullptr;
 
-	pathl = path_from_utf8(dir_path);
+	g_autofree gchar *pathl = path_from_utf8(dir_path);
 	if (!pathl) return FALSE;
 
-	dp = opendir(pathl);
-	if (dp == nullptr)
-		{
-		g_free(pathl);
-		return FALSE;
-		}
+	DIR *dp = opendir(pathl);
+	if (dp == nullptr) return FALSE;
 
-	if (follow_symlinks)
-		stat_func = stat;
-	else
-		stat_func = lstat;
-
+	struct dirent *dir;
 	while ((dir = readdir(dp)) != nullptr)
 		{
 		const gchar *name = dir->d_name;
-		g_autofree gchar *filepath = g_build_filename(pathl, name, NULL);
+
+		if (name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0'))) continue;
+
+		/* The stat is the cost of listing a large folder, so it is skipped for entries this listing would drop
+		 * anyway: d_type tells directories apart without one, except DT_UNKNOWN (filesystems that do not fill it)
+		 * and symlinks, whose target type needs the stat. */
+		const gboolean may_be_dir = dir->d_type == DT_DIR || dir->d_type == DT_UNKNOWN ||
+		                            (follow_symlinks && dir->d_type == DT_LNK);
+		const gboolean wanted_file = files && dir->d_type != DT_DIR && lists_file(name);
+		if (!(dirs && may_be_dir) && !wanted_file) continue;
 
 		struct stat ent_sbuf;
-		if (stat_func(filepath, &ent_sbuf) < 0)
+		if (fstatat(dirfd(dp), name, &ent_sbuf, follow_symlinks ? 0 : AT_SYMLINK_NOFOLLOW) < 0)
 			{
 			if (errno == EOVERFLOW)
 				{
-				log_printf("stat(): EOVERFLOW, skip '%s'", filepath);
+				log_printf("stat(): EOVERFLOW, skip '%s/%s'", pathl, name);
 				}
 			continue;
 			}
 
+		if (S_ISDIR(ent_sbuf.st_mode) ? !dirs : !wanted_file) continue;
+
+		g_autofree gchar *filepath = g_build_filename(pathl, name, NULL);
 		if (S_ISDIR(ent_sbuf.st_mode))
 			{
-			/* we ignore the .thumbnails dir for cleanliness */
-			if (dirs &&
-			    (name[0] != '.' || (name[1] != '\0' && (name[1] != '.' || name[2] != '\0'))) &&
-			    (options->file_filter.show_hidden_files || !is_hidden_file(filepath)))
-				{
-				dlist = g_list_prepend(dlist, file_data_new_local(filepath, &ent_sbuf));
-				}
+			dlist = g_list_prepend(dlist, file_data_new_local(filepath, &ent_sbuf));
 			}
-		else if (files && lists_file(filepath, name))
+		else
 			{
 			flist = g_list_prepend(flist, file_data_new_local(filepath, &ent_sbuf));
 			}
 		}
 
 	closedir(dp);
-
-	g_free(pathl);
 
 	if (dirs) *dirs = dlist;
 	if (files) *files = flist;
@@ -328,19 +291,16 @@ GList *FileData::FileList::filter(GList *list, gboolean is_dir_list)
 {
 	GList *work;
 
-	if (!is_dir_list && options->file_filter.disable && options->file_filter.show_hidden_files) return list;
+	if (is_dir_list) return list;
 
 	work = list;
 	while (work)
 		{
 		auto fd = static_cast<FileData *>(work->data);
-		const gchar *name = fd->name;
-		const gchar *filepath = fd->path;
 		GList *link = work;
 		work = work->next;
 
-		if ((!options->file_filter.show_hidden_files && is_hidden_file(filepath)) ||
-		    (!is_dir_list && !filter_name_exists(name)))
+		if (!lists_file(fd->name))
 			{
 			list = g_list_remove_link(list, link);
 			::file_data_unref(fd);

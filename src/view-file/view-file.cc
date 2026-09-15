@@ -1181,7 +1181,7 @@ void vf_notify_cb(FileData *fd, NotifyType type, gpointer data)
 	g_autofree gchar *base = remove_level_from_path(fd->path);
 	gboolean listed = !fd->missing && !S_ISDIR(fd->mode) &&
 	                  g_strcmp0(base, vf->dir_fd->path) == 0 &&
-	                  filelist_lists_file(fd->path, fd->name);
+	                  filelist_lists_file(fd->name);
 	GList *link = g_list_find(vf->list_raw, fd);
 
 	if (!link && !listed) return;
