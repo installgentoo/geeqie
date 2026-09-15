@@ -1223,8 +1223,7 @@ static GList *vficon_add_row(ViewFile *vf, GtkTreeIter *iter)
 	for (i = 0; i < VFICON(vf)->columns; i++) list = g_list_prepend(list, nullptr);
 
 	store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview)));
-	gtk_list_store_append(store, iter);
-	gtk_list_store_set(store, iter, FILE_COLUMN_POINTER, list, -1);
+	gtk_list_store_insert_with_values(store, iter, -1, FILE_COLUMN_POINTER, list, -1);
 
 	return list;
 }
@@ -1503,8 +1502,6 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean reread_filelist)
 		ret = filelist_read(vf->dir_fd, &new_raw_list, nullptr);
 		if (ret)
 			{
-			new_raw_list = g_list_first(new_raw_list);
-			new_raw_list = filelist_sort(new_raw_list, vf->sort_method, vf->sort_ascend, vf->sort_case);
 			filelist_free(vf->list_raw);
 			vf->list_raw = new_raw_list;
 			}
@@ -1522,9 +1519,9 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean reread_filelist)
 
 	if (vf->list_raw)
 		{
+		g_autoptr(GRegex) file_filter = vf_file_filter_get_filter(vf);
 		new_filelist = filelist_copy(vf->list_raw);
-		new_filelist = file_data_filter_file_filter_list(new_filelist, vf_file_filter_get_filter(vf));
-		new_filelist = g_list_first(new_filelist);
+		new_filelist = file_data_filter_file_filter_list(new_filelist, file_filter);
 		new_filelist = file_data_filter_class_list(new_filelist, vf_class_get_filter(vf));
 		}
 

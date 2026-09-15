@@ -69,6 +69,9 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 	DIR *dp = opendir(pathl);
 	if (dp == nullptr) return FALSE;
 
+	const gsize dir_path_len = strlen(dir_path);
+	const gchar *dir_separator = (dir_path_len > 0 && dir_path[dir_path_len - 1] == G_DIR_SEPARATOR) ? "" : G_DIR_SEPARATOR_S;
+
 	struct dirent *dir;
 	while ((dir = readdir(dp)) != nullptr)
 		{
@@ -96,14 +99,16 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
 
 		if (S_ISDIR(ent_sbuf.st_mode) ? !dirs : !wanted_file) continue;
 
-		g_autofree gchar *filepath = g_build_filename(pathl, name, NULL);
+		g_autofree gchar *name_utf8 = path_to_utf8(name);
+		g_autofree gchar *filepath = g_strconcat(dir_path, dir_separator, name_utf8, NULL);
+		FileData *fd = file_data_new(filepath, &ent_sbuf);
 		if (S_ISDIR(ent_sbuf.st_mode))
 			{
-			dlist = g_list_prepend(dlist, file_data_new_local(filepath, &ent_sbuf));
+			dlist = g_list_prepend(dlist, fd);
 			}
 		else
 			{
-			flist = g_list_prepend(flist, file_data_new_local(filepath, &ent_sbuf));
+			flist = g_list_prepend(flist, fd);
 			}
 		}
 

@@ -235,10 +235,11 @@ void FileData::set_path(const gchar *new_path)
 		g_free(original_path);
 		}
 
-	g_assert(!g_hash_table_lookup(context->file_data_pool, new_path));
-
 	original_path = g_strdup(new_path);
-	g_hash_table_insert(context->file_data_pool, original_path, this);
+	G_GNUC_UNUSED const gboolean new_key = g_hash_table_insert(context->file_data_pool, original_path, this);
+	g_assert(new_key);
+
+	format_class = FORMAT_CLASS_UNKNOWN;
 
 	if (strcmp(new_path, G_DIR_SEPARATOR_S) == 0)
 		{
@@ -271,7 +272,7 @@ void FileData::set_path(const gchar *new_path)
 		return;
 		}
 
-	extension = registered_extension_from_path(path);
+	extension = registered_extension_and_class(path, &format_class);
 	if (extension == nullptr)
 		{
 		extension = name + strlen(name);
@@ -320,7 +321,10 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileD
 		}
 	else
 		{
-		fd = static_cast<FileData *>(g_hash_table_lookup(context->planned_change_map, path_utf8));
+		if (g_hash_table_size(context->planned_change_map) != 0)
+			{
+			fd = static_cast<FileData *>(g_hash_table_lookup(context->planned_change_map, path_utf8));
+			}
 		if (fd)
 			{
 			DEBUG_1("planned change: using %s -> %s", path_utf8, fd->path);
@@ -368,7 +372,6 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileD
 		}
 	fd->ref = 1;
 	fd->magick = FD_MAGICK;
-	fd->format_class = filter_file_get_class(path_utf8);
 	fd->page_num = 0;
 	fd->page_total = 0;
 
@@ -592,12 +595,14 @@ void FileData::file_data_change_info_free(FileDataChangeInfo *fdci, FileData *fd
 
 gboolean FileData::file_data_filter_file_filter(FileData *fd, GRegex *filter)
 {
-	return g_regex_match(filter, fd->name, static_cast<GRegexMatchFlags>(0), nullptr);
+	return !filter || g_regex_match(filter, fd->name, static_cast<GRegexMatchFlags>(0), nullptr);
 }
 
 GList *FileData::file_data_filter_file_filter_list(GList *list, GRegex *filter)
 {
 	GList *work;
+
+	if (!filter) return list;
 
 	work = list;
 	while (work)
@@ -619,25 +624,15 @@ GList *FileData::file_data_filter_file_filter_list(GList *list, GRegex *filter)
 
 static gboolean file_data_filter_class(FileData *fd, guint filter)
 {
-	gint i;
-
-	for (i = 0; i < FILE_FORMAT_CLASSES; i++)
-		{
-		if (filter & (1 << i))
-			{
-			if (static_cast<FileFormatClass>(i) == filter_file_get_class(fd->path))
-				{
-				return TRUE;
-				}
-			}
-		}
-
-	return FALSE;
+	return (filter & (1u << fd->format_class)) != 0;
 }
 
 GList *FileData::file_data_filter_class_list(GList *list, guint filter)
 {
 	GList *work;
+
+	const guint all_classes = (1u << FILE_FORMAT_CLASSES) - 1;
+	if ((filter & all_classes) == all_classes) return list;
 
 	work = list;
 	while (work)

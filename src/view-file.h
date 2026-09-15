@@ -51,7 +51,7 @@ struct ViewFile
 	} file_filter;
 
 	FileData *dir_fd;
-	GList *list_raw; /**< complete directory snapshot used for fast filter refresh */
+	GList *list_raw; /**< complete directory snapshot used for fast filter refresh; unordered */
 	GList *list;
 
 	FileData *click_fd;

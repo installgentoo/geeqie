@@ -22,6 +22,9 @@
 #include "filefilter.h"
 
 #include <cstring>
+#include <algorithm>
+#include <functional>
+#include <vector>
 
 #include <gdk-pixbuf/gdk-pixbuf.h>
 
@@ -42,6 +45,13 @@ static GList *filter_list = nullptr;
 static GList *extension_list = nullptr;
 
 static GList *file_class_extension_list[FILE_FORMAT_CLASSES];
+
+/* The lists above as a lookup table: lowercased extension -> EXTENSION_LISTED | a bit per class listing it.
+ * An extension matches as a plain case-insensitive suffix of the name, not necessarily after a dot, so a lookup
+ * tries every distinct extension length. */
+static GHashTable *extension_table = nullptr;
+static std::vector<gsize> extension_lengths; /**< distinct, longest first */
+constexpr guint EXTENSION_LISTED = 1u << 31;
 
 static FilterEntry *filter_entry_new(const gchar *key, const gchar *description,
 				     const gchar *extensions, FileFormatClass file_class,
@@ -335,41 +345,84 @@ void filter_rebuild()
 
 	/* make sure registered_extension_from_path finds the longer match first */
 	extension_list = g_list_sort(extension_list, filter_sort_ext_len_cb);
+
+	if (extension_table) g_hash_table_destroy(extension_table);
+	extension_table = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, nullptr);
+	extension_lengths.clear();
+
+	const auto add = [](const gchar *ext, guint bits)
+		{
+		gchar *key = g_ascii_strdown(ext, -1);
+		const guint old = GPOINTER_TO_UINT(g_hash_table_lookup(extension_table, key));
+		g_hash_table_insert(extension_table, key, GUINT_TO_POINTER(old | EXTENSION_LISTED | bits));
+
+		const gsize len = strlen(ext);
+		if (std::find(extension_lengths.begin(), extension_lengths.end(), len) == extension_lengths.end())
+			{
+			extension_lengths.push_back(len);
+			}
+		};
+
+	for (work = extension_list; work; work = work->next) add(static_cast<const gchar *>(work->data), 0);
+	for (i = 0; i < FILE_FORMAT_CLASSES; i++)
+		{
+		for (work = file_class_extension_list[i]; work; work = work->next) add(static_cast<const gchar *>(work->data), 1u << i);
+		}
+	std::sort(extension_lengths.begin(), extension_lengths.end(), std::greater<>());
 }
 
-/* return the extension part of the name or NULL */
-static const gchar *filter_name_find(GList *filter, const gchar *name)
+/* Returns the longest listed extension the name ends with, or nullptr, and ORs the class bits of every listed
+ * extension the name ends with into *classes. */
+static const gchar *filter_extension_lookup(const gchar *name, guint *classes)
 {
-	GList *work;
-	guint ln;
+	*classes = 0;
+	if (!extension_table) return nullptr;
 
-	ln = strlen(name);
-	work = filter;
-	while (work)
+	const gsize name_len = strlen(name);
+	const gchar *longest = nullptr;
+	gchar stack_key[32];
+
+	for (const gsize len : extension_lengths)
 		{
-		auto filter = static_cast<gchar *>(work->data);
-		guint lf = strlen(filter);
+		if (len > name_len) continue;
 
-		if (ln >= lf)
-			{
-			/** @FIXME utf8 */
-			if (g_ascii_strncasecmp(name + ln - lf, filter, lf) == 0) return name + ln - lf;
-			}
-		work = work->next;
+		const gchar *suffix = name + name_len - len;
+		gchar *key = len < sizeof(stack_key) ? stack_key : static_cast<gchar *>(g_malloc(len + 1));
+		for (gsize i = 0; i < len; i++) key[i] = g_ascii_tolower(suffix[i]);
+		key[len] = '\0';
+
+		const guint bits = GPOINTER_TO_UINT(g_hash_table_lookup(extension_table, key));
+		if (key != stack_key) g_free(key);
+
+		if (!(bits & EXTENSION_LISTED)) continue;
+		if (!longest) longest = suffix;
+		*classes |= bits & ~EXTENSION_LISTED;
 		}
 
-	return nullptr;
+	return longest;
 }
+
 const gchar *registered_extension_from_path(const gchar *name)
 {
-	return filter_name_find(extension_list, name);
+	guint classes;
+	return filter_extension_lookup(name, &classes);
 }
 
 gboolean filter_name_exists(const gchar *name)
 {
 	if (!extension_list || options->file_filter.disable) return TRUE;
 
-	return !!filter_name_find(extension_list, name);
+	guint classes;
+	return !!filter_extension_lookup(name, &classes);
+}
+
+static FileFormatClass filter_class_from_bits(guint classes)
+{
+	for (const FileFormatClass file_class : {FORMAT_CLASS_IMAGE, FORMAT_CLASS_VIDEO, FORMAT_CLASS_DOCUMENT})
+		{
+		if (classes & (1u << file_class)) return file_class;
+		}
+	return FORMAT_CLASS_UNKNOWN;
 }
 
 gboolean filter_file_class(const gchar *name, FileFormatClass file_class)
@@ -380,15 +433,24 @@ gboolean filter_file_class(const gchar *name, FileFormatClass file_class)
 		return FALSE;
 		}
 
-	return !!filter_name_find(file_class_extension_list[file_class], name);
+	guint classes;
+	filter_extension_lookup(name, &classes);
+	return (classes & (1u << file_class)) != 0;
 }
 
 FileFormatClass filter_file_get_class(const gchar *name)
 {
-	if (filter_file_class(name, FORMAT_CLASS_IMAGE)) return FORMAT_CLASS_IMAGE;
-	if (filter_file_class(name, FORMAT_CLASS_VIDEO)) return FORMAT_CLASS_VIDEO;
-	if (filter_file_class(name, FORMAT_CLASS_DOCUMENT)) return FORMAT_CLASS_DOCUMENT;
-	return FORMAT_CLASS_UNKNOWN;
+	guint classes;
+	filter_extension_lookup(name, &classes);
+	return filter_class_from_bits(classes);
+}
+
+const gchar *registered_extension_and_class(const gchar *name, FileFormatClass *file_class)
+{
+	guint classes;
+	const gchar *extension = filter_extension_lookup(name, &classes);
+	*file_class = filter_class_from_bits(classes);
+	return extension;
 }
 
 void filter_write_list(GString *outstr, gint indent)

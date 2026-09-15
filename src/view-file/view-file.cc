@@ -1051,34 +1051,21 @@ void vf_thumb_update(ViewFile *vf)
 	g_list_free(wanted);
 }
 
+/* nullptr when no filter text is set, meaning every name passes */
 GRegex *vf_file_filter_get_filter(ViewFile *vf)
 {
-	GRegex *ret = nullptr;
+	if (!gtk_widget_get_visible(vf->file_filter.combo)) return nullptr;
+
+	g_autofree gchar *file_filter_text = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(vf->file_filter.combo));
+	if (!file_filter_text || file_filter_text[0] == '\0') return nullptr;
+
 	GError *error = nullptr;
-	gchar *file_filter_text = nullptr;
-
-	if (!gtk_widget_get_visible(vf->file_filter.combo))
+	GRegex *ret = g_regex_new(file_filter_text, vf->file_filter.case_sensitive ? static_cast<GRegexCompileFlags>(0) : G_REGEX_CASELESS, static_cast<GRegexMatchFlags>(0), &error);
+	if (error)
 		{
-		return g_regex_new("", static_cast<GRegexCompileFlags>(0), static_cast<GRegexMatchFlags>(0), nullptr);
-		}
-
-	file_filter_text = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(vf->file_filter.combo));
-
-	if (file_filter_text[0] != '\0')
-		{
-		ret = g_regex_new(file_filter_text, vf->file_filter.case_sensitive ? static_cast<GRegexCompileFlags>(0) : G_REGEX_CASELESS, static_cast<GRegexMatchFlags>(0), &error);
-		if (error)
-			{
-			log_printf("Error: could not compile regular expression %s\n%s\n", file_filter_text, error->message);
-			g_error_free(error);
-			error = nullptr;
-			ret = g_regex_new("", static_cast<GRegexCompileFlags>(0), static_cast<GRegexMatchFlags>(0), nullptr);
-			}
-		g_free(file_filter_text);
-		}
-	else
-		{
-		ret = g_regex_new("", static_cast<GRegexCompileFlags>(0), static_cast<GRegexMatchFlags>(0), nullptr);
+		log_printf("Error: could not compile regular expression %s\n%s\n", file_filter_text, error->message);
+		g_error_free(error);
+		return nullptr;
 		}
 
 	return ret;

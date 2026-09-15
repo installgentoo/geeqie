@@ -51,6 +51,7 @@ const gchar *registered_extension_from_path(const gchar *name);
 gboolean filter_name_exists(const gchar *name);
 gboolean filter_file_class(const gchar *name, FileFormatClass file_class);
 FileFormatClass filter_file_get_class(const gchar *name);
+const gchar *registered_extension_and_class(const gchar *name, FileFormatClass *file_class); /**< registered_extension_from_path and filter_file_get_class in one lookup */
 
 void filter_write_list(GString *outstr, gint indent);
 void filter_load_file_type(const gchar **attribute_names, const gchar **attribute_values);
