@@ -8,7 +8,7 @@ inherit flag-o-matic meson optfeature xdg
 DESCRIPTION="A lightweight GTK image viewer forked from GQview (stripped-down fork)"
 HOMEPAGE="https://github.com/installgentoo/geeqie"
 
-COMMIT="2b2feccf40a3fee048b550443fe1d9aa054835ac"
+COMMIT="4253bca0c3ca21847dbcb7be4cb93a6186e11373"
 SRC_URI="https://github.com/installgentoo/${PN}/archive/${COMMIT}.tar.gz -> ${P}.tar.gz"
 KEYWORDS="~amd64 ~arm64 ~x86"
 S="${WORKDIR}/${PN}-${COMMIT}"
@@ -71,8 +71,10 @@ src_configure() {
 pkg_postinst() {
 	xdg_pkg_postinst
 
+	optfeature "Dialogs in the bundled plugins" gnome-extra/zenity
 	optfeature "Camera import and tethered photography plugins" media-gfx/gphoto2
 	optfeature "Image crop plugin" "media-libs/exiftool media-gfx/imagemagick"
+	optfeature "Image resize plugin" "x11-misc/yad media-gfx/imagemagick"
 	optfeature "Image rotate plugin (JPEG)" media-gfx/fbida
 	optfeature "Image rotate plugin (TIFF/PNG)" media-gfx/imagemagick
 	optfeature "Video similarity in the duplicates window" media-video/ffmpeg
