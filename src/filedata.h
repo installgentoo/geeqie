@@ -131,10 +131,6 @@ class FileData {
 	const gchar *extension;
 	FileFormatClass format_class;
 	gchar *format_name; /**< set by the image loader */
-	gchar *collate_key_name;
-	gchar *collate_key_name_nocase;
-	gchar *collate_key_name_natural;
-	gchar *collate_key_name_nocase_natural;
 	gint64 size;
 	time_t date;
 	time_t cdate;
@@ -290,6 +286,7 @@ class FileData::FileList
 		gboolean case_sensitive = TRUE;
 	};
 
+	static gint compare_names(const gchar *a, const gchar *b, gboolean case_sensitive, gboolean natural);
 	static gint sort_compare_filedata(const FileData *fa, const FileData *fb, SortSettings *settings);
 	static gint sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend, gboolean case_sensitive);
 	static GList *sort(GList *list, SortType method, gboolean ascending, gboolean case_sensitive);
@@ -359,6 +356,7 @@ void file_data_increment_version(FileData *fd);
 
 void file_data_change_info_free(FileDataChangeInfo *fdci, FileData *fd);
 
+gint filelist_compare_names(const gchar *a, const gchar *b, gboolean case_sensitive, gboolean natural);
 gint filelist_sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend, gboolean case_sensitive);
 GList *filelist_sort(GList *list, SortType method, gboolean ascending, gboolean case_sensitive);
 

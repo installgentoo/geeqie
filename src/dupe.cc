@@ -1518,15 +1518,15 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 		}
 	if (mask & DUPE_MATCH_NAME)
 		{
-		if (strcmp(a->fd->collate_key_name, b->fd->collate_key_name) != 0) return FALSE;
+		if (filelist_compare_names(a->fd->name, b->fd->name, TRUE, FALSE) != 0) return FALSE;
 		}
 	if (mask & DUPE_MATCH_NAME_CI)
 		{
-		if (strcmp(a->fd->collate_key_name_nocase, b->fd->collate_key_name_nocase) != 0) return FALSE;
+		if (filelist_compare_names(a->fd->name, b->fd->name, FALSE, FALSE) != 0) return FALSE;
 		}
 	if (mask & DUPE_MATCH_NAME_CONTENT)
 		{
-		if (strcmp(a->fd->collate_key_name, b->fd->collate_key_name) == 0)
+		if (filelist_compare_names(a->fd->name, b->fd->name, TRUE, FALSE) == 0)
 			{
 			if (!a->md5sum) a->md5sum = md5_text_from_file_utf8(a->fd->path, "");
 			if (!b->md5sum) b->md5sum = md5_text_from_file_utf8(b->fd->path, "");
@@ -1543,7 +1543,7 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 		}
 	if (mask & DUPE_MATCH_NAME_CI_CONTENT)
 		{
-		if (strcmp(a->fd->collate_key_name_nocase, b->fd->collate_key_name_nocase) == 0)
+		if (filelist_compare_names(a->fd->name, b->fd->name, FALSE, FALSE) == 0)
 			{
 			if (!a->md5sum) a->md5sum = md5_text_from_file_utf8(a->fd->path, "");
 			if (!b->md5sum) b->md5sum = md5_text_from_file_utf8(b->fd->path, "");
@@ -1632,21 +1632,21 @@ static DUPE_CHECK_RESULT dupe_match_check(DupeItem *di1, DupeItem *di2, gpointer
 		}
 	if (mask & DUPE_MATCH_NAME)
 		{
-		if (g_strcmp0(di1->fd->collate_key_name, di2->fd->collate_key_name) != 0)
+		if (filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE) != 0)
 			{
 			return DUPE_NO_MATCH;
 			}
 		}
 	if (mask & DUPE_MATCH_NAME_CI)
 		{
-		if (g_strcmp0(di1->fd->collate_key_name_nocase, di2->fd->collate_key_name_nocase) != 0 )
+		if (filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE) != 0 )
 			{
 			return DUPE_NO_MATCH;
 			}
 		}
 	if (mask & DUPE_MATCH_NAME_CONTENT)
 		{
-		if (g_strcmp0(di1->fd->collate_key_name, di2->fd->collate_key_name) == 0)
+		if (filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE) == 0)
 			{
 			if (g_strcmp0(di1->md5sum, di2->md5sum) == 0)
 				{
@@ -1660,7 +1660,7 @@ static DUPE_CHECK_RESULT dupe_match_check(DupeItem *di1, DupeItem *di2, gpointer
 		}
 	if (mask & DUPE_MATCH_NAME_CI_CONTENT)
 		{
-		if (strcmp(di1->fd->collate_key_name_nocase, di2->fd->collate_key_name_nocase) == 0)
+		if (filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE) == 0)
 			{
 			if (g_strcmp0(di1->md5sum, di2->md5sum) == 0)
 				{
@@ -1712,19 +1712,19 @@ static gint dupe_match_binary_search_cb(gconstpointer a, gconstpointer b)
 		}
 	if (mask & DUPE_MATCH_NAME)
 		{
-		return g_strcmp0(di1->fd->collate_key_name, di2->fd->collate_key_name);
+		return filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE);
 		}
 	if (mask & DUPE_MATCH_NAME_CI)
 		{
-		return strcmp(di1->fd->collate_key_name_nocase, di2->fd->collate_key_name_nocase);
+		return filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE);
 		}
 	if (mask & DUPE_MATCH_NAME_CONTENT)
 		{
-		return g_strcmp0(di1->fd->collate_key_name, di2->fd->collate_key_name);
+		return filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE);
 		}
 	if (mask & DUPE_MATCH_NAME_CI_CONTENT)
 		{
-		return strcmp(di1->fd->collate_key_name_nocase, di2->fd->collate_key_name_nocase);
+		return filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE);
 		}
 	if (mask & DUPE_MATCH_SUM)
 		{
@@ -1760,19 +1760,19 @@ static gint dupe_match_sort_cb(gconstpointer a, gconstpointer b, gpointer data)
 		}
 	if (mask & DUPE_MATCH_NAME)
 		{
-		return g_strcmp0(di1->fd->collate_key_name, di2->fd->collate_key_name);
+		return filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE);
 		}
 	if (mask & DUPE_MATCH_NAME_CI)
 		{
-		return strcmp(di1->fd->collate_key_name_nocase, di2->fd->collate_key_name_nocase);
+		return filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE);
 		}
 	if (mask & DUPE_MATCH_NAME_CONTENT)
 		{
-		return g_strcmp0(di1->fd->collate_key_name, di2->fd->collate_key_name);
+		return filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE);
 		}
 	if (mask & DUPE_MATCH_NAME_CI_CONTENT)
 		{
-		return strcmp(di1->fd->collate_key_name_nocase, di2->fd->collate_key_name_nocase);
+		return filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE);
 		}
 	if (mask & DUPE_MATCH_SUM)
 		{

@@ -106,6 +106,11 @@ void file_data_change_info_free(FileDataChangeInfo *fdci, FileData *fd)
 }
 
 
+gint filelist_compare_names(const gchar *a, const gchar *b, gboolean case_sensitive, gboolean natural)
+{
+	return FileData::FileList::compare_names(a, b, case_sensitive, natural);
+}
+
 gint filelist_sort_compare_filedata_full(const FileData *fa, const FileData *fb, SortType method, gboolean ascend, gboolean case_sensitive)
 {
 	return FileData::FileList::sort_compare_filedata_full(fa, fb, method, ascend, case_sensitive);

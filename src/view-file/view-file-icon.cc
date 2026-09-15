@@ -1296,14 +1296,13 @@ static void vficon_populate(ViewFile *vf, gboolean resize)
 		if (valid)
 			{
 			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
-			gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
 			}
 		else
 			{
 			list = vficon_add_row(vf, &iter);
 			}
 
-		while (list)
+		for (GList *cell = list; cell; cell = cell->next)
 			{
 			FileData *fd;
 
@@ -1317,10 +1316,16 @@ static void vficon_populate(ViewFile *vf, gboolean resize)
 				fd = nullptr;
 				}
 
-			list->data = fd;
-			list = list->next;
+			cell->data = fd;
 			}
-		if (valid) valid = gtk_tree_model_iter_next(store, &iter);
+
+		/* GTK runs the cell data function for a changed row right away, so the row must already hold the new
+		 * files: the ones it held before may be freed by now (a deleted file, or the previous folder's). */
+		if (valid)
+			{
+			gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
+			valid = gtk_tree_model_iter_next(store, &iter);
+			}
 		}
 
 	r++;
@@ -1773,13 +1778,16 @@ gboolean vficon_set_fd(ViewFile *vf, FileData *dir_fd)
 	g_list_free(VFICON(vf)->selection);
 	VFICON(vf)->selection = nullptr;
 
-	g_list_free(vf->list);
+	/* vf->list holds a reference per file, so releasing it can free them: drop the pointers into it first */
+	VFICON(vf)->focus_fd = nullptr;
+	VFICON(vf)->prev_selection = nullptr;
+	vf->click_fd = nullptr;
+	filelist_free(vf->list);
 	vf->list = nullptr;
 
 	/* NOTE: populate will clear the store for us */
 	ret = vficon_refresh_real(vf, TRUE);
 
-	VFICON(vf)->focus_fd = nullptr;
 	vficon_move_focus(vf, 0, 0, FALSE);
 
 	return ret;
@@ -1795,7 +1803,7 @@ void vficon_destroy_cb(ViewFile *vf)
 
 	vf_thumb_cleanup(vf);
 
-	g_list_free(vf->list);
+	filelist_free(vf->list);
 	g_list_free(VFICON(vf)->selection);
 }
 

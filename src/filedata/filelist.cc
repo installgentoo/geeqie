@@ -122,6 +122,87 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
  */
 
 
+/* Compares character by character in Unicode code point order, not locale collation: collation needs a
+ * transformed copy of every name, which was the main cost of listing a large folder with non-ASCII names.
+ * Code point order is deterministic, so the same names always land in the same places. */
+gint FileData::FileList::compare_names(const gchar *a, const gchar *b, gboolean case_sensitive, gboolean natural)
+{
+	const gchar *const a_start = a;
+
+	while (*a && *b)
+		{
+		/* Equal bytes are equal characters under any comparison mode, so a shared prefix is skipped without
+		 * decoding; the first difference is rewound to where its character, and for natural order its digit
+		 * run, begins, since only those compare as a whole. */
+		if (*a == *b)
+			{
+			while (*a && *a == *b)
+				{
+				a++;
+				b++;
+				}
+			while (a > a_start && (static_cast<guchar>(*a) & 0xC0) == 0x80)
+				{
+				a--;
+				b--;
+				}
+			if (natural)
+				{
+				while (a > a_start && g_ascii_isdigit(a[-1]))
+					{
+					a--;
+					b--;
+					}
+				}
+			if (!*a || !*b) break;
+			}
+
+		if (natural && g_ascii_isdigit(*a) && g_ascii_isdigit(*b))
+			{
+			/* a digit run compares by value: longer without leading zeros is larger, then digit by digit */
+			while (*a == '0') a++;
+			while (*b == '0') b++;
+			const gchar *a_end = a;
+			const gchar *b_end = b;
+			while (g_ascii_isdigit(*a_end)) a_end++;
+			while (g_ascii_isdigit(*b_end)) b_end++;
+
+			if (a_end - a != b_end - b) return (a_end - a < b_end - b) ? -1 : 1;
+			const gint ret = strncmp(a, b, a_end - a);
+			if (ret != 0) return ret;
+
+			a = a_end;
+			b = b_end;
+			continue;
+			}
+
+		gunichar ca;
+		gunichar cb;
+		if (static_cast<guchar>(*a) < 0x80 && static_cast<guchar>(*b) < 0x80)
+			{
+			ca = static_cast<guchar>(*a++);
+			cb = static_cast<guchar>(*b++);
+			}
+		else
+			{
+			/* a byte that is not valid UTF-8 compares by its own value */
+			ca = g_utf8_get_char_validated(a, -1);
+			if (ca >= static_cast<gunichar>(-2)) ca = static_cast<guchar>(*a++); else a = g_utf8_next_char(a);
+			cb = g_utf8_get_char_validated(b, -1);
+			if (cb >= static_cast<gunichar>(-2)) cb = static_cast<guchar>(*b++); else b = g_utf8_next_char(b);
+			}
+
+		if (!case_sensitive)
+			{
+			ca = g_unichar_tolower(ca);
+			cb = g_unichar_tolower(cb);
+			}
+		if (ca != cb) return (ca < cb) ? -1 : 1;
+		}
+
+	return (*a != '\0') - (*b != '\0');
+}
+
 gint FileData::FileList::sort_compare_filedata(
 	const FileData *fa, const FileData *fb, SortSettings *settings)
 {
@@ -156,15 +237,7 @@ gint FileData::FileList::sort_compare_filedata(
 			/* fall back to name */
 			break;
 		case SORT_NUMBER:
-			if (settings->case_sensitive)
-				{
-				ret = strcmp(fa->collate_key_name_natural,
-					     fb->collate_key_name_natural);
-			} else {
-				ret = strcmp(fa->collate_key_name_nocase_natural,
-					     fb->collate_key_name_nocase_natural);
-			}
-
+			ret = compare_names(fa->name, fb->name, settings->case_sensitive, TRUE);
 			if (ret != 0) return ret;
 			/* fall back to name */
 			break;
@@ -172,11 +245,7 @@ gint FileData::FileList::sort_compare_filedata(
 			break;
 		}
 
-	if (settings->case_sensitive)
-		ret = strcmp(fa->collate_key_name, fb->collate_key_name);
-	else
-		ret = strcmp(fa->collate_key_name_nocase, fb->collate_key_name_nocase);
-
+	ret = compare_names(fa->name, fb->name, settings->case_sensitive, FALSE);
 	if (ret != 0) return ret;
 
 	/* do not return 0 unless the files are really the same

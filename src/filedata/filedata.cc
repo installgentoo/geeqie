@@ -222,26 +222,6 @@ gboolean FileData::file_data_check_changed_files(FileData *fd)
  *-----------------------------------------------------------------------------
  */
 
-static void file_data_set_collate_keys(FileData *fd)
-{
-	gchar *caseless_name;
-	gchar *valid_name;
-
-	valid_name = g_filename_display_name(fd->name);
-	caseless_name = g_utf8_casefold(valid_name, -1);
-
-	g_free(fd->collate_key_name);
-	g_free(fd->collate_key_name_nocase);
-
- 	fd->collate_key_name_natural = g_utf8_collate_key_for_filename(fd->name, -1);
- 	fd->collate_key_name_nocase_natural = g_utf8_collate_key_for_filename(caseless_name, -1);
-	fd->collate_key_name = g_utf8_collate_key(valid_name, -1);
-	fd->collate_key_name_nocase = g_utf8_collate_key(caseless_name, -1);
-
-	g_free(valid_name);
-	g_free(caseless_name);
-}
-
 void FileData::set_path(const gchar *new_path)
 {
 	g_assert(new_path /* && *new_path*/); /* view_dir_tree uses FileData with zero length path */
@@ -265,7 +245,6 @@ void FileData::set_path(const gchar *new_path)
 		path = g_strdup(new_path);
 		name = path;
 		extension = name + 1;
-		file_data_set_collate_keys(this);
 		return;
 		}
 
@@ -280,7 +259,6 @@ void FileData::set_path(const gchar *new_path)
 		g_free(dir);
 		name = "..";
 		extension = name + 2;
-		file_data_set_collate_keys(this);
 		return;
 		}
 
@@ -290,7 +268,6 @@ void FileData::set_path(const gchar *new_path)
 		path = remove_level_from_path(new_path);
 		name = ".";
 		extension = name + 1;
-		file_data_set_collate_keys(this);
 		return;
 		}
 
@@ -299,8 +276,6 @@ void FileData::set_path(const gchar *new_path)
 		{
 		extension = name + strlen(name);
 		}
-
-	file_data_set_collate_keys(this);
 }
 
 /*
@@ -397,7 +372,7 @@ FileData *FileData::file_data_new(const gchar *path_utf8, struct stat *st, FileD
 	fd->page_num = 0;
 	fd->page_total = 0;
 
-	fd->set_path(path_utf8); /* set path, name, collate_key_*, original_path */
+	fd->set_path(path_utf8); /* set path, name, original_path */
 
 	return fd;
 }
@@ -525,11 +500,6 @@ void FileData::file_data_free(FileData *fd)
 
 	g_free(fd->path);
 	g_free(fd->original_path);
-
-	g_free(fd->collate_key_name_nocase);
-	g_free(fd->collate_key_name);
-	g_free(fd->collate_key_name_nocase_natural);
-	g_free(fd->collate_key_name_natural);
 
 	if (fd->thumb_pixbuf) g_object_unref(fd->thumb_pixbuf);
 	g_free(fd->format_name);

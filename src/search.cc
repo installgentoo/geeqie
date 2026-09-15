@@ -2162,10 +2162,7 @@ static gint search_result_sort_cb(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIt
 			return 0;
 			break;
 		case SEARCH_COLUMN_NAME:
-			if (options->file_sort.case_sensitive)
-				return strcmp(fda->fd->collate_key_name, fdb->fd->collate_key_name);
-			else
-				return strcmp(fda->fd->collate_key_name_nocase, fdb->fd->collate_key_name_nocase);
+			return filelist_compare_names(fda->fd->name, fdb->fd->name, options->file_sort.case_sensitive, FALSE);
 			break;
 		case SEARCH_COLUMN_SIZE:
 			if (fda->fd->size > fdb->fd->size) return 1;

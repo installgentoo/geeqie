@@ -121,19 +121,10 @@ TEST_F(FileDataSortTest, CompareByEachNonPathTrait)
 	auto &sort_compare_filedata = FileData::FileList::sort_compare_filedata;
 
 	// In order to ensure that we're getting a result from the specified
-	// trait, we set the collate_key_name, collate_key_name_nocase, AND
-	// original_path values to the same value.
-	g_free(fd_middle->collate_key_name);
-	fd_middle->collate_key_name = g_strdup(fd_first->collate_key_name);
-	g_free(fd_middle->collate_key_name_nocase);
-	fd_middle->collate_key_name_nocase = g_strdup(fd_first->collate_key_name_nocase);
+	// trait, we set the original_path values to the same value.
 	g_free(fd_middle->original_path);
 	fd_middle->original_path = g_strdup(fd_first->original_path);
 
-	g_free(fd_last->collate_key_name);
-	fd_last->collate_key_name = g_strdup(fd_first->collate_key_name);
-	g_free(fd_last->collate_key_name_nocase);
-	fd_last->collate_key_name_nocase = g_strdup(fd_first->collate_key_name_nocase);
 	g_free(fd_last->original_path);
 	fd_last->original_path = g_strdup(fd_first->original_path);
 
