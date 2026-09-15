@@ -1567,6 +1567,7 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean reread_filelist)
 			GList *to_delete = work;
 			work = work->next;
 			if (fd == VFICON(vf)->prev_selection) VFICON(vf)->prev_selection = nullptr;
+			if (fd == VFICON(vf)->focus_fd) VFICON(vf)->focus_fd = nullptr;
 			if (fd == vf->click_fd) vf->click_fd = nullptr;
 			file_data_unref(fd);
 			vf->list = g_list_delete_link(vf->list, to_delete);
