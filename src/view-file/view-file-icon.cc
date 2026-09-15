@@ -1484,7 +1484,7 @@ static gboolean vficon_refresh_real(ViewFile *vf, gboolean reread_filelist)
 		ret = filelist_read(vf->dir_fd, &new_raw_list, nullptr);
 		if (ret)
 			{
-			filelist_free(vf->list_raw);
+			filelist_free_later(vf->list_raw);
 			vf->list_raw = new_raw_list;
 			}
 		else
@@ -1762,7 +1762,7 @@ gboolean vficon_set_fd(ViewFile *vf, FileData *dir_fd)
 	VFICON(vf)->focus_fd = nullptr;
 	VFICON(vf)->prev_selection = nullptr;
 	vf->click_fd = nullptr;
-	filelist_free(vf->list);
+	filelist_free_later(vf->list);
 	vf->list = nullptr;
 
 	/* The rows are rebuilt with the store detached: attached, every row insert and removal runs the tree view's

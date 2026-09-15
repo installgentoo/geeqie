@@ -418,6 +418,46 @@ void FileData::FileList::free_list(GList *list)
 	g_list_free(list);
 }
 
+namespace
+{
+
+GList *files_to_unref = nullptr;
+guint files_to_unref_idle_id = 0;
+
+gboolean files_unref_idle_cb(gpointer)
+{
+	/* free to tune: the slice only needs to stay short enough not to be felt (a few ms measured for this many) */
+	constexpr gint FILES_PER_IDLE = 2048;
+
+	for (gint i = 0; i < FILES_PER_IDLE && files_to_unref; i++)
+		{
+		GList *link = files_to_unref;
+		files_to_unref = g_list_remove_link(files_to_unref, link);
+		::file_data_unref(static_cast<FileData *>(link->data));
+		g_list_free_1(link);
+		}
+
+	if (files_to_unref) return G_SOURCE_CONTINUE;
+
+	files_to_unref_idle_id = 0;
+	return G_SOURCE_REMOVE;
+}
+
+} // namespace
+
+/* Releasing a large folder's files frees each one and removes it from the file pool; done in one go, that was
+ * felt as part of the next folder's load. */
+void FileData::FileList::free_list_later(GList *list)
+{
+	if (!list) return;
+
+	files_to_unref = g_list_concat(list, files_to_unref);
+	if (!files_to_unref_idle_id)
+		{
+		files_to_unref_idle_id = g_idle_add_full(G_PRIORITY_LOW, files_unref_idle_cb, nullptr, nullptr);
+		}
+}
+
 
 GList *FileData::FileList::copy(GList *list)
 {

@@ -136,6 +136,11 @@ void filelist_free(GList *list)
 	FileData::FileList::free_list(list);
 }
 
+void filelist_free_later(GList *list)
+{
+	FileData::FileList::free_list_later(list);
+}
+
 GList *filelist_copy(GList *list)
 {
 	return FileData::FileList::copy(list);

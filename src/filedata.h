@@ -301,6 +301,7 @@ class FileData::FileList
 	static gboolean read_list(FileData *dir_fd, GList **files, GList **dirs);
 	static gboolean read_list_lstat(FileData *dir_fd, GList **files, GList **dirs);
 	static void free_list(GList *list);
+	static void free_list_later(GList *list);
 	static GList *copy(GList *list);
 	static GList *from_path_list(GList *list);
 	static GList *to_path_list(GList *list);
@@ -373,6 +374,7 @@ GList *filelist_sort(GList *list, SortType method, gboolean ascending, gboolean 
 gboolean filelist_read(FileData *dir_fd, GList **files, GList **dirs);
 gboolean filelist_read_lstat(FileData *dir_fd, GList **files, GList **dirs);
 void filelist_free(GList *list);
+void filelist_free_later(GList *list); /**< filelist_free spread over low-priority idles */
 GList *filelist_copy(GList *list);
 GList *filelist_from_path_list(GList *list);
 GList *filelist_to_path_list(GList *list);
