@@ -1274,6 +1274,14 @@ static void vficon_populate(ViewFile *vf, gboolean resize)
 				}
 			}
 		if (gtk_widget_get_realized(vf->listview)) gtk_tree_view_columns_autosize(GTK_TREE_VIEW(vf->listview));
+
+		/* Every row is as tall as the renderers configured above, so GTK can measure one row instead of
+		 * validating each: for a 100k-file folder that validation starved all default-priority idles
+		 * (thumbnail requests and results) for seconds, and scrolling meanwhile crossed unmeasured
+		 * zero-height rows by the thousand. GTK measures the height once per enable, hence the re-enable
+		 * after the renderers change. */
+		gtk_tree_view_set_fixed_height_mode(GTK_TREE_VIEW(vf->listview), FALSE);
+		gtk_tree_view_set_fixed_height_mode(GTK_TREE_VIEW(vf->listview), TRUE);
 		}
 
 	r = -1;
@@ -1410,19 +1418,25 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
 }
 
 /* Files on the visible rows, then one screen of rows below, then one above: the order thumbnails load in. */
-GList *vficon_thumb_wanted(ViewFile *vf)
+/* Returns FALSE, leaving *wanted empty, when there are rows but GTK has no visible range for them yet: right after
+ * rows are removed the view's scroll offset still points past the new end until GTK lays the rows out again, and
+ * treating that as "nothing visible" dropped every load, leaving a folder entered upwards without thumbnails. */
+gboolean vficon_thumb_wanted(ViewFile *vf, GList **wanted)
 {
-	g_autoptr(GtkTreePath) start_path = nullptr;
-	g_autoptr(GtkTreePath) end_path = nullptr;
-	if (!gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path)) return nullptr;
+	*wanted = nullptr;
 
 	GtkTreeModel *store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+	const gint rows = gtk_tree_model_iter_n_children(store, nullptr);
+	if (rows == 0) return TRUE;
+
+	g_autoptr(GtkTreePath) start_path = nullptr;
+	g_autoptr(GtkTreePath) end_path = nullptr;
+	if (!gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path)) return FALSE;
+
 	const gint first = gtk_tree_path_get_indices(start_path)[0];
 	const gint last = gtk_tree_path_get_indices(end_path)[0];
 	const gint margin = last - first + 1;
-	const gint rows = gtk_tree_model_iter_n_children(store, nullptr);
 
-	GList *wanted = nullptr;
 	const auto add_rows = [&](gint from, gint to)
 		{
 		from = MAX(from, 0);
@@ -1435,7 +1449,7 @@ GList *vficon_thumb_wanted(ViewFile *vf)
 			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
 			for (; list; list = list->next)
 				{
-				if (list->data) wanted = g_list_prepend(wanted, list->data);
+				if (list->data) *wanted = g_list_prepend(*wanted, list->data);
 				}
 			valid = gtk_tree_model_iter_next(store, &iter);
 			}
@@ -1445,7 +1459,8 @@ GList *vficon_thumb_wanted(ViewFile *vf)
 	add_rows(last + 1, last + margin);
 	add_rows(first - margin, first - 1);
 
-	return g_list_reverse(wanted);
+	*wanted = g_list_reverse(*wanted);
+	return TRUE;
 }
 
 /*

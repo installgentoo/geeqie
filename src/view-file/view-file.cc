@@ -867,6 +867,8 @@ ViewFile *vf_new(FileData *dir_fd)
 
 	g_signal_connect(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(vf->scrolled)),
 			 "value_changed", G_CALLBACK(vf_thumb_scroll_changed_cb), vf);
+	g_signal_connect(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(vf->scrolled)),
+			 "changed", G_CALLBACK(vf_thumb_scroll_changed_cb), vf);
 	g_signal_connect(gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(vf->scrolled)),
 			 "value_changed", G_CALLBACK(vf_thumb_scroll_changed_cb), vf);
 
@@ -1026,7 +1028,8 @@ void vf_thumb_update(ViewFile *vf)
 		thumb_format_changed = FALSE;
 		}
 
-	GList *wanted = vficon_thumb_wanted(vf);
+	GList *wanted;
+	if (!vficon_thumb_wanted(vf, &wanted)) return; /* retried from the adjustment's "changed" once GTK lays out */
 
 	g_clear_pointer(&vf->thumbs_wanted, g_hash_table_destroy);
 	vf->thumbs_wanted = g_hash_table_new(g_direct_hash, g_direct_equal);

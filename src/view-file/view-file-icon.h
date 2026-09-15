@@ -92,7 +92,7 @@ void vficon_select_by_fd(ViewFile *vf, FileData *fd);
 
 
 void vficon_set_thumb_fd(ViewFile *vf, FileData *fd);
-GList *vficon_thumb_wanted(ViewFile *vf);
+gboolean vficon_thumb_wanted(ViewFile *vf, GList **wanted);
 
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
