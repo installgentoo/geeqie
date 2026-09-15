@@ -1,0 +1,272 @@
+From 1a0fe8d4a9141dedc2ff596260bacdebfbad12b7 Mon Sep 17 00:00:00 2001
+From: Alex Drozdoff <anomalocaribd@gmail.com>
+Date: Thu, 26 Mar 2026 09:40:50 +1300
+Subject: [PATCH 08/10] don't leak mem on thumbs
+
+---
+ src/view-file.h                 |  4 ++
+ src/view-file/view-file-icon.cc | 42 ++++++++++++---
+ src/view-file/view-file.cc      | 93 +++++++++++++++++++++++++++++++++
+ 3 files changed, 131 insertions(+), 8 deletions(-)
+
+diff --git a/src/view-file.h b/src/view-file.h
+index 810a7514..234a3711 100644
+--- a/src/view-file.h
++++ b/src/view-file.h
+@@ -77,6 +77,10 @@ struct ViewFile
+ 	gboolean thumbs_running;
+ 	ThumbLoader *thumbs_loader;
+ 	FileData *thumbs_filedata;
++	GHashTable *thumbs_priority;
++	guint thumbs_scroll_id;
++	GQueue *thumbs_lru;
++	GHashTable *thumbs_lru_index;
+ 
+ 	/* marks */
+ 	gboolean marks_enabled;
+diff --git a/src/view-file/view-file-icon.cc b/src/view-file/view-file-icon.cc
+index 44fd214a..4039425e 100644
+--- a/src/view-file/view-file-icon.cc
++++ b/src/view-file/view-file-icon.cc
+@@ -1584,10 +1584,29 @@ void vficon_set_thumb_fd(ViewFile *vf, FileData *fd)
+ 	GList *list;
+ 
+ 	if (!g_list_find(vf->list, fd)) return;
+-	if (!vficon_find_iter(vf, fd, &iter, nullptr)) return;
+-
+ 	store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+ 
++	/* Fast path: most thumbnail updates are for currently visible rows. */
++	gboolean found = FALSE;
++	if (g_autoptr(GtkTreePath) tpath = nullptr;
++	    gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr) &&
++	    gtk_tree_model_get_iter(store, &iter, tpath))
++		{
++		gboolean valid = TRUE;
++		while (valid && tree_view_row_get_visibility(GTK_TREE_VIEW(vf->listview), &iter, FALSE) == 0)
++			{
++			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
++			if (g_list_find(list, fd))
++				{
++				found = TRUE;
++				break;
++				}
++			valid = gtk_tree_model_iter_next(store, &iter);
++			}
++		}
++
++	if (!found && !vficon_find_iter(vf, fd, &iter, nullptr)) return;
++
+ 	gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+ 	gtk_list_store_set(GTK_LIST_STORE(store), &iter, FILE_COLUMN_POINTER, list, -1);
+ }
+@@ -1598,18 +1617,18 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
+ 	GtkTreePath *tpath;
+ 
+ 	/* First see if there are visible files that don't have a loaded thumb... */
+-	if (gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(vf->listview), 0, 0, &tpath, nullptr, nullptr, nullptr))
++	g_autoptr(GtkTreePath) start_path = nullptr;
++	g_autoptr(GtkTreePath) end_path = nullptr;
++	if (gtk_tree_view_get_visible_range(GTK_TREE_VIEW(vf->listview), &start_path, &end_path))
+ 		{
+ 		GtkTreeModel *store;
+ 		GtkTreeIter iter;
+ 		gboolean valid = TRUE;
+ 
+ 		store = gtk_tree_view_get_model(GTK_TREE_VIEW(vf->listview));
+-		gtk_tree_model_get_iter(store, &iter, tpath);
+-		gtk_tree_path_free(tpath);
+-		tpath = nullptr;
++		if (!gtk_tree_model_get_iter(store, &iter, start_path)) valid = FALSE;
+ 
+-		while (valid && tree_view_row_get_visibility(GTK_TREE_VIEW(vf->listview), &iter, FALSE) == 0)
++		while (valid)
+ 			{
+ 			GList *list;
+ 			gtk_tree_model_get(store, &iter, FILE_COLUMN_POINTER, &list, -1);
+@@ -1618,7 +1637,14 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
+ 			for (; list; list = list->next)
+ 				{
+ 				auto fd = static_cast<FileData *>(list->data);
+-				if (fd && !fd->thumb_pixbuf) return fd;
++				if (fd && vf->thumbs_priority) g_hash_table_add(vf->thumbs_priority, fd);
++					if (fd && !fd->thumb_pixbuf) return fd;
++					}
++
++			if (g_autoptr(GtkTreePath) current = gtk_tree_model_get_path(store, &iter);
++			    gtk_tree_path_compare(current, end_path) >= 0)
++				{
++				break;
+ 				}
+ 
+ 			valid = gtk_tree_model_iter_next(store, &iter);
+diff --git a/src/view-file/view-file.cc b/src/view-file/view-file.cc
+index c4b065b1..71225079 100644
+--- a/src/view-file/view-file.cc
++++ b/src/view-file/view-file.cc
+@@ -41,6 +41,7 @@
+ #include "metadata.h"
+ #include "misc.h"
+ #include "options.h"
++#include "pixbuf-util.h"
+ #include "thumb.h"
+ #include "ui-fileops.h"
+ #include "ui-menu.h"
+@@ -931,6 +932,9 @@ gboolean vf_set_fd(ViewFile *vf, FileData *dir_fd)
+ {
+ 	gboolean ret;
+ 
++	vf_thumb_stop(vf);
++	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
++
+ 	switch (vf->type)
+ 	{
+ 	case FILEVIEW_LIST: ret = vflist_set_fd(vf, dir_fd); break;
+@@ -962,6 +966,7 @@ static void vf_destroy_cb(GtkWidget *, gpointer data)
+ 		{
+ 		g_idle_remove_by_data(vf);
+ 		}
++	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
+ 	file_data_unref(vf->dir_fd);
+ 	g_free(vf->info);
+ 	g_free(vf);
+@@ -1365,6 +1370,8 @@ void vf_mark_filter_toggle(ViewFile *vf, gint mark)
+ 				     !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(vf->filter_check[n])));
+ }
+ 
++static void vf_thumb_scroll_changed_cb(GtkAdjustment *, gpointer data);
++
+ ViewFile *vf_new(FileViewType type, FileData *dir_fd)
+ {
+ 	ViewFile *vf;
+@@ -1411,6 +1418,11 @@ ViewFile *vf_new(FileViewType type, FileData *dir_fd)
+ 	gq_gtk_container_add(GTK_WIDGET(vf->scrolled), vf->listview);
+ 	gtk_widget_show(vf->listview);
+ 
++	g_signal_connect(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(vf->scrolled)),
++			 "value_changed", G_CALLBACK(vf_thumb_scroll_changed_cb), vf);
++	g_signal_connect(gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(vf->scrolled)),
++			 "value_changed", G_CALLBACK(vf_thumb_scroll_changed_cb), vf);
++
+ 	if (dir_fd) vf_set_fd(vf, dir_fd);
+ 
+ 	return vf;
+@@ -1439,6 +1451,66 @@ void vf_thumb_set(ViewFile *vf, gboolean enable)
+ 
+ 
+ static gboolean vf_thumb_next(ViewFile *vf);
++static gboolean vf_thumb_scroll_idle_cb(gpointer data);
++constexpr guint THUMB_LRU_LIMIT = 360;
++
++static void vf_thumb_scroll_changed_cb(GtkAdjustment *, gpointer data)
++{
++	auto vf = static_cast<ViewFile *>(data);
++
++	if (vf->type != FILEVIEW_ICON) return;
++
++	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
++	vf->thumbs_scroll_id = g_idle_add(vf_thumb_scroll_idle_cb, vf);
++}
++
++static gboolean vf_thumb_scroll_idle_cb(gpointer data)
++{
++	auto vf = static_cast<ViewFile *>(data);
++	vf->thumbs_scroll_id = 0;
++
++	if (!gtk_widget_get_realized(vf->listview)) return G_SOURCE_REMOVE;
++	if (vf->thumbs_running) return G_SOURCE_REMOVE;
++
++	vf_thumb_update(vf);
++	return G_SOURCE_REMOVE;
++}
++
++static void vf_thumb_lru_add(ViewFile *vf, FileData *fd)
++{
++	if (vf->type != FILEVIEW_ICON || !fd || !fd->thumb_pixbuf) return;
++
++	if (!vf->thumbs_lru) vf->thumbs_lru = g_queue_new();
++	if (!vf->thumbs_lru_index) vf->thumbs_lru_index = g_hash_table_new(g_direct_hash, g_direct_equal);
++
++	if (g_hash_table_contains(vf->thumbs_lru_index, fd))
++		{
++		if (GList *link = g_queue_find(vf->thumbs_lru, fd); link)
++			{
++			g_queue_unlink(vf->thumbs_lru, link);
++			g_queue_push_head_link(vf->thumbs_lru, link);
++			}
++		return;
++		}
++
++	file_data_ref(fd);
++	g_queue_push_head(vf->thumbs_lru, fd);
++	g_hash_table_add(vf->thumbs_lru_index, fd);
++
++	while (vf->thumbs_lru->length > THUMB_LRU_LIMIT)
++		{
++		auto old_fd = static_cast<FileData *>(g_queue_pop_tail(vf->thumbs_lru));
++		if (!old_fd) break;
++
++		g_hash_table_remove(vf->thumbs_lru_index, old_fd);
++		if (old_fd->thumb_pixbuf)
++			{
++			g_object_unref(old_fd->thumb_pixbuf);
++			old_fd->thumb_pixbuf = nullptr;
++			}
++		file_data_unref(old_fd);
++		}
++}
+ 
+ static gdouble vf_thumb_progress(ViewFile *vf)
+ {
+@@ -1491,6 +1563,7 @@ static void vf_thumb_do(ViewFile *vf, FileData *fd)
+ 	if (!fd) return;
+ 
+ 	vf_set_thumb_fd(vf, fd);
++	vf_thumb_lru_add(vf, fd);
+ 	vf_thumb_status(vf, vf_thumb_progress(vf), _("Loading thumbs..."));
+ }
+ 
+@@ -1504,6 +1577,8 @@ void vf_thumb_cleanup(ViewFile *vf)
+ 	vf->thumbs_loader = nullptr;
+ 
+ 	vf->thumbs_filedata = nullptr;
++	g_clear_pointer(&vf->thumbs_priority, g_hash_table_destroy);
++	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
+ }
+ 
+ void vf_thumb_stop(ViewFile *vf)
+@@ -1558,6 +1633,19 @@ static gboolean vf_thumb_next(ViewFile *vf)
+ 
+ 	vf->thumbs_filedata = fd;
+ 
++	if (vf->type == FILEVIEW_ICON && vf->thumbs_priority &&
++	    g_hash_table_size(vf->thumbs_priority) > 0 &&
++	    !g_hash_table_contains(vf->thumbs_priority, fd))
++		{
++		vf_thumb_cleanup(vf);
++		return FALSE;
++		}
++
++	if (vf->type == FILEVIEW_ICON && vf->thumbs_priority)
++		{
++		g_hash_table_remove(vf->thumbs_priority, fd);
++		}
++
+ 	thumb_loader_free(vf->thumbs_loader);
+ 
+ 	vf->thumbs_loader = thumb_loader_new(options->thumbnails.max_width, options->thumbnails.max_height);
+@@ -1599,6 +1687,11 @@ void vf_thumb_update(ViewFile *vf)
+ 	vf_thumb_stop(vf);
+ 
+ 	if (vf->type == FILEVIEW_LIST && !VFLIST(vf)->thumbs_enabled) return;
++	if (vf->type == FILEVIEW_ICON)
++		{
++		g_clear_pointer(&vf->thumbs_priority, g_hash_table_destroy);
++		vf->thumbs_priority = g_hash_table_new(g_direct_hash, g_direct_equal);
++		}
+ 
+ 	vf_thumb_status(vf, 0.0, _("Loading thumbs..."));
+ 	vf->thumbs_running = TRUE;
+-- 
+2.53.0
+

@@ -1,0 +1,47 @@
+From 89e5debe6cd0a0e63d82cd6e6040e2b110afd30e Mon Sep 17 00:00:00 2001
+From: Alex Drozdoff <anomalocaribd@gmail.com>
+Date: Thu, 26 Mar 2026 09:36:19 +1300
+Subject: [PATCH 04/10] fix thumbnailer memleak
+
+---
+ src/cache-maint.cc | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/src/cache-maint.cc b/src/cache-maint.cc
+index 8c6aeaed..86c477fc 100644
+--- a/src/cache-maint.cc
++++ b/src/cache-maint.cc
+@@ -654,10 +654,22 @@ static void cache_manager_render_folder(CacheOpsData *cd, FileData *dir_fd)
+ 
+ static gboolean cache_manager_render_file(CacheOpsData *cd);
+ 
++static void cache_manager_render_release_thumb_pixbuf(CacheOpsData *cd)
++{
++	auto tl = reinterpret_cast<ThumbLoader *>(cd->tl);
++
++	if (!tl || !tl->fd || !tl->fd->thumb_pixbuf) return;
++
++	g_object_unref(tl->fd->thumb_pixbuf);
++	tl->fd->thumb_pixbuf = nullptr;
++}
++
+ static void cache_manager_render_thumb_done_cb(ThumbLoader *, gpointer data)
+ {
+ 	auto cd = static_cast<CacheOpsData *>(data);
+ 
++	cache_manager_render_release_thumb_pixbuf(cd);
++
+ 	thumb_loader_free(reinterpret_cast<ThumbLoader *>(cd->tl));
+ 	cd->tl = nullptr;
+ 
+@@ -692,6 +704,7 @@ static gboolean cache_manager_render_file(CacheOpsData *cd)
+ 			}
+ 		else
+ 			{
++			cache_manager_render_release_thumb_pixbuf(cd);
+ 			thumb_loader_free(reinterpret_cast<ThumbLoader *>(cd->tl));
+ 			cd->tl = nullptr;
+ 			}
+-- 
+2.53.0
+

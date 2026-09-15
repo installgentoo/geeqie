@@ -1,0 +1,26 @@
+From 51dc7e6bd535ca60742b9f470c3bcd0270f10cd4 Mon Sep 17 00:00:00 2001
+From: Alex Drozdoff <anomalocaribd@gmail.com>
+Date: Thu, 26 Mar 2026 09:37:22 +1300
+Subject: [PATCH 05/10] explicit permission
+
+---
+ src/thumb-standard.cc | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/thumb-standard.cc b/src/thumb-standard.cc
+index 23abb78c..91179487 100644
+--- a/src/thumb-standard.cc
++++ b/src/thumb-standard.cc
+@@ -369,7 +369,8 @@ static void thumb_loader_std_save(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
+ 		                          NULL);
+ 		if (success)
+ 			{
+-			chmod(pathl, (tl->cache_local) ? tl->source_mode : S_IRUSR | S_IWUSR);
++			const auto default_permission = 0600;
++			chmod(pathl, (tl->cache_local) ? tl->source_mode : default_permission);
+ 			success = rename_file(tmp_path, tl->thumb_path);
+ 			}
+ 
+-- 
+2.53.0
+

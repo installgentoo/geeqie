@@ -1,0 +1,55 @@
+From d30f1ab3f836f9357025785e7d49f4b29521795d Mon Sep 17 00:00:00 2001
+From: Alex Drozdoff <anomalocaribd@gmail.com>
+Date: Thu, 26 Mar 2026 09:37:39 +1300
+Subject: [PATCH 06/10] put menu below view
+
+---
+ src/layout.cc | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/src/layout.cc b/src/layout.cc
+index c03603b1..cbf8152f 100644
+--- a/src/layout.cc
++++ b/src/layout.cc
+@@ -1857,7 +1857,7 @@ static void layout_grid_setup(LayoutWindow *lw)
+ 	if (lw->options.tools_float || lw->options.tools_hidden)
+ 		{
+ 		gq_gtk_box_pack_start(GTK_BOX(lw->group_box), image_sb, TRUE, TRUE, 0);
+-		gtk_widget_show(image_sb);
++		//gtk_widget_show(image_sb);
+ 
+ 		layout_tools_setup(lw, tools, files);
+ 
+@@ -1908,7 +1908,7 @@ static void layout_grid_setup(LayoutWindow *lw)
+ 		gtk_paned_pack2(GTK_PANED(h), w3, TRUE, TRUE);
+ 		}
+ 
+-	gtk_widget_show(image_sb);
++	//gtk_widget_show(image_sb);
+ 	gtk_widget_show(tools);
+ 	gtk_widget_show(files);
+ 
+@@ -1916,13 +1916,13 @@ static void layout_grid_setup(LayoutWindow *lw)
+ 	gtk_widget_show(h);
+ 
+ 	/* fix to have image pane visible when it is left and priority widget */
+-	if (lw->options.main_window.hdivider_pos == -1 &&
++	/*if (lw->options.main_window.hdivider_pos == -1 &&
+ 	    w1 == image_sb &&
+ 	    !layout_location_vertical(static_cast<LayoutLocation>(priority_location)) &&
+ 	    layout_location_first(static_cast<LayoutLocation>(priority_location)))
+ 		{
+ 		gtk_widget_set_size_request(image_sb, 200, -1);
+-		}
++		}*/
+ 
+ 	gtk_paned_set_position(GTK_PANED(lw->h_pane), lw->options.main_window.hdivider_pos);
+ 	gtk_paned_set_position(GTK_PANED(lw->v_pane), lw->options.main_window.vdivider_pos);
+@@ -3088,3 +3088,4 @@ LayoutWindow *layout_new_from_default()
+ }
+ 
+ /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */
++
+-- 
+2.53.0
+

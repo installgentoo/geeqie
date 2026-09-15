@@ -1,0 +1,195 @@
+From fe3d1f43e572ebfed2431f864be5e67963be5a23 Mon Sep 17 00:00:00 2001
+From: Alex Drozdoff <anomalocaribd@gmail.com>
+Date: Thu, 26 Mar 2026 15:50:15 +1300
+Subject: [PATCH 10/10] fix libheif threading
+
+---
+ src/color-man.cc       | 15 +++++++------
+ src/image-load-heif.cc | 48 +++++++++++++++++++++++++-----------------
+ src/thumb-standard.cc  |  3 ---
+ 3 files changed, 37 insertions(+), 29 deletions(-)
+
+diff --git a/src/color-man.cc b/src/color-man.cc
+index 67fd7013..3d4ca020 100644
+--- a/src/color-man.cc
++++ b/src/color-man.cc
+@@ -678,8 +678,8 @@ guchar *heif_color_profile(FileData *fd, guint *profile_len)
+ {
+ 	struct heif_context* ctx;
+ 	struct heif_error error_code;
+-	struct heif_image_handle* handle;
+-	struct heif_color_profile_nclx *nclxcp;
++	struct heif_image_handle* handle = nullptr;
++	struct heif_color_profile_nclx *nclxcp = nullptr;
+ 	gint profile_type;
+ 	guchar *profile;
+ 	cmsUInt32Number size;
+@@ -703,7 +703,6 @@ guchar *heif_color_profile(FileData *fd, guint *profile_len)
+ 		return nullptr;
+ 		}
+ 
+-	nclxcp = heif_nclx_color_profile_alloc();
+ 	profile_type = heif_image_handle_get_color_profile_type(handle);
+ 
+ 	if (profile_type == heif_color_profile_type_prof)
+@@ -715,14 +714,14 @@ guchar *heif_color_profile(FileData *fd, guint *profile_len)
+ 		if (error_code.code)
+ 			{
+ 			log_printf("warning: heif reader error: %s\n", error_code.message);
++			heif_image_handle_release(handle);
+ 			heif_context_free(ctx);
+-			heif_nclx_color_profile_free(nclxcp);
+ 			return nullptr;
+ 			}
+ 
+ 		DEBUG_1("heif color profile type: prof");
++		heif_image_handle_release(handle);
+ 		heif_context_free(ctx);
+-		heif_nclx_color_profile_free(nclxcp);
+ 
+ 		return static_cast<guchar *>(data);
+ 		}
+@@ -731,15 +730,17 @@ guchar *heif_color_profile(FileData *fd, guint *profile_len)
+ 	if (error_code.code)
+ 		{
+ 		log_printf("warning: heif reader error: %s\n", error_code.message);
++		heif_image_handle_release(handle);
+ 		heif_context_free(ctx);
+-		heif_nclx_color_profile_free(nclxcp);
++		if (nclxcp) heif_nclx_color_profile_free(nclxcp);
+ 		return nullptr;
+ 		}
+ 
+ 	profile = nclx_to_lcms_profile(nclxcp, profile_len);
+ 
++	heif_image_handle_release(handle);
+ 	heif_context_free(ctx);
+-	heif_nclx_color_profile_free(nclxcp);
++	if (nclxcp) heif_nclx_color_profile_free(nclxcp);
+ 
+ 	return profile;
+ }
+diff --git a/src/image-load-heif.cc b/src/image-load-heif.cc
+index aa882a10..6415be32 100644
+--- a/src/image-load-heif.cc
++++ b/src/image-load-heif.cc
+@@ -50,9 +50,9 @@ private:
+ 	AreaUpdatedCb area_updated_cb;
+ 	gpointer data;
+ 
+-	GdkPixbuf *pixbuf;
++	GdkPixbuf *pixbuf = nullptr;
+ 	gint page_num;
+-	gint page_total;
++	gint page_total = 0;
+ };
+ 
+ void free_buffer(guchar *, gpointer data)
+@@ -62,63 +62,73 @@ void free_buffer(guchar *, gpointer data)
+ 
+ gboolean ImageLoaderHEIF::write(const guchar *buf, gsize &chunk_size, gsize count, GError **)
+ {
+-	struct heif_context* ctx;
++	thread_local struct heif_context* ctx = heif_context_alloc();
+ 	struct heif_image* img;
+ 	struct heif_error error_code;
+-	struct heif_image_handle* handle;
++	struct heif_image_handle* handle = nullptr;
+ 	guint8* pixels;
+ 	gint width;
+ 	gint height;
+ 	gint stride;
+-	gboolean alpha;
+-
+-	ctx = heif_context_alloc();
+-
++	
+ 	error_code = heif_context_read_from_memory_without_copy(ctx, buf, count, nullptr);
+ 	if (error_code.code)
+ 		{
+ 		log_printf("warning: heif reader error: %s\n", error_code.message);
+-		heif_context_free(ctx);
+ 		return FALSE;
+ 		}
+ 
+ 	page_total = heif_context_get_number_of_top_level_images(ctx);
++	if (page_total < 1)
++		{
++		log_printf("warning: heif reader error: file does not contain top level images\n");
++		return FALSE;
++		}
+ 
+ 	std::vector<heif_item_id> IDs(page_total);
++	
++	gint id_count = heif_context_get_list_of_top_level_image_IDs(ctx, IDs.data(), page_total);
++	if (id_count < 1)
++		{
++		log_printf("warning: heif reader error: file does not provide image IDs\n");
++		return FALSE;
++		}
++		
++	gint handle_index = CLAMP(page_num, 0, id_count - 1);
+ 
+ 	/* get list of all (top level) image IDs */
+ 	heif_context_get_list_of_top_level_image_IDs(ctx, IDs.data(), page_total);
+ 
+-	error_code = heif_context_get_image_handle(ctx, IDs[page_num], &handle);
++	error_code = heif_context_get_image_handle(ctx, IDs[handle_index], &handle);
+ 	if (error_code.code)
+ 		{
+ 		log_printf("warning: heif reader error: %s\n", error_code.message);
+-		heif_context_free(ctx);
+ 		return FALSE;
+ 		}
+ 
+-	// decode the image and convert colorspace to RGB, saved as 24bit interleaved
+-	error_code = heif_decode_image(handle, &img, heif_colorspace_RGB, heif_chroma_interleaved_24bit, nullptr);
++	gboolean alpha = heif_image_handle_has_alpha_channel(handle);
++	heif_chroma chroma = alpha ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_24bit;
++
++	// decode the image and convert colorspace to RGB with matching interleaved layout
++	error_code = heif_decode_image(handle, &img, heif_colorspace_RGB, chroma, nullptr);
++
+ 	if (error_code.code)
+ 		{
+ 		log_printf("warning: heif reader error: %s\n", error_code.message);
+-		heif_context_free(ctx);
++		if (handle) heif_image_handle_release(handle);
+ 		return FALSE;
+ 		}
+ 
+ 	pixels = heif_image_get_plane(img, heif_channel_interleaved, &stride);
+ 
+-	height = heif_image_get_height(img,heif_channel_interleaved);
+-	width = heif_image_get_width(img,heif_channel_interleaved);
+-	alpha = heif_image_handle_has_alpha_channel(handle);
++	height = heif_image_get_height(img, heif_channel_interleaved);
++	width = heif_image_get_width(img, heif_channel_interleaved);
+ 	heif_image_handle_release(handle);
+ 
+ 	pixbuf = gdk_pixbuf_new_from_data(pixels, GDK_COLORSPACE_RGB, alpha, 8, width, height, stride, free_buffer, img);
+ 
+ 	area_updated_cb(nullptr, 0, 0, width, height, data);
+ 
+-	heif_context_free(ctx);
+-
+ 	chunk_size = count;
+ 	return TRUE;
+ }
+diff --git a/src/thumb-standard.cc b/src/thumb-standard.cc
+index 3bd7e514..e0f5fb0c 100644
+--- a/src/thumb-standard.cc
++++ b/src/thumb-standard.cc
+@@ -620,9 +620,6 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoaderStd *tl, GdkPixbuf *pixbuf,
+ 			}
+ 		}
+ 
+-	// apply color correction, if required
+-	thumb_loader_std_calibrate_pixbuf(tl->fd, result);
+-
+ 	if (pixbuf_thumb) g_object_unref(pixbuf_thumb);
+ 	if (rotated) g_object_unref(rotated);
+ 
+-- 
+2.53.0
+

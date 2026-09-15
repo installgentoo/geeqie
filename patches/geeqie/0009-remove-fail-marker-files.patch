@@ -1,0 +1,28 @@
+From a191e6f0644ab7fad2f5db35d60eab9d648b103e Mon Sep 17 00:00:00 2001
+From: Alex Drozdoff <anomalocaribd@gmail.com>
+Date: Thu, 26 Mar 2026 12:09:19 +1300
+Subject: [PATCH 09/10] remove fail marker files
+
+---
+ src/thumb-standard.cc | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/thumb-standard.cc b/src/thumb-standard.cc
+index 47a8e534..3bd7e514 100644
+--- a/src/thumb-standard.cc
++++ b/src/thumb-standard.cc
+@@ -305,8 +305,9 @@ static void thumb_loader_std_save(ThumbLoaderStd *tl, GdkPixbuf *pixbuf)
+ 		/* local failures are not stored */
+ 		if (tl->cache_local) return;
+ 
+-		pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, 1, 1);
+-		fail = TRUE;
++		log_printf("warning: thumbnail generation failed (no fail marker file written): source=%s\n",
++		           tl->fd && tl->fd->path ? tl->fd->path : "(null)");
++		return;
+ 		}
+ 	else
+ 		{
+-- 
+2.53.0
+
