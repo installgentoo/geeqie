@@ -334,7 +334,9 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoader *tl, GdkPixbuf *pixbuf)
 			{
 			gint cache_w = tl->save_width;
 
-			if (sw > cache_w || sh > cache_w)
+			/* >= because the loader already reduced large sources to exactly cache_w on the long side;
+			 * a source that started smaller than the thumbnail is still not cached. */
+			if (sw >= cache_w || sh >= cache_w)
 				{
 				struct stat st;
 

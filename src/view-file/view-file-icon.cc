@@ -1452,7 +1452,7 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 				{
 				auto fd = static_cast<FileData *>(list->data);
 				if (fd && vf->thumbs_priority) g_hash_table_add(vf->thumbs_priority, fd);
-					if (fd && !fd->thumb_pixbuf) return fd;
+					if (fd && !fd->thumb_pixbuf && !vf_thumb_loading(vf, fd)) return fd;
 					}
 
 			if (g_autoptr(GtkTreePath) current = gtk_tree_model_get_path(store, &iter);
@@ -1473,7 +1473,7 @@ FileData *vficon_thumb_next_fd(ViewFile *vf)
 
 		// Note: This implementation differs from view-file-list.cc because sidecar files are not
 		// distinct list elements here, as they are in the list view.
-		if (!fd->thumb_pixbuf) return fd;
+		if (!fd->thumb_pixbuf && !vf_thumb_loading(vf, fd)) return fd;
 		}
 
 	return nullptr;

@@ -2206,12 +2206,12 @@ static void config_tab_advanced(GtkWidget *notebook)
 	pref_line(vbox, PREF_PAD_SPACE);
 	group = pref_group_new(vbox, FALSE, _("Thread pool limits"), GTK_ORIENTATION_VERTICAL);
 
-	threads_string_label = pref_label_new(group, _("This option limits the number of threads (or cpu cores) that Geeqie will use when running duplicate checks.\nThe value 0 means all available cores will be used."));
+	threads_string_label = pref_label_new(group, _("This option limits the number of threads (or cpu cores) that Geeqie will use when running duplicate checks and creating thumbnails.\nThe value 0 means all available cores will be used."));
 	gtk_label_set_line_wrap(GTK_LABEL(threads_string_label), TRUE);
 
 	pref_spacer(vbox, PREF_PAD_GROUP);
 
-	dupes_threads_spin = pref_spin_new_int(vbox, _("Duplicate check:"), _("max. threads"), 0, get_cpu_cores(), 1, options->threads.duplicates, &c_options->threads.duplicates);
+	dupes_threads_spin = pref_spin_new_int(vbox, _("Duplicates and thumbnails:"), _("max. threads"), 0, get_cpu_cores(), 1, options->threads.duplicates, &c_options->threads.duplicates);
 	gtk_widget_set_tooltip_markup(dupes_threads_spin, _("Set to 0 for unlimited"));
 
 	pref_spacer(group, PREF_PAD_GROUP);

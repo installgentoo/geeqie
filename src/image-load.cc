@@ -69,6 +69,7 @@
 #include "jpeg-parser.h"
 #include "misc.h"
 #include "options.h"
+#include "pixbuf-util.h"
 #include "typedefs.h"
 #include "ui-fileops.h"
 
@@ -643,6 +644,38 @@ static void image_loader_size_cb(gpointer,
 	image_loader_emit_size(il);
 }
 
+/* A requested size means the caller wants a thumbnail. Backends that can decode smaller (jpeg, gdk-pixbuf)
+ * already honour it; the rest (heif, webp, jxl, raw, pdf...) deliver full resolution, and reducing it
+ * here keeps the expensive scale on the loader thread instead of the caller's. */
+static void image_loader_reduce_to_requested(ImageLoader *il)
+{
+	g_mutex_lock(il->data_mutex);
+
+	if (il->pixbuf && il->requested_width > 0 && il->requested_height > 0)
+		{
+		const gint w = gdk_pixbuf_get_width(il->pixbuf);
+		const gint h = gdk_pixbuf_get_height(il->pixbuf);
+		gint new_w;
+		gint new_h;
+
+		if ((w > il->requested_width || h > il->requested_height) &&
+		    pixbuf_scale_aspect(il->requested_width, il->requested_height, w, h, new_w, new_h))
+			{
+			GdkPixbuf *reduced = gdk_pixbuf_scale_simple(il->pixbuf, new_w, new_h,
+			                                             static_cast<GdkInterpType>(options->thumbnails.quality));
+			if (reduced)
+				{
+				/* keeps tEXt::Thumb::URI/MTime, which validate a cached thumbnail */
+				gdk_pixbuf_copy_options(il->pixbuf, reduced);
+				g_object_unref(il->pixbuf);
+				il->pixbuf = reduced;
+				}
+			}
+		}
+
+	g_mutex_unlock(il->data_mutex);
+}
+
 static void image_loader_stop_loader(ImageLoader *il)
 {
 	if (!il) return;
@@ -653,6 +686,7 @@ static void image_loader_stop_loader(ImageLoader *il)
 		il->backend->close(il->error ? nullptr : &il->error); /* we are interested in the first error only */
 		image_loader_sync_pixbuf(il);
 		il->backend.reset(nullptr);
+		image_loader_reduce_to_requested(il);
 		}
 	g_mutex_lock(il->data_mutex);
 	il->done = TRUE;

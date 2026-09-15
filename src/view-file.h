@@ -73,8 +73,7 @@ struct ViewFile
 
 	/* thumbs updates*/
 	gboolean thumbs_running;
-	ThumbLoader *thumbs_loader;
-	FileData *thumbs_filedata;
+	GList *thumbs_loads; /**< #VfThumbLoad in flight, up to options->threads.duplicates of them */
 	GHashTable *thumbs_priority;
 	guint thumbs_scroll_id;
 	GQueue *thumbs_lru;
@@ -129,6 +128,7 @@ void vf_notify_cb(FileData *fd, NotifyType type, gpointer data);
 
 void vf_thumb_update(ViewFile *vf);
 void vf_thumb_cleanup(ViewFile *vf);
+gboolean vf_thumb_loading(ViewFile *vf, FileData *fd);
 void vf_file_filter_set(ViewFile *vf, gboolean enable);
 GRegex *vf_file_filter_get_filter(ViewFile *vf);
 

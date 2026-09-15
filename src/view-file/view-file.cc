@@ -889,7 +889,6 @@ void vf_set_thumb_status_func(ViewFile *vf, void (*func)(ViewFile *vf, gdouble v
 	vf->data_thumb_status = data;
 }
 
-static gboolean vf_thumb_next(ViewFile *vf);
 static gboolean vf_thumb_scroll_idle_cb(gpointer data);
 constexpr guint THUMB_LRU_LIMIT = 360;
 
@@ -990,16 +989,45 @@ static void vf_thumb_do(ViewFile *vf, FileData *fd)
 	vf_thumb_status(vf, vf_thumb_progress(vf), _("Loading thumbs..."));
 }
 
+struct VfThumbLoad
+{
+	ViewFile *vf;
+	ThumbLoader *tl;
+	FileData *fd;
+};
+
+static gint vf_thumb_load_limit()
+{
+	return options->threads.duplicates > 0 ? options->threads.duplicates : get_cpu_cores();
+}
+
+gboolean vf_thumb_loading(ViewFile *vf, FileData *fd)
+{
+	for (GList *work = vf->thumbs_loads; work; work = work->next)
+		{
+		if (static_cast<VfThumbLoad *>(work->data)->fd == fd) return TRUE;
+		}
+	return FALSE;
+}
+
+static void vf_thumb_load_free(ViewFile *vf, VfThumbLoad *load)
+{
+	vf->thumbs_loads = g_list_remove(vf->thumbs_loads, load);
+	thumb_loader_free(load->tl);
+	g_free(load);
+}
+
 void vf_thumb_cleanup(ViewFile *vf)
 {
 	vf_thumb_status(vf, 0.0, nullptr);
 
 	vf->thumbs_running = FALSE;
 
-	thumb_loader_free(vf->thumbs_loader);
-	vf->thumbs_loader = nullptr;
+	while (vf->thumbs_loads)
+		{
+		vf_thumb_load_free(vf, static_cast<VfThumbLoad *>(vf->thumbs_loads->data));
+		}
 
-	vf->thumbs_filedata = nullptr;
 	g_clear_pointer(&vf->thumbs_priority, g_hash_table_destroy);
 	g_clear_handle_id(&vf->thumbs_scroll_id, g_source_remove);
 }
@@ -1009,16 +1037,17 @@ static void vf_thumb_stop(ViewFile *vf)
 	if (vf->thumbs_running) vf_thumb_cleanup(vf);
 }
 
-static void vf_thumb_common_cb(ThumbLoader *tl, gpointer data)
+static void vf_thumb_fill(ViewFile *vf);
+
+static void vf_thumb_common_cb(ThumbLoader *, gpointer data)
 {
-	auto vf = static_cast<ViewFile *>(data);
+	auto load = static_cast<VfThumbLoad *>(data);
+	ViewFile *vf = load->vf;
+	FileData *fd = load->fd;
 
-	if (vf->thumbs_filedata && vf->thumbs_loader == tl)
-		{
-		vf_thumb_do(vf, vf->thumbs_filedata);
-		}
-
-	while (vf_thumb_next(vf));
+	vf_thumb_load_free(vf, load);
+	vf_thumb_do(vf, fd);
+	vf_thumb_fill(vf);
 }
 
 static void vf_thumb_error_cb(ThumbLoader *tl, gpointer data)
@@ -1031,63 +1060,59 @@ static void vf_thumb_done_cb(ThumbLoader *tl, gpointer data)
 	vf_thumb_common_cb(tl, data);
 }
 
-static gboolean vf_thumb_next(ViewFile *vf)
+/* Starts loaders until the limit is reached or nothing is left; the run ends (cleanup) when the last one finishes. */
+static void vf_thumb_fill(ViewFile *vf)
 {
-	FileData *fd = nullptr;
-
 	if (!gtk_widget_get_realized(vf->listview))
 		{
 		vf_thumb_status(vf, 0.0, nullptr);
-		return FALSE;
+		return;
 		}
 
-	
-	{
-
-	fd = vficon_thumb_next_fd(vf);
-	}
-
-	if (!fd)
+	while (g_list_length(vf->thumbs_loads) < static_cast<guint>(vf_thumb_load_limit()))
 		{
-		/* done */
-		vf_thumb_cleanup(vf);
-		return FALSE;
+		FileData *fd = vficon_thumb_next_fd(vf);
+
+		if (!fd)
+			{
+			/* done */
+			if (!vf->thumbs_loads) vf_thumb_cleanup(vf);
+			return;
+			}
+
+		if (vf->thumbs_priority &&
+		    g_hash_table_size(vf->thumbs_priority) > 0 &&
+		    !g_hash_table_contains(vf->thumbs_priority, fd))
+			{
+			/* only off-screen items are left: let the running loads finish, the last one ends the run */
+			if (!vf->thumbs_loads) vf_thumb_cleanup(vf);
+			return;
+			}
+
+		if (vf->thumbs_priority)
+			{
+			g_hash_table_remove(vf->thumbs_priority, fd);
+			}
+
+		auto load = g_new0(VfThumbLoad, 1);
+		load->vf = vf;
+		load->fd = fd;
+		load->tl = thumb_loader_new(options->thumbnails.save_width, options->thumbnails.display_width);
+		thumb_loader_set_callbacks(load->tl,
+					   vf_thumb_done_cb,
+					   vf_thumb_error_cb,
+					   nullptr,
+					   load);
+		vf->thumbs_loads = g_list_prepend(vf->thumbs_loads, load);
+
+		if (!thumb_loader_start(load->tl, fd))
+			{
+			/* set icon to unknown, continue */
+			DEBUG_1("thumb loader start failed %s", fd->path);
+			vf_thumb_load_free(vf, load);
+			vf_thumb_do(vf, fd);
+			}
 		}
-
-	vf->thumbs_filedata = fd;
-
-	if (vf->thumbs_priority &&
-	    g_hash_table_size(vf->thumbs_priority) > 0 &&
-	    !g_hash_table_contains(vf->thumbs_priority, fd))
-		{
-		vf_thumb_cleanup(vf);
-		return FALSE;
-		}
-
-	if (vf->thumbs_priority)
-		{
-		g_hash_table_remove(vf->thumbs_priority, fd);
-		}
-
-	thumb_loader_free(vf->thumbs_loader);
-
-	vf->thumbs_loader = thumb_loader_new(options->thumbnails.save_width, options->thumbnails.display_width);
-	thumb_loader_set_callbacks(vf->thumbs_loader,
-				   vf_thumb_done_cb,
-				   vf_thumb_error_cb,
-				   nullptr,
-				   vf);
-
-	if (!thumb_loader_start(vf->thumbs_loader, fd))
-		{
-		/* set icon to unknown, continue */
-		DEBUG_1("thumb loader start failed %s", fd->path);
-		vf_thumb_do(vf, fd);
-
-		return TRUE;
-		}
-
-	return FALSE;
 }
 
 static void vf_thumb_reset_all(ViewFile *vf)
@@ -1121,7 +1146,7 @@ void vf_thumb_update(ViewFile *vf)
 		thumb_format_changed = FALSE;
 		}
 
-	while (vf_thumb_next(vf));
+	vf_thumb_fill(vf);
 }
 
 GRegex *vf_file_filter_get_filter(ViewFile *vf)
