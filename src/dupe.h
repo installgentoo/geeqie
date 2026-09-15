@@ -95,6 +95,8 @@ struct DupeWindow
 	GtkWidget *extra_label; /**< Progress bar widget */
 	GtkWidget *button_thumbs;
 	GtkWidget *button_rotation_invariant;
+	GtkWidget *button_alternate_algorithm;
+	GtkWidget *button_grayscale;
 	GtkWidget *custom_threshold;
 	GList *add_files_queue;
 	guint add_files_queue_id;

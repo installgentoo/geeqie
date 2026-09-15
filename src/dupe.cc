@@ -3739,6 +3739,42 @@ static void dupe_window_rotation_invariant_cb(GtkWidget *widget, gpointer data)
 	dupe_window_recompare(dw);
 }
 
+/* The alternate algorithm transforms the grid in place as it is loaded (see dupe_item_apply_cache_data),
+ * so a change of setting needs every item's grid reloaded, not just recompared. */
+static void dupe_window_reload_similarity(DupeWindow *dw)
+{
+	for (GList *work = dw->list; work; work = work->next)
+		{
+		auto di = static_cast<DupeItem *>(work->data);
+		image_sim_free(di->simd);
+		di->simd = nullptr;
+		}
+	for (GList *work = dw->second_list; work; work = work->next)
+		{
+		auto di = static_cast<DupeItem *>(work->data);
+		image_sim_free(di->simd);
+		di->simd = nullptr;
+		}
+	dupe_window_recompare(dw);
+}
+
+static void dupe_window_alternate_algorithm_cb(GtkWidget *widget, gpointer data)
+{
+	auto dw = static_cast<DupeWindow *>(data);
+
+	options->alternate_similarity_algorithm.enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+	gtk_widget_set_sensitive(dw->button_grayscale, options->alternate_similarity_algorithm.enabled);
+	dupe_window_reload_similarity(dw);
+}
+
+static void dupe_window_grayscale_cb(GtkWidget *widget, gpointer data)
+{
+	auto dw = static_cast<DupeWindow *>(data);
+
+	options->alternate_similarity_algorithm.grayscale = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+	dupe_window_reload_similarity(dw);
+}
+
 static void dupe_window_custom_threshold_cb(GtkWidget *widget, gpointer data)
 {
 	auto dw = static_cast<DupeWindow *>(data);
@@ -4302,6 +4338,23 @@ DupeWindow *dupe_window_new()
 			 G_CALLBACK(dupe_window_rotation_invariant_cb), dw);
 	gq_gtk_box_pack_start(GTK_BOX(controls_box), dw->button_rotation_invariant, FALSE, FALSE, PREF_PAD_SPACE);
 	gtk_widget_show(dw->button_rotation_invariant);
+
+	dw->button_alternate_algorithm = gtk_check_button_new_with_label(_("Alternate algorithm"));
+	gtk_widget_set_tooltip_text(GTK_WIDGET(dw->button_alternate_algorithm), _("Normalise and equalise each colour channel before comparing, to discount exposure and contrast differences"));
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(dw->button_alternate_algorithm), options->alternate_similarity_algorithm.enabled);
+	g_signal_connect(G_OBJECT(dw->button_alternate_algorithm), "toggled",
+			 G_CALLBACK(dupe_window_alternate_algorithm_cb), dw);
+	gq_gtk_box_pack_start(GTK_BOX(controls_box), dw->button_alternate_algorithm, FALSE, FALSE, PREF_PAD_SPACE);
+	gtk_widget_show(dw->button_alternate_algorithm);
+
+	dw->button_grayscale = gtk_check_button_new_with_label(_("Grayscale"));
+	gtk_widget_set_tooltip_text(GTK_WIDGET(dw->button_grayscale), _("Reduce fingerprint to grayscale"));
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(dw->button_grayscale), options->alternate_similarity_algorithm.grayscale);
+	gtk_widget_set_sensitive(dw->button_grayscale, options->alternate_similarity_algorithm.enabled);
+	g_signal_connect(G_OBJECT(dw->button_grayscale), "toggled",
+			 G_CALLBACK(dupe_window_grayscale_cb), dw);
+	gq_gtk_box_pack_start(GTK_BOX(controls_box), dw->button_grayscale, FALSE, FALSE, PREF_PAD_SPACE);
+	gtk_widget_show(dw->button_grayscale);
 
 	button = gtk_check_button_new_with_label(_("Compare two file sets"));
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), dw->second_set);

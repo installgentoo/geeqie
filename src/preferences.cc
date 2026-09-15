@@ -329,9 +329,6 @@ static void config_window_apply()
 
 	options->threads.duplicates = c_options->threads.duplicates > 0 ? c_options->threads.duplicates : -1;
 
-	options->alternate_similarity_algorithm.enabled = c_options->alternate_similarity_algorithm.enabled;
-	options->alternate_similarity_algorithm.grayscale = c_options->alternate_similarity_algorithm.grayscale;
-
 #ifdef DEBUG
 	set_debug_level(debug_c);
 	config_entry_to_option(log_window_f1_entry, &options->log_window.action, nullptr);
@@ -2143,10 +2140,8 @@ static void config_tab_accelerators(GtkWidget *notebook)
 static void config_tab_advanced(GtkWidget *notebook)
 {
 	GList *extensions_list = nullptr;
-	GtkWidget *alternate_checkbox;
 	GtkWidget *dupes_threads_spin;
 	GtkWidget *group;
-	GtkWidget *subgroup;
 	GtkWidget *tabcomp;
 	GtkWidget *threads_string_label;
 	GtkWidget *types_string_label;
@@ -2220,18 +2215,6 @@ static void config_tab_advanced(GtkWidget *notebook)
 	gtk_widget_set_tooltip_markup(dupes_threads_spin, _("Set to 0 for unlimited"));
 
 	pref_spacer(group, PREF_PAD_GROUP);
-
-	pref_line(vbox, PREF_PAD_SPACE);
-
-	group = pref_group_new(vbox, FALSE, _("Alternate similarity alogorithm"), GTK_ORIENTATION_VERTICAL);
-
-	alternate_checkbox = pref_checkbox_new_int(group, _("Enable alternate similarity algorithm"), options->alternate_similarity_algorithm.enabled, &c_options->alternate_similarity_algorithm.enabled);
-
-	subgroup = pref_box_new(group, FALSE, GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
-	pref_checkbox_link_sensitivity(alternate_checkbox, subgroup);
-
-	alternate_checkbox = pref_checkbox_new_int(subgroup, _("Use grayscale"), options->alternate_similarity_algorithm.grayscale, &c_options->alternate_similarity_algorithm.grayscale);
-	gtk_widget_set_tooltip_text(alternate_checkbox, _("Reduce fingerprint to grayscale"));
 }
 
 /* Main preferences window */
