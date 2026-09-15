@@ -571,6 +571,14 @@ gboolean copy_file(const gchar *s, const gchar *t)
 			}
 		}
 
+	/* The buffered tail is written by fclose; it must land before copy_file_attributes()
+	 * sets the mtime, or that write stamps the file with the current time. */
+	if (fclose(g_steal_pointer(&fo)) != 0)
+		{
+		unlink(randname);
+		return FALSE;
+		}
+
 	if (rename(randname, tl) < 0)
 		{
 		unlink(randname);
