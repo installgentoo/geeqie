@@ -62,7 +62,6 @@
 namespace
 {
 
-constexpr gint PROGRESS_WIDTH = 150;
 
 constexpr gint ZOOM_LABEL_WIDTH = 120;
 } // namespace
@@ -428,32 +427,6 @@ static GtkWidget *layout_zoom_button(LayoutWindow *lw, GtkWidget *box, gint size
  */
 
 
-void layout_status_update_progress(LayoutWindow *lw, gdouble val, const gchar *text)
-{
-	static gdouble meta = 0;
-
-	if (!layout_valid(&lw)) return;
-	if (!lw->info_progress_bar) return;
-
-	/* Give priority to the loading meta data message
-	 */
-	if(!g_strcmp0(text, "Loading thumbs..."))
-		{
-		if (meta)
-			{
-			return;
-			}
-		}
-	else
-		{
-		meta = val;
-		}
-
-	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(lw->info_progress_bar), val);
-	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(lw->info_progress_bar),
-									val ? ((text) ? text : " ") : " ");
-}
-
 void layout_status_update_info(LayoutWindow *lw, const gchar *text)
 {
 	gchar *buf = nullptr;
@@ -575,7 +548,6 @@ void layout_status_update_image(LayoutWindow *lw)
 
 static void layout_status_update_all(LayoutWindow *lw)
 {
-	layout_status_update_progress(lw, 0.0, nullptr);
 	layout_status_update_info(lw, nullptr);
 	layout_status_update_image(lw);
 }
@@ -637,16 +609,6 @@ static void layout_status_setup(LayoutWindow *lw, GtkWidget *box, gboolean small
 		{
 		hbox = lw->info_box;
 		}
-	lw->info_progress_bar = gtk_progress_bar_new();
-	DEBUG_NAME(lw->info_progress_bar);
-	gtk_widget_set_size_request(lw->info_progress_bar, PROGRESS_WIDTH, -1);
-
-	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(lw->info_progress_bar), "");
-	gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(lw->info_progress_bar), TRUE);
-
-	gq_gtk_box_pack_start(GTK_BOX(hbox), lw->info_progress_bar, FALSE, FALSE, 0);
-	gtk_widget_show(lw->info_progress_bar);
-
 	lw->info_sort = layout_sort_button(lw, hbox);
 	gtk_widget_set_tooltip_text(GTK_WIDGET(lw->info_sort), _("Select sort order"));
 	gtk_widget_show(lw->info_sort);
@@ -698,13 +660,6 @@ static void layout_list_status_cb(ViewFile *, gpointer data)
 	layout_status_update_info(lw, nullptr);
 }
 
-static void layout_list_thumb_cb(ViewFile *, gdouble val, const gchar *text, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	layout_status_update_progress(lw, val, text);
-}
-
 static void layout_list_sync_file_filter(LayoutWindow *lw)
 {
 	if (lw->vf) vf_file_filter_set(lw->vf, lw->options.show_file_filter);
@@ -716,7 +671,6 @@ static GtkWidget *layout_list_new(LayoutWindow *lw)
 	vf_set_layout(lw->vf, lw);
 
 	vf_set_status_func(lw->vf, layout_list_status_cb, lw);
-	vf_set_thumb_status_func(lw->vf, layout_list_thumb_cb, lw);
 
 	layout_list_sync_file_filter(lw);
 

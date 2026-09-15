@@ -76,7 +76,6 @@ struct LayoutWindow
 	GtkWidget *file_view;
 
 	GtkWidget *info_box; /**< status bar */
-	GtkWidget *info_progress_bar; /**< status bar */
 	GtkWidget *info_sort; /**< status bar */
 	GtkWidget *info_status; /**< status bar */
 	GtkWidget *info_details; /**< status bar */
@@ -111,7 +110,6 @@ gint layout_compare_options_id(const LayoutWindow *lw, const gchar *id);
 const gchar *layout_get_path(LayoutWindow *lw);
 gboolean layout_set_fd(LayoutWindow *lw, FileData *fd);
 
-void layout_status_update_progress(LayoutWindow *lw, gdouble val, const gchar *text);
 void layout_status_update_info(LayoutWindow *lw, const gchar *text);
 void layout_status_update_image(LayoutWindow *lw);
 
