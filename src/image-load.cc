@@ -1095,35 +1095,36 @@ static gboolean image_loader_start_idle(ImageLoader *il)
 
 static GThreadPool *image_loader_thread_pool = nullptr;
 
-static GCond *image_loader_prio_cond = nullptr;
-static GMutex *image_loader_prio_mutex = nullptr;
+/* static storage: usable without init, from the pool and from image_loader_load_sync callers alike */
+static GCond image_loader_prio_cond;
+static GMutex image_loader_prio_mutex;
 static gint image_loader_prio_num = 0;
 
 
 static void image_loader_thread_enter_high()
 {
-	g_mutex_lock(image_loader_prio_mutex);
+	g_mutex_lock(&image_loader_prio_mutex);
 	image_loader_prio_num++;
-	g_mutex_unlock(image_loader_prio_mutex);
+	g_mutex_unlock(&image_loader_prio_mutex);
 }
 
 static void image_loader_thread_leave_high()
 {
-	g_mutex_lock(image_loader_prio_mutex);
+	g_mutex_lock(&image_loader_prio_mutex);
 	image_loader_prio_num--;
-	if (image_loader_prio_num == 0) g_cond_broadcast(image_loader_prio_cond); /* wake up all low prio threads */
-	g_mutex_unlock(image_loader_prio_mutex);
+	if (image_loader_prio_num == 0) g_cond_broadcast(&image_loader_prio_cond); /* wake up all low prio threads */
+	g_mutex_unlock(&image_loader_prio_mutex);
 }
 
 static void image_loader_thread_wait_high()
 {
-	g_mutex_lock(image_loader_prio_mutex);
+	g_mutex_lock(&image_loader_prio_mutex);
 	while (image_loader_prio_num)
 		{
-		g_cond_wait(image_loader_prio_cond, image_loader_prio_mutex);
+		g_cond_wait(&image_loader_prio_cond, &image_loader_prio_mutex);
 		}
 
-	g_mutex_unlock(image_loader_prio_mutex);
+	g_mutex_unlock(&image_loader_prio_mutex);
 }
 
 static gboolean image_loader_get_is_done(ImageLoader *il)
@@ -1207,10 +1208,6 @@ static gboolean image_loader_start_thread(ImageLoader *il)
         if (!image_loader_thread_pool)
 		{
 		image_loader_thread_pool = g_thread_pool_new(image_loader_thread_run, nullptr, -1, FALSE, nullptr);
-		if (!image_loader_prio_cond) image_loader_prio_cond = g_new(GCond, 1);
-		g_cond_init(image_loader_prio_cond);
-		if (!image_loader_prio_mutex) image_loader_prio_mutex = g_new(GMutex, 1);
-		g_mutex_init(image_loader_prio_mutex);
 		}
 
 	il->can_destroy = FALSE; /* ImageLoader can't be freed until image_loader_thread_run finishes */
@@ -1224,6 +1221,32 @@ static gboolean image_loader_start_thread(ImageLoader *il)
 
 /**************************************************************************************/
 /* public interface */
+
+/**
+ * Decodes the whole file on the calling thread; no signals are connected or needed, the result is
+ * image_loader_get_pixbuf(). The loader holds a FileData ref, whose refcount is not thread-safe, so
+ * it must still be created and freed on the main thread. Low priority loads yield to high priority
+ * pool loads (the main view) exactly as pool loads do.
+ */
+gboolean image_loader_load_sync(ImageLoader *il)
+{
+	if (!il || !il->fd) return FALSE;
+	if (!image_loader_setup_source(il)) return FALSE;
+
+	const gboolean low_priority = il->idle_priority > G_PRIORITY_DEFAULT_IDLE;
+
+	if (low_priority) image_loader_thread_wait_high();
+	gboolean cont = image_loader_begin(il);
+
+	while (cont && !image_loader_get_is_done(il) && !image_loader_get_stopping(il))
+		{
+		if (low_priority) image_loader_thread_wait_high();
+		cont = image_loader_continue(il);
+		}
+	image_loader_stop_loader(il);
+
+	return image_loader_get_pixbuf(il) != nullptr;
+}
 
 
 gboolean image_loader_start(ImageLoader *il)

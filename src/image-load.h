@@ -121,6 +121,7 @@ void image_loader_set_buffer_size(ImageLoader *il, guint count);
 void image_loader_set_priority(ImageLoader *il, gint priority);
 
 gboolean image_loader_start(ImageLoader *il);
+gboolean image_loader_load_sync(ImageLoader *il);
 
 
 GdkPixbuf *image_loader_get_pixbuf(ImageLoader *il);

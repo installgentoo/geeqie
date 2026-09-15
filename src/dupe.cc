@@ -2112,7 +2112,6 @@ static void dupe_thumb_step(DupeWindow *dw)
 	thumb_loader_set_callbacks(dw->thumb_loader,
 				   dupe_thumb_done_cb,
 				   dupe_thumb_error_cb,
-				   nullptr,
 				   dw);
 
 	/* start it */

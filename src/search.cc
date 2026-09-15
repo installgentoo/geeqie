@@ -807,7 +807,6 @@ static void search_result_thumb_step(SearchData *sd)
 	thumb_loader_set_callbacks(sd->thumb_loader,
 				   search_result_thumb_done_cb,
 				   search_result_thumb_done_cb,
-				   nullptr,
 				   sd);
 	if (!thumb_loader_start(sd->thumb_loader, mfd->fd))
 		{

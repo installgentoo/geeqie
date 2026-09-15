@@ -33,7 +33,8 @@
 #include "typedefs.h"
 
 class FileData;
-struct ImageLoader;
+struct ThumbJob;
+struct ThumbValidate;
 
 #if GLIB_CHECK_VERSION (2, 34, 0)
 #define THUMB_FOLDER_GLOBAL "thumbnails"
@@ -47,30 +48,22 @@ struct ImageLoader;
 
 struct ThumbLoader
 {
-	gboolean standard_loader;
-
-	ImageLoader *il;
 	FileData *fd;
+	ThumbJob *job; /**< in flight on a worker; func_done or func_error follows on the main thread */
 
 	time_t source_mtime;
 	off_t source_size;
-	mode_t source_mode;
 
-	gchar *thumb_path;
 	gchar *thumb_uri;
 
 	gint save_width;
 	gint display_width;
 
 	gboolean cache_enable;
-	gboolean cache_hit;
-
-	gdouble progress;
 
 	using Func = void (*)(ThumbLoader *, gpointer);
 	Func func_done;
 	Func func_error;
-	Func func_progress;
 
 	gpointer data;
 };
@@ -80,7 +73,6 @@ ThumbLoader *thumb_loader_new(gint save_width, gint display_width);
 void thumb_loader_set_callbacks(ThumbLoader *tl,
 				    ThumbLoader::Func func_done,
 				    ThumbLoader::Func func_error,
-				    ThumbLoader::Func func_progress,
 				    gpointer data);
 void thumb_loader_set_cache(ThumbLoader *tl);
 gboolean thumb_loader_start(ThumbLoader *tl, FileData *fd);
@@ -88,10 +80,10 @@ void thumb_loader_free(ThumbLoader *tl);
 
 GdkPixbuf *thumb_loader_get_pixbuf(ThumbLoader *tl);
 
-ThumbLoader *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gint allowed_days,
-						     void (*func_valid)(const gchar *path, gboolean valid, gpointer data),
-						     gpointer data);
-void thumb_loader_std_thumb_file_validate_cancel(ThumbLoader *tl);
+ThumbValidate *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gint allowed_days,
+                                                    void (*func_valid)(const gchar *path, gboolean valid, gpointer data),
+                                                    gpointer data);
+void thumb_loader_std_thumb_file_validate_cancel(ThumbValidate *tv);
 
 
 void thumb_std_maint_removed(const gchar *source);

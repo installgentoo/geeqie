@@ -70,8 +70,7 @@ struct ViewFile
 	GtkWidget *popup;
 
 	/* thumbs updates*/
-	GList *thumbs_loads; /**< #VfThumbLoad in flight, up to options->threads.duplicates of them */
-	GList *thumbs_queue; /**< FileData (ref held) still to load, in on-screen order */
+	GHashTable *thumbs_loads; /**< FileData -> #VfThumbLoad started and not yet done */
 	GHashTable *thumbs_wanted; /**< FileData near the screen; pointer keys only, never dereferenced */
 	GHashTable *thumbs_loaded; /**< FileData (ref held) whose thumb_pixbuf this view set; dropped when no longer wanted */
 	guint thumbs_scroll_id;

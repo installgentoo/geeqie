@@ -523,6 +523,7 @@ struct CacheOpsData
 {
 	GenericDialog *gd;
 	ThumbLoader *tl;
+	ThumbValidate *tv;
 	CacheLoader *cl;
 	GSourceFunc destroy_func; /* Used by the command line prog. functions */
 
@@ -656,7 +657,7 @@ static gboolean cache_manager_render_file(CacheOpsData *cd)
 		thumb_loader_set_callbacks(cd->tl,
 					   cache_manager_render_thumb_done_cb,
 					   cache_manager_render_thumb_done_cb,
-					   nullptr, cd);
+					   cd);
 		thumb_loader_set_cache(cd->tl);
 		success = thumb_loader_start(cd->tl, fd);
 		if (success)
@@ -875,7 +876,7 @@ static void cache_manager_standard_clean_close_cb(GenericDialog *, gpointer data
 
 	generic_dialog_close(cd->gd);
 
-	thumb_loader_std_thumb_file_validate_cancel(cd->tl);
+	thumb_loader_std_thumb_file_validate_cancel(cd->tv);
 	filelist_free(cd->list);
 	g_free(cd);
 }
@@ -896,8 +897,8 @@ static void cache_manager_standard_clean_done(CacheOpsData *cd)
 		cd->idle_id = 0;
 		}
 
-	thumb_loader_std_thumb_file_validate_cancel(cd->tl);
-	cd->tl = nullptr;
+	thumb_loader_std_thumb_file_validate_cancel(cd->tv);
+	cd->tv = nullptr;
 
 	filelist_free(cd->list);
 	cd->list = nullptr;
@@ -933,7 +934,7 @@ static void cache_manager_standard_clean_valid_cb(const gchar *path, gboolean va
 			}
 		}
 
-	cd->tl = nullptr;
+	cd->tv = nullptr;
 	if (cd->list)
 		{
 		FileData *next_fd;
@@ -941,7 +942,7 @@ static void cache_manager_standard_clean_valid_cb(const gchar *path, gboolean va
 		next_fd = static_cast<FileData *>(cd->list->data);
 		cd->list = g_list_remove(cd->list, next_fd);
 
-		cd->tl = thumb_loader_std_thumb_file_validate(next_fd->path, cd->days,
+		cd->tv = thumb_loader_std_thumb_file_validate(next_fd->path, cd->days,
 							      cache_manager_standard_clean_valid_cb, cd);
 		file_data_unref(next_fd);
 		}
@@ -1026,7 +1027,7 @@ static void cache_manager_standard_process(GtkWidget *widget, gboolean)
 	gtk_widget_show(cd->progress);
 
 	cd->days = 30;
-	cd->tl = nullptr;
+	cd->tv = nullptr;
 	cd->idle_id = 0;
 
 	gtk_widget_show(cd->gd->dialog);
