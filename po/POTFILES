@@ -64,7 +64,6 @@ src/image-load-heif.cc
 src/image-load-j2k.cc
 src/image-load-jpeg.cc
 src/image-load-jpegxl.cc
-src/image-load-libraw.cc
 src/image-load-pdf.cc
 src/image-load-psd.cc
 src/image-load-svgz.cc

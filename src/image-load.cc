@@ -46,15 +46,12 @@
 #  include "image-load-j2k.h"
 #endif
 #if HAVE_JPEG
-#  if !HAVE_RAW
-#    include "image-load-cr3.h"
-#  endif
+#  include "image-load-cr3.h"
 #  include "image-load-jpeg.h"
 #endif
 #if HAVE_JPEGXL
 #  include "image-load-jpegxl.h"
 #endif
-#include "image-load-libraw.h"
 #if HAVE_PDF
 #  include "image-load-pdf.h"
 #endif
@@ -135,7 +132,6 @@ static void image_loader_init(GTypeInstance *instance, gpointer)
 	il->idle_read_loop_count = IMAGE_LOADER_IDLE_READ_LOOP_COUNT_DEFAULT;
 	il->read_buffer_size = IMAGE_LOADER_READ_BUFFER_SIZE_DEFAULT;
 	il->mapped_file = nullptr;
-	il->preview = IMAGE_LOADER_PREVIEW_NONE;
 
 	il->requested_width = 0;
 	il->requested_height = 0;
@@ -774,7 +770,6 @@ static void image_loader_setup_loader(ImageLoader *il)
 			DEBUG_1("Using custom jpeg loader");
 			il->backend = get_image_loader_backend_jpeg();
 			}
-#if !HAVE_RAW
 		else
 		if (il->bytes_total >= 11 &&
 		    (memcmp(il->mapped_file + 4, "ftypcrx", 7) == 0) &&
@@ -783,7 +778,6 @@ static void image_loader_setup_loader(ImageLoader *il)
 			DEBUG_1("Using custom cr3 loader");
 			il->backend = get_image_loader_backend_cr3();
 			}
-#endif
 		else
 #endif
 #if HAVE_TIFF
@@ -982,33 +976,11 @@ static gboolean image_loader_setup_source(ImageLoader *il)
 {
 	if (!il || il->backend || il->mapped_file) return FALSE;
 
-	il->mapped_file = nullptr;
+	g_autofree gchar *pathl = path_from_utf8(il->fd->path);
 
-	if (il->fd)
-		{
-		il->mapped_file = libraw_get_preview(il->fd->path, il->bytes_total);
+	il->mapped_file = map_file(pathl, il->bytes_total);
 
-		if (il->mapped_file)
-			{
-			il->preview = IMAGE_LOADER_PREVIEW_LIBRAW;
-			DEBUG_1("Usable reduced size (preview) image loaded from file %s", il->fd->path);
-			}
-		}
-
-	if (!il->mapped_file)
-		{
-		/* normal file */
-		g_autofree gchar *pathl = path_from_utf8(il->fd->path);
-
-		il->mapped_file = map_file(pathl, il->bytes_total);
-		if (!il->mapped_file)
-			{
-			return FALSE;
-			}
-		il->preview = IMAGE_LOADER_PREVIEW_NONE;
-		}
-
-	return TRUE;
+	return il->mapped_file != nullptr;
 }
 
 static void image_loader_stop_source(ImageLoader *il)
@@ -1017,14 +989,7 @@ static void image_loader_stop_source(ImageLoader *il)
 
 	if (il->mapped_file)
 		{
-		if (il->preview == IMAGE_LOADER_PREVIEW_LIBRAW)
-			{
-			libraw_free_preview(il->mapped_file);
-			}
-		else
-			{
-			munmap(il->mapped_file, il->bytes_total);
-			}
+		munmap(il->mapped_file, il->bytes_total);
 		il->mapped_file = nullptr;
 		}
 }

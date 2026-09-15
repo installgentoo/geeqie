@@ -15,7 +15,7 @@ S="${WORKDIR}/${PN}-${COMMIT}"
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="debug djvu ffmpegthumbnailer heif jpeg jpeg2k jpegxl pdf raw tiff webp X"
+IUSE="debug djvu ffmpegthumbnailer heif jpeg jpeg2k jpegxl pdf tiff webp X"
 
 RDEPEND="virtual/libintl
 	x11-libs/gtk+:3[X?]
@@ -27,7 +27,6 @@ RDEPEND="virtual/libintl
 	jpeg? ( media-libs/libjpeg-turbo:= )
 	jpegxl? ( >=media-libs/libjxl-0.3.7:= )
 	pdf? ( >=app-text/poppler-0.62[cairo] )
-	raw? ( >=media-libs/libraw-0.20:= )
 	tiff? ( media-libs/tiff:= )
 	webp? ( >=media-libs/libwebp-0.6.1:= )"
 DEPEND="${RDEPEND}"
@@ -57,7 +56,6 @@ src_configure() {
 		$(meson_feature jpeg2k j2k)
 		$(meson_feature jpegxl)
 		$(meson_feature pdf)
-		$(meson_feature raw libraw)
 		$(meson_feature tiff)
 		$(meson_feature webp)
 	)

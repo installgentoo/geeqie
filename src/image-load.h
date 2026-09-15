@@ -53,11 +53,6 @@ public:
 	virtual gint get_page_total() { return 0; };
 };
 
-enum ImageLoaderPreview {
-	IMAGE_LOADER_PREVIEW_NONE = 0,
-	IMAGE_LOADER_PREVIEW_LIBRAW = 2
-};
-
 
 struct ImageLoader
 {
@@ -70,8 +65,6 @@ struct ImageLoader
 
 	gsize bytes_read;
 	gsize bytes_total;
-
-	ImageLoaderPreview preview;
 
 	gint requested_width;
 	gint requested_height;

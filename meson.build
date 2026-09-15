@@ -302,22 +302,6 @@ else
     summary({'jpegxl' : ['disabled - jpegxl files supported:', false]}, section : 'Configuration', bool_yn : true)
 endif
 
-conf_data.set('HAVE_RAW', 0)
-libraw_dep = []
-req_version = '>=0.20'
-option = get_option('libraw')
-if not option.disabled()
-    libraw_dep = dependency('libraw', version : req_version, required : get_option('libraw'))
-    if libraw_dep.found()
-        conf_data.set('HAVE_RAW', 1)
-        summary({'libraw' : ['.cr3 files supported:', true]}, section : 'Configuration', bool_yn : true)
-    else
-        summary({'libraw' : ['libraw ' + req_version + ' not found - .cr3 files supported:', false]}, section : 'Configuration', bool_yn : true)
-    endif
-else
-    summary({'libraw' : ['disabled - .cr3 files supported:', false]}, section : 'Configuration', bool_yn : true)
-endif
-
 conf_data.set('HAVE_PDF', 0)
 poppler_glib_dep = []
 req_version = '>=0.62'

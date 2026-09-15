@@ -56,8 +56,6 @@ main_sources = files(
 'image-load-external.h',
 'image-load-gdk.cc',
 'image-load-gdk.h',
-'image-load-libraw.cc',
-'image-load-libraw.h',
 'image-load-psd.cc',
 'image-load-psd.h',
 'image-load-svgz.cc',
@@ -173,12 +171,10 @@ if conf_data.get('HAVE_JPEG', 0) == 1
         'image-load-jpeg.h',
     )
 
-    if conf_data.get('HAVE_RAW', 0) == 0
-        main_sources += files(
-            'image-load-cr3.cc',
-            'image-load-cr3.h',
-        )
-    endif
+    main_sources += files(
+        'image-load-cr3.cc',
+        'image-load-cr3.h',
+    )
 endif
 
 if conf_data.get('HAVE_JPEGXL', 0) == 1
@@ -251,7 +247,6 @@ libheif_dep,
 libjpeg_dep,
 libjxl_dep,
 libopenjp2_dep,
-libraw_dep,
 libunwind_dep,
 libwebp_dep,
 poppler_glib_dep,

@@ -74,9 +74,6 @@
 /* Define to enable pdf support */
 #mesondefine HAVE_PDF
 
-/* Define to enable libraw support */
-#mesondefine HAVE_RAW
-
 /* Define to enable use of custom tiff loader */
 #mesondefine HAVE_TIFF
 

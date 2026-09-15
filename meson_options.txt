@@ -30,7 +30,6 @@ option('help_pdf', type : 'feature', value : 'auto', description : 'help in pdf'
 option('j2k', type : 'feature', value : 'auto', description : 'j2k')
 option('jpeg', type : 'feature', value : 'auto', description : 'jpeg')
 option('jpegxl', type : 'feature', value : 'auto', description : 'jpegxl')
-option('libraw', type : 'feature', value : 'auto', description : 'libraw')
 option('pdf', type : 'feature', value : 'auto', description : 'pdf')
 option('tiff', type : 'feature', value : 'auto', description : 'tiff')
 option('unit_tests', type : 'feature', value : 'disabled', description : 'unit tests')
