@@ -168,11 +168,6 @@ if conf_data.get('HAVE_JPEG', 0) == 1
         'image-load-jpeg.cc',
         'image-load-jpeg.h',
     )
-
-    main_sources += files(
-        'image-load-cr3.cc',
-        'image-load-cr3.h',
-    )
 endif
 
 if conf_data.get('HAVE_JPEGXL', 0) == 1

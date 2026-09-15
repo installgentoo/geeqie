@@ -122,7 +122,6 @@ enum {
 const gchar *format_class_list[] = {
 	N_("Unknown"),
 	N_("Image"),
-	N_("RAW Image"),
 	N_("Video"),
 	N_("Document")
 	};

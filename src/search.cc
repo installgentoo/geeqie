@@ -1787,11 +1787,6 @@ static gboolean search_file_next(SearchData *sd)
 			search_class = FORMAT_CLASS_IMAGE;
 			}
 		else if (g_strcmp0(gtk_combo_box_text_get_active_text(
-						GTK_COMBO_BOX_TEXT(sd->class_type)), _("Raw Image")) == 0)
-			{
-			search_class = FORMAT_CLASS_RAWIMAGE;
-			}
-		else if (g_strcmp0(gtk_combo_box_text_get_active_text(
 						GTK_COMBO_BOX_TEXT(sd->class_type)), _("Video")) == 0)
 			{
 			search_class = FORMAT_CLASS_VIDEO;
@@ -1825,7 +1820,7 @@ static gboolean search_file_next(SearchData *sd)
 			}
 		else
 			{
-			if (fd->format_class == FORMAT_CLASS_IMAGE || fd->format_class == FORMAT_CLASS_RAWIMAGE || fd->format_class == FORMAT_CLASS_VIDEO || fd->format_class == FORMAT_CLASS_DOCUMENT)
+			if (fd->format_class == FORMAT_CLASS_IMAGE || fd->format_class == FORMAT_CLASS_VIDEO || fd->format_class == FORMAT_CLASS_DOCUMENT)
 				{
 				sd->match_broken_enable = TRUE;
 				match = TRUE;
@@ -2742,7 +2737,6 @@ void search_new(FileData *dir_fd, FileData *example_file)
 
 	sd->class_type = gtk_combo_box_text_new();
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->class_type), _("Image"));
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->class_type), _("Raw Image"));
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->class_type), _("Video"));
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->class_type), _("Document"));
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(sd->class_type), _("Metadata"));

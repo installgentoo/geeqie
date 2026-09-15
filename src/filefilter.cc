@@ -223,25 +223,6 @@ void filter_add_defaults()
 	filter_add_if_missing("jps", "Stereo side-by-side jpeg", ".jps", FORMAT_CLASS_IMAGE, TRUE, FALSE, TRUE);
 	filter_add_if_missing("mpo", "Stereo multi-image jpeg", ".mpo", FORMAT_CLASS_IMAGE, FALSE, TRUE, TRUE);
 
-	/* These are the raw camera formats with embedded jpeg/exif.
-	 * (see format-raw.cc and/or exiv2.cc)
-	 */
-	filter_add_if_missing("arw", "Sony raw format", ".arw;.srf;.sr2", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("crw", "Canon raw format", ".crw;.cr2;.cr3", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("kdc", "Kodak raw format", ".kdc;.dcr;.k25", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("raf", "Fujifilm raw format", ".raf", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("mef", "Mamiya raw format", ".mef;.mos", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("mrw", "Minolta raw format", ".mrw", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("nef", "Nikon raw format", ".nef", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("orf", "Olympus raw format", ".orf", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("pef", "Pentax or Samsung raw format", ".pef", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("dng", "Adobe Digital Negative raw format", ".dng", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("raw", "Panasonic raw format", ".raw", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("r3d", "Red raw format", ".r3d", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("3fr", "Hasselblad raw format", ".3fr", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("erf", "Epson raw format", ".erf", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("srw", "Samsung raw format", ".srw", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
-	filter_add_if_missing("rw2", "Panasonic raw format", ".rw2", FORMAT_CLASS_RAWIMAGE, FALSE, TRUE, TRUE);
 
 	/* video files */
 	filter_add_if_missing("mp4", "MP4 video file", ".mp4;.m4v;.3gp;.3g2", FORMAT_CLASS_VIDEO, FALSE, FALSE, TRUE);
@@ -279,7 +260,6 @@ GList *filter_to_list(const gchar *extensions)
 		ext = g_strndup(b, l);
 
 		if (g_ascii_strcasecmp(ext, "%image") == 0) file_class = FORMAT_CLASS_IMAGE;
-		else if (g_ascii_strcasecmp(ext, "%raw") == 0) file_class = FORMAT_CLASS_RAWIMAGE;
 		else if (g_ascii_strcasecmp(ext, "%unknown") == 0) file_class = FORMAT_CLASS_UNKNOWN;
 
 		if (file_class == -1)
@@ -406,7 +386,6 @@ gboolean filter_file_class(const gchar *name, FileFormatClass file_class)
 FileFormatClass filter_file_get_class(const gchar *name)
 {
 	if (filter_file_class(name, FORMAT_CLASS_IMAGE)) return FORMAT_CLASS_IMAGE;
-	if (filter_file_class(name, FORMAT_CLASS_RAWIMAGE)) return FORMAT_CLASS_RAWIMAGE;
 	if (filter_file_class(name, FORMAT_CLASS_VIDEO)) return FORMAT_CLASS_VIDEO;
 	if (filter_file_class(name, FORMAT_CLASS_DOCUMENT)) return FORMAT_CLASS_DOCUMENT;
 	return FORMAT_CLASS_UNKNOWN;

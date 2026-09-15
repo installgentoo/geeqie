@@ -54,12 +54,12 @@ class FileDataSortTest : public t::Test
 		fd_middle = FileData::file_data_new_simple("/noexist/noexist/2_middle.jpg", &context);
 		fd_middle->size = 222;
 		fd_middle->date = fd_middle->cdate = 2222222222;
-		fd_middle->format_class = FORMAT_CLASS_RAWIMAGE;
+		fd_middle->format_class = FORMAT_CLASS_VIDEO;
 
 		fd_last = FileData::file_data_new_simple("/noexist/noexist/3_last.jpg", &context);
 		fd_last->size = 3333;
 		fd_last->date = fd_last->cdate = 3333333333;
-		fd_last->format_class = FORMAT_CLASS_VIDEO;
+		fd_last->format_class = FORMAT_CLASS_DOCUMENT;
 	}
 
 	void TearDown() override

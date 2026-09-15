@@ -45,7 +45,6 @@
 #  include "image-load-j2k.h"
 #endif
 #if HAVE_JPEG
-#  include "image-load-cr3.h"
 #  include "image-load-jpeg.h"
 #endif
 #if HAVE_JPEGXL
@@ -745,14 +744,6 @@ static void image_loader_setup_loader(ImageLoader *il)
 		{
 		DEBUG_1("Using custom jpeg loader");
 		il->backend = get_image_loader_backend_jpeg();
-		}
-	else
-	if (il->bytes_total >= 11 &&
-	    (memcmp(il->mapped_file + 4, "ftypcrx", 7) == 0) &&
-	    (memcmp(il->mapped_file + 64, "CanonCR3", 8) == 0))
-		{
-		DEBUG_1("Using custom cr3 loader");
-		il->backend = get_image_loader_backend_cr3();
 		}
 	else
 #endif
