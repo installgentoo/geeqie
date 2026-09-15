@@ -224,6 +224,9 @@ else
     summary({'execinfo' : ['stacktrace supported:', false]}, section : 'Configuration', bool_yn : true)
 endif
 
+# the similarity cache
+sqlite3_dep = dependency('sqlite3', version : '>=3.20')
+
 conf_data.set('HAVE_EXIV2', 0)
 exiv2_dep = []
 req_version = '>=0.18'

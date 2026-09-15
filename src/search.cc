@@ -1473,7 +1473,7 @@ static void search_file_load_process(SearchData *sd, CacheData *cd)
 
 		if (fd && cache_sim_data_use_cache(fd))
 			{
-			cache_sim_data_save_to_file(fd, cd);
+			cache_sim_data_save(fd, cd);
 			}
 		}
 
@@ -1520,7 +1520,7 @@ static gboolean search_file_do_extra(SearchData *sd, FileData *fd, gint *match,
 	if (!sd->img_cd)
 		{
 		new_data = TRUE;
-		sd->img_cd = cache_sim_data_load_from_file(fd);
+		sd->img_cd = cache_sim_data_load(fd);
 		}
 
 	if (!sd->img_cd)

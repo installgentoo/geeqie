@@ -934,7 +934,6 @@ gint main(gint argc, gchar *argv[])
 	DEBUG_1("%s main: mkdir_if_not_exists", get_exec_time());
 	/* these functions don't depend on config file */
 	mkdir_if_not_exists(get_rc_dir());
-	mkdir_if_not_exists(get_thumbnails_cache_dir());
 
 	setup_env_path();
 

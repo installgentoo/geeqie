@@ -512,7 +512,7 @@ static void dupe_item_read_cache(DupeItem *di)
 {
 	if (!di) return;
 
-	CacheData *cd = cache_sim_data_load_from_file(di->fd);
+	CacheData *cd = cache_sim_data_load(di->fd);
 	if (!cd) return;
 
 	dupe_item_apply_cache_data(di, cd);
@@ -524,7 +524,7 @@ static void dupe_item_write_cache(DupeItem *di)
 {
 	if (!di) return;
 
-	CacheData *cd = cache_sim_data_load_from_file(di->fd);
+	CacheData *cd = cache_sim_data_load(di->fd);
 	if (!cd) cd = cache_sim_data_new();
 
 	if (di->width != 0) cache_sim_data_set_dimensions(cd, di->width, di->height);
@@ -534,7 +534,7 @@ static void dupe_item_write_cache(DupeItem *di)
 		if (md5_digest_from_text(di->md5sum, digest)) cache_sim_data_set_md5sum(cd, digest);
 		}
 
-	cache_sim_data_save_to_file(di->fd, cd);
+	cache_sim_data_save(di->fd, cd);
 	cache_sim_data_free(cd);
 }
 

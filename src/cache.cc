@@ -23,94 +23,39 @@
 
 #include <sys/stat.h>
 #include <unistd.h>
-#include <utime.h>
 
-#include <cerrno>
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
-
-#include <config.h>
+#include <string>
+#include <vector>
 
 #include <glib/gstdio.h>
+#include <sqlite3.h>
 
 #include "debug.h"
 #include "filedata.h"
-#include "intl.h"
 #include "main-defines.h"
-#include "md5-util.h"
 #include "options.h"
-#include "secure-save.h"
 #include "similar.h"
 #include "thumb-standard.h"
 #include "ui-fileops.h"
 
-
 /**
  * @file
- *-------------------------------------------------------------------
- * Cache data file format:
- *-------------------------------------------------------------------
+ * Similarity cache: one SQLite database, one row per source file.
  *
- * SIMcache \n
- * #comment \n
- * URI=<file:// URI of the source; the cache file is named by its md5, so without this line the file is an orphan> \n
- * Dimensions=[<width> x <height>] \n
- * Date=[<value in time_t format, or -1 if no embedded date>] \n
- * MD5sum=[<32 character ascii text digest>] \n
- * SimilarityGrid[32 x 32]=<3072 bytes of data (1024 pixels in RGB format, 1 pixel is 24bits)>
+ *   path    source file path (UTF-8), unique
+ *   mtime   source mtime when the row was written; a row whose mtime differs from the file is stale
+ *   width, height   image dimensions, NULL if unknown
+ *   md5     16-byte digest, NULL if unknown
+ *   grid    3072 bytes: the 32x32 avg_r, avg_g, avg_b planes, NULL if unknown
  *
- * The first line (9 bytes) indicates it is a SIMcache format file. (new line char must exist) \n
- * Comment lines starting with a # are ignored up to a new line. \n
- * All data lines should end with a new line char. \n
- * Format is very strict, data must begin with the char immediately following '='. \n
- * Currently SimilarityGrid is always assumed to be 32 x 32 RGB. \n
+ * The grid is stored raw; image_sim_alternate_processing() is applied after loading.
  */
 
 namespace
 {
 
-/* Names the cache file (md5 of this) and is stored inside it; the two must agree or maintenance cannot trace the file back. */
-gchar *cache_source_uri(const gchar *source)
-{
-	g_autofree gchar *source_path = path_from_utf8(source);
-	return g_filename_to_uri(source_path, nullptr, nullptr);
-}
-
-struct CachePathParts
-{
-	CachePathParts(CacheType cache_type)
-	{
-		rc = get_thumbnails_cache_dir();
-
-		switch (cache_type)
-			{
-			case CACHE_TYPE_THUMB:
-				ext = GQ_CACHE_EXT_THUMB;
-				break;
-			case CACHE_TYPE_SIM:
-				ext = GQ_CACHE_EXT_SIM;
-				break;
-			}
-	}
-
-	gchar *build_path_rc(const gchar *source) const
-	{
-		g_autofree gchar *uri = cache_source_uri(source);
-		if (!uri) return nullptr;
-
-		g_autofree gchar *md5_text = md5_get_string(reinterpret_cast<const guchar *>(uri), strlen(uri));
-		if (!md5_text) return nullptr;
-
-		g_autofree gchar *name = g_strconcat(md5_text, ext, nullptr);
-		return g_build_filename(rc, name, nullptr);
-	}
-
-	const gchar *rc = nullptr;
-	const gchar *ext = nullptr;
-};
-
-constexpr gint CACHE_LOAD_LINE_NOISE = 8;
+constexpr gint SIM_GRID_BYTES = 3 * 1024;
 
 gboolean cache_video_tools_available()
 {
@@ -226,20 +171,123 @@ GdkPixbuf *cache_sim_video_pixbuf(FileData *fd)
 	return pixbuf;
 }
 
+/*
+ *-------------------------------------------------------------------
+ * database
+ *-------------------------------------------------------------------
+ */
+
 namespace
 {
 
-gchar *cache_get_location(CacheType type, const gchar *source, gint include_name, mode_t *mode)
+/* One connection; every statement runs under the mutex, so any thread may call in. */
+struct SimDb
 {
-	if (!source) return nullptr;
+	GMutex mutex;
+	sqlite3 *db = nullptr;
+	sqlite3_stmt *select = nullptr;
+	sqlite3_stmt *upsert = nullptr;
+	sqlite3_stmt *remove = nullptr;
+	sqlite3_stmt *move = nullptr;
+};
 
-	const CachePathParts cache{type};
-	if (mode) *mode = 0755;
-	if (!include_name) return g_strdup(cache.rc);
-	return cache.build_path_rc(source);
+gboolean sim_db_exec(sqlite3 *db, const gchar *sql)
+{
+	gchar *error = nullptr;
+	if (sqlite3_exec(db, sql, nullptr, nullptr, &error) == SQLITE_OK) return TRUE;
+
+	log_printf("similarity cache: %s: %s\n", sql, error);
+	sqlite3_free(error);
+	return FALSE;
+}
+
+gboolean sim_db_prepare(sqlite3 *db, const gchar *sql, sqlite3_stmt **stmt)
+{
+	if (sqlite3_prepare_v3(db, sql, -1, SQLITE_PREPARE_PERSISTENT, stmt, nullptr) == SQLITE_OK) return TRUE;
+
+	log_printf("similarity cache: %s: %s\n", sql, sqlite3_errmsg(db));
+	return FALSE;
+}
+
+/* Opened on first use; nullptr if the database cannot be opened, in which case nothing is cached. */
+SimDb *sim_db()
+{
+	static SimDb *instance = nullptr;
+	static gsize initialized = 0;
+
+	if (g_once_init_enter(&initialized))
+		{
+		const gchar *path = get_sim_cache_path();
+		g_autofree gchar *dir = g_path_get_dirname(path);
+		g_autofree gchar *pathl = path_from_utf8(path);
+		sqlite3 *db = nullptr;
+
+		recursive_mkdir_if_not_exists(dir, 0755);
+
+		/* NOMUTEX: SimDb::mutex already serialises every use of the connection.
+		 * The busy timeout comes first: switching to WAL takes a lock another geeqie instance may hold. */
+		if (sqlite3_open_v2(pathl, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX, nullptr) == SQLITE_OK &&
+		    sqlite3_busy_timeout(db, 5000) == SQLITE_OK &&
+		    sim_db_exec(db, "PRAGMA journal_mode=WAL;"
+		                    "PRAGMA synchronous=NORMAL;"
+		                    "CREATE TABLE IF NOT EXISTS sim("
+		                    "path TEXT NOT NULL UNIQUE, mtime INTEGER NOT NULL,"
+		                    "width INTEGER, height INTEGER, md5 BLOB, grid BLOB);"))
+			{
+			auto s = new SimDb();
+			g_mutex_init(&s->mutex);
+			s->db = db;
+			if (sim_db_prepare(db, "SELECT mtime, width, height, md5, grid FROM sim WHERE path = ?", &s->select) &&
+			    sim_db_prepare(db, "INSERT OR REPLACE INTO sim(path, mtime, width, height, md5, grid) VALUES(?, ?, ?, ?, ?, ?)", &s->upsert) &&
+			    sim_db_prepare(db, "DELETE FROM sim WHERE path = ?", &s->remove) &&
+			    sim_db_prepare(db, "UPDATE OR REPLACE sim SET path = ? WHERE path = ?", &s->move))
+				{
+				instance = s;
+				}
+			}
+		else
+			{
+			log_printf("similarity cache: cannot open %s: %s\n", path, db ? sqlite3_errmsg(db) : "out of memory");
+			sqlite3_close(db);
+			}
+
+		g_once_init_leave(&initialized, 1);
+		}
+
+	return instance;
+}
+
+/* Runs one bound statement to completion; the caller holds the mutex. */
+gboolean sim_db_step_done(SimDb *s, sqlite3_stmt *stmt)
+{
+	const gboolean ok = sqlite3_step(stmt) == SQLITE_DONE;
+	if (!ok) log_printf("similarity cache: %s\n", sqlite3_errmsg(s->db));
+
+	sqlite3_reset(stmt);
+	sqlite3_clear_bindings(stmt);
+	return ok;
 }
 
 } // namespace
+
+const gchar *get_sim_cache_path()
+{
+#if USE_XDG
+	static gchar *path = g_build_filename(xdg_cache_home_get(), GQ_APPNAME_LC, "similarity.db", NULL);
+#else
+	static gchar *path = g_build_filename(get_rc_dir(), "similarity.db", NULL);
+#endif
+
+	return path;
+}
+
+const gchar *get_thumbnails_standard_cache_dir()
+{
+	static gchar *thumbnails_standard_cache_dir = g_build_filename(xdg_cache_home_get(),
+	                                                               THUMB_FOLDER_GLOBAL, NULL);
+
+	return thumbnails_standard_cache_dir;
+}
 
 /*
  *-------------------------------------------------------------------
@@ -249,381 +297,16 @@ gchar *cache_get_location(CacheType type, const gchar *source, gint include_name
 
 CacheData *cache_sim_data_new()
 {
-	CacheData *cd;
-
-	cd = g_new0(CacheData, 1);
-
-	return cd;
+	return g_new0(CacheData, 1);
 }
 
 void cache_sim_data_free(CacheData *cd)
 {
 	if (!cd) return;
 
-	g_free(cd->path);
-	g_free(cd->uri);
 	image_sim_free(cd->sim);
 	g_free(cd);
 }
-
-/*
- *-------------------------------------------------------------------
- * sim cache write
- *-------------------------------------------------------------------
- */
-
-static gboolean cache_sim_write_dimensions(SecureSaveInfo *ssi, CacheData *cd)
-{
-	if (!cd || !cd->dimensions) return FALSE;
-
-	secure_fprintf(ssi, "Dimensions=[%d x %d]\n", cd->width, cd->height);
-
-	return TRUE;
-}
-
-static gboolean cache_sim_write_md5sum(SecureSaveInfo *ssi, CacheData *cd)
-{
-	gchar *text;
-
-	if (!cd || !cd->have_md5sum) return FALSE;
-
-	text = md5_digest_to_text(cd->md5sum);
-	secure_fprintf(ssi, "MD5sum=[%s]\n", text);
-	g_free(text);
-
-	return TRUE;
-}
-
-static gboolean cache_sim_write_similarity(SecureSaveInfo *ssi, CacheData *cd)
-{
-	guint x;
-	guint y;
-	guint8 buf[3 * 32];
-
-	if (!cd || !cd->similarity || !cd->sim || !cd->sim->filled) return FALSE;
-
-	secure_fprintf(ssi, "SimilarityGrid[32 x 32]=");
-	for (y = 0; y < 32; y++)
-		{
-		guint s = y * 32;
-		guint8 *avg_r = &cd->sim->avg_r[s];
-		guint8 *avg_g = &cd->sim->avg_g[s];
-		guint8 *avg_b = &cd->sim->avg_b[s];
-		guint n = 0;
-
-		for (x = 0; x < 32; x++)
-			{
-			buf[n++] = avg_r[x];
-			buf[n++] = avg_g[x];
-			buf[n++] = avg_b[x];
-			}
-
-		secure_fwrite(buf, sizeof(buf), 1, ssi);
-		}
-
-	secure_fputc(ssi, '\n');
-
-	return TRUE;
-}
-
-gboolean cache_sim_data_save(CacheData *cd)
-{
-	SecureSaveInfo *ssi;
-	gchar *pathl;
-
-	if (!cd || !cd->path) return FALSE;
-
-	pathl = path_from_utf8(cd->path);
-	ssi = secure_open(pathl);
-	g_free(pathl);
-
-	if (!ssi)
-		{
-		log_printf("Unable to save sim cache data: %s\n", cd->path);
-		return FALSE;
-		}
-
-	secure_fprintf(ssi, "SIMcache\n#%s %s\n", PACKAGE, VERSION);
-	if (cd->uri) secure_fprintf(ssi, "URI=%s\n", cd->uri);
-	cache_sim_write_dimensions(ssi, cd);
-	cache_sim_write_md5sum(ssi, cd);
-	cache_sim_write_similarity(ssi, cd);
-
-	if (secure_close(ssi))
-		{
-		log_printf(_("error saving sim cache data: %s\nerror: %s\n"), cd->path,
-			    secsave_strerror(secsave_errno));
-		return FALSE;
-		}
-
-	return TRUE;
-}
-
-/*
- *-------------------------------------------------------------------
- * sim cache read
- *-------------------------------------------------------------------
- */
-
-static gboolean cache_sim_read_skipline(FILE *f, gint s)
-{
-	if (!f) return FALSE;
-
-	if (fseek(f, 0 - s, SEEK_CUR) == 0)
-		{
-		gchar b;
-		while (fread(&b, sizeof(b), 1, f) == 1)
-			{
-			if (b == '\n') return TRUE;
-			}
-		return TRUE;
-		}
-
-	return FALSE;
-}
-
-static gboolean cache_sim_read_uri(FILE *f, gchar *buf, gint s, CacheData *cd)
-{
-	if (!f || !buf || !cd) return FALSE;
-
-	if (s < 4 || strncmp("URI=", buf, 4) != 0) return FALSE;
-
-	if (fseek(f, 4 - s, SEEK_CUR) != 0) return FALSE;
-
-	GString *uri = g_string_new(nullptr);
-	gchar b;
-	while (fread(&b, sizeof(b), 1, f) == 1 && b != '\n')
-		{
-		g_string_append_c(uri, b);
-		}
-
-	g_free(cd->uri);
-	cd->uri = g_string_free(uri, FALSE);
-	return TRUE;
-}
-
-static gboolean cache_sim_read_dimensions(FILE *f, gchar *buf, gint s, CacheData *cd)
-{
-	if (!f || !buf || !cd) return FALSE;
-
-	if (s < 10 || strncmp("Dimensions", buf, 10) != 0) return FALSE;
-
-	if (fseek(f, - s, SEEK_CUR) == 0)
-		{
-		gchar b;
-		gchar buf[1024];
-		gsize p = 0;
-		gint w;
-		gint h;
-
-		b = 'X';
-		while (b != '[')
-			{
-			if (fread(&b, sizeof(b), 1, f) != 1) return FALSE;
-			}
-		while (b != ']' && p < sizeof(buf) - 1)
-			{
-			if (fread(&b, sizeof(b), 1, f) != 1) return FALSE;
-			buf[p] = b;
-			p++;
-			}
-
-		while (b != '\n')
-			{
-			if (fread(&b, sizeof(b), 1, f) != 1) break;
-			}
-
-		buf[p] = '\0';
-		if (sscanf(buf, "%d x %d", &w, &h) != 2) return FALSE;
-
-		cd->width = w;
-		cd->height = h;
-		cd->dimensions = TRUE;
-
-		return TRUE;
-		}
-
-	return FALSE;
-}
-
-static gboolean cache_sim_read_md5sum(FILE *f, gchar *buf, gint s, CacheData *cd)
-{
-	if (!f || !buf || !cd) return FALSE;
-
-	if (s < 8 || strncmp("MD5sum", buf, 6) != 0) return FALSE;
-
-	if (fseek(f, - s, SEEK_CUR) == 0)
-		{
-		gchar b;
-		gchar buf[64];
-		gsize p = 0;
-
-		b = 'X';
-		while (b != '[')
-			{
-			if (fread(&b, sizeof(b), 1, f) != 1) return FALSE;
-			}
-		while (b != ']' && p < sizeof(buf) - 1)
-			{
-			if (fread(&b, sizeof(b), 1, f) != 1) return FALSE;
-			buf[p] = b;
-			p++;
-			}
-		while (b != '\n')
-			{
-			if (fread(&b, sizeof(b), 1, f) != 1) break;
-			}
-
-		buf[p] = '\0';
-		cd->have_md5sum = md5_digest_from_text(buf, cd->md5sum);
-
-		return TRUE;
-		}
-
-	return FALSE;
-}
-
-static gboolean cache_sim_read_similarity(FILE *f, gchar *buf, gint s, CacheData *cd)
-{
-	if (!f || !buf || !cd) return FALSE;
-
-	if (s < 11 || strncmp("Similarity", buf, 10) != 0) return FALSE;
-
-	if (strncmp("Grid[32 x 32]", buf + 10, 13) != 0) return FALSE;
-
-	if (fseek(f, - s, SEEK_CUR) == 0)
-		{
-		gchar b;
-		guint8 pixel_buf[3];
-		ImageSimilarityData *sd;
-		gint x;
-		gint y;
-
-		b = 'X';
-		while (b != '=')
-			{
-			if (fread(&b, sizeof(b), 1, f) != 1) return FALSE;
-			}
-
-		if (cd->sim)
-			{
-			/* use current sim that may already contain data we will not touch here */
-			sd = cd->sim;
-			cd->sim = nullptr;
-			cd->similarity = FALSE;
-			}
-		else
-			{
-			sd = image_sim_new();
-			}
-
-		for (y = 0; y < 32; y++)
-			{
-			gint s = y * 32;
-			for (x = 0; x < 32; x++)
-				{
-				if (fread(&pixel_buf, sizeof(pixel_buf), 1, f) != 1)
-					{
-					image_sim_free(sd);
-					return FALSE;
-					}
-				sd->avg_r[s + x] = pixel_buf[0];
-				sd->avg_g[s + x] = pixel_buf[1];
-				sd->avg_b[s + x] = pixel_buf[2];
-				}
-			}
-
-		if (fread(&b, sizeof(b), 1, f) == 1)
-			{
-			if (b != '\n') fseek(f, -1, SEEK_CUR);
-			}
-
-		cd->sim = sd;
-		cd->sim->filled = TRUE;
-		cd->similarity = TRUE;
-
-		return TRUE;
-		}
-
-	return FALSE;
-}
-
-CacheData *cache_sim_data_load(const gchar *path)
-{
-	FILE *f;
-	CacheData *cd = nullptr;
-	gchar buf[32];
-	gint success = CACHE_LOAD_LINE_NOISE;
-	gchar *pathl;
-
-	if (!path) return nullptr;
-
-	pathl = path_from_utf8(path);
-	f = fopen(pathl, "r");
-	g_free(pathl);
-
-	if (!f) return nullptr;
-
-	cd = cache_sim_data_new();
-	cd->path = g_strdup(path);
-
-	if (fread(&buf, sizeof(gchar), 9, f) != 9 ||
-	    strncmp(buf, "SIMcache", 8) != 0)
-		{
-		DEBUG_1("%s is not a cache file", cd->path);
-		success = 0;
-		}
-
-	while (success > 0)
-		{
-		gint s;
-		s = fread(&buf, sizeof(gchar), sizeof(buf), f);
-
-		if (s < 1)
-			{
-			success = 0;
-			}
-		else
-			{
-			if (!cache_sim_read_uri(f, buf, s, cd) &&
-			    !cache_sim_read_dimensions(f, buf, s, cd) &&
-			    !cache_sim_read_md5sum(f, buf, s, cd) &&
-			    !cache_sim_read_similarity(f, buf, s, cd))
-				{
-				if (!cache_sim_read_skipline(f, s))
-					{
-					success = 0;
-					}
-				else
-					{
-					success--;
-					}
-				}
-			else
-				{
-				success = CACHE_LOAD_LINE_NOISE;
-				}
-			}
-		}
-
-	fclose(f);
-
-	if (!cd->dimensions &&
-	    !cd->have_md5sum &&
-	    !cd->similarity)
-		{
-		cache_sim_data_free(cd);
-		cd = nullptr;
-		}
-
-	return cd;
-}
-
-/*
- *-------------------------------------------------------------------
- * sim cache setting
- *-------------------------------------------------------------------
- */
 
 void cache_sim_data_set_dimensions(CacheData *cd, gint w, gint h)
 {
@@ -667,32 +350,85 @@ gboolean cache_sim_data_filled(ImageSimilarityData *sd)
 	return sd->filled;
 }
 
-CacheData *cache_sim_data_load_from_file(FileData *fd)
+CacheData *cache_sim_data_load(FileData *fd)
 {
 	if (!fd || !fd->path) return nullptr;
 
-	g_autofree gchar *path = cache_find_location(CACHE_TYPE_SIM, fd->path);
-	if (!path) return nullptr;
-	if (filetime(fd->path) != filetime(path)) return nullptr;
+	SimDb *s = sim_db();
+	if (!s) return nullptr;
 
-	return cache_sim_data_load(path);
+	const time_t mtime = filetime(fd->path);
+	CacheData *cd = nullptr;
+
+	g_mutex_lock(&s->mutex);
+	sqlite3_bind_text(s->select, 1, fd->path, -1, SQLITE_STATIC);
+
+	if (sqlite3_step(s->select) == SQLITE_ROW && sqlite3_column_int64(s->select, 0) == mtime)
+		{
+		cd = cache_sim_data_new();
+
+		if (sqlite3_column_type(s->select, 1) != SQLITE_NULL)
+			{
+			cache_sim_data_set_dimensions(cd, sqlite3_column_int(s->select, 1), sqlite3_column_int(s->select, 2));
+			}
+
+		if (sqlite3_column_bytes(s->select, 3) == 16)
+			{
+			cache_sim_data_set_md5sum(cd, static_cast<const guchar *>(sqlite3_column_blob(s->select, 3)));
+			}
+
+		if (sqlite3_column_bytes(s->select, 4) == SIM_GRID_BYTES)
+			{
+			auto grid = static_cast<const guint8 *>(sqlite3_column_blob(s->select, 4));
+			cd->sim = image_sim_new();
+			memcpy(cd->sim->avg_r, grid, 1024);
+			memcpy(cd->sim->avg_g, grid + 1024, 1024);
+			memcpy(cd->sim->avg_b, grid + 2048, 1024);
+			cd->sim->filled = TRUE;
+			cd->similarity = TRUE;
+			}
+		}
+
+	sqlite3_reset(s->select);
+	sqlite3_clear_bindings(s->select);
+	g_mutex_unlock(&s->mutex);
+
+	return cd;
 }
 
-gboolean cache_sim_data_save_to_file(FileData *fd, CacheData *cd)
+gboolean cache_sim_data_save(FileData *fd, CacheData *cd)
 {
 	if (!fd || !fd->path || !cd) return FALSE;
 
-	g_autofree gchar *base = cache_create_location(CACHE_TYPE_SIM, fd->path);
-	if (!base) return FALSE;
+	SimDb *s = sim_db();
+	if (!s) return FALSE;
 
-	g_free(cd->path);
-	cd->path = cache_get_location(CACHE_TYPE_SIM, fd->path);
-	g_free(cd->uri);
-	cd->uri = cache_source_uri(fd->path);
-	if (!cache_sim_data_save(cd)) return FALSE;
+	guint8 grid[SIM_GRID_BYTES];
+	const gboolean have_grid = cd->similarity && cd->sim && cd->sim->filled;
+	if (have_grid)
+		{
+		memcpy(grid, cd->sim->avg_r, 1024);
+		memcpy(grid + 1024, cd->sim->avg_g, 1024);
+		memcpy(grid + 2048, cd->sim->avg_b, 1024);
+		}
 
-	filetime_set(cd->path, filetime(fd->path));
-	return TRUE;
+	const time_t mtime = filetime(fd->path);
+
+	g_mutex_lock(&s->mutex);
+	sqlite3_bind_text(s->upsert, 1, fd->path, -1, SQLITE_STATIC);
+	sqlite3_bind_int64(s->upsert, 2, mtime);
+	if (cd->dimensions)
+		{
+		sqlite3_bind_int(s->upsert, 3, cd->width);
+		sqlite3_bind_int(s->upsert, 4, cd->height);
+		}
+	if (cd->have_md5sum) sqlite3_bind_blob(s->upsert, 5, cd->md5sum, 16, SQLITE_STATIC);
+	if (have_grid) sqlite3_bind_blob(s->upsert, 6, grid, SIM_GRID_BYTES, SQLITE_STATIC);
+
+	const gboolean ok = sim_db_step_done(s, s->upsert);
+	g_mutex_unlock(&s->mutex);
+
+	return ok;
 }
 
 gboolean cache_sim_data_use_cache(FileData *fd)
@@ -701,82 +437,73 @@ gboolean cache_sim_data_use_cache(FileData *fd)
 	       (fd && fd->format_class == FORMAT_CLASS_VIDEO);
 }
 
-gboolean cache_sim_file_valid(const gchar *cache_path)
+void cache_sim_moved(const gchar *source, const gchar *dest)
 {
-	CacheData *cd = cache_sim_data_load(cache_path);
-	if (!cd) return FALSE;
+	SimDb *s = sim_db();
+	if (!s || !source || !dest) return;
 
-	gboolean valid = FALSE;
-	if (cd->uri)
+	g_mutex_lock(&s->mutex);
+	sqlite3_bind_text(s->move, 1, dest, -1, SQLITE_STATIC);
+	sqlite3_bind_text(s->move, 2, source, -1, SQLITE_STATIC);
+	sim_db_step_done(s, s->move);
+	g_mutex_unlock(&s->mutex);
+}
+
+void cache_sim_removed(const gchar *path)
+{
+	SimDb *s = sim_db();
+	if (!s || !path) return;
+
+	g_mutex_lock(&s->mutex);
+	sqlite3_bind_text(s->remove, 1, path, -1, SQLITE_STATIC);
+	sim_db_step_done(s, s->remove);
+	g_mutex_unlock(&s->mutex);
+}
+
+gint cache_sim_clean()
+{
+	SimDb *s = sim_db();
+	if (!s) return 0;
+
+	struct Row
+	{
+		std::string path;
+		time_t mtime;
+	};
+	std::vector<Row> rows;
+
+	g_mutex_lock(&s->mutex);
+	sqlite3_stmt *all = nullptr;
+	if (sim_db_prepare(s->db, "SELECT path, mtime FROM sim", &all))
 		{
-		g_autofree gchar *source = g_filename_from_uri(cd->uri, nullptr, nullptr);
-		g_autofree gchar *source_utf8 = source ? path_to_utf8(source) : nullptr;
-		valid = source_utf8 && isfile(source_utf8) && filetime(source_utf8) == filetime(cache_path);
+		while (sqlite3_step(all) == SQLITE_ROW)
+			{
+			rows.push_back({reinterpret_cast<const char *>(sqlite3_column_text(all, 0)), sqlite3_column_int64(all, 1)});
+			}
+		sqlite3_finalize(all);
+		}
+	g_mutex_unlock(&s->mutex);
+
+	/* the stat pass is the slow part and runs without the lock, so loads and saves are not held up */
+	std::vector<const Row *> stale;
+	for (const Row &row : rows)
+		{
+		struct stat st;
+		if (!stat_utf8(row.path.c_str(), &st) || st.st_mtime != row.mtime) stale.push_back(&row);
 		}
 
-	cache_sim_data_free(cd);
-	return valid;
-}
+	if (stale.empty()) return 0;
 
-/*
- *-------------------------------------------------------------------
- * cache path location utils
- *-------------------------------------------------------------------
- */
-
-gchar *cache_create_location(CacheType cache_type, const gchar *source)
-{
-	mode_t mode = 0755;
-	g_autofree gchar *path = cache_get_location(cache_type, source, FALSE, &mode);
-
-	if (!recursive_mkdir_if_not_exists(path, mode))
+	g_mutex_lock(&s->mutex);
+	sim_db_exec(s->db, "BEGIN");
+	for (const Row *row : stale)
 		{
-		log_printf("Failed to create cache dir %s\n", path);
-		return nullptr;
+		sqlite3_bind_text(s->remove, 1, row->path.c_str(), -1, SQLITE_STATIC);
+		sim_db_step_done(s, s->remove);
 		}
+	sim_db_exec(s->db, "COMMIT");
+	sim_db_exec(s->db, "VACUUM");
+	g_mutex_unlock(&s->mutex);
 
-	return g_steal_pointer(&path);
-}
-
-gchar *cache_get_location(CacheType cache_type, const gchar *source)
-{
-	return cache_get_location(cache_type, source, TRUE, nullptr);
-}
-
-gchar *cache_find_location(CacheType type, const gchar *source)
-{
-	gchar *path;
-
-	if (!source) return nullptr;
-
-	const CachePathParts cache{type};
-	path = cache.build_path_rc(source);
-	if (!path) return nullptr;
-
-	if (!isfile(path))
-		{
-		g_free(path);
-		path = nullptr;
-		}
-
-	return path;
-}
-
-const gchar *get_thumbnails_cache_dir()
-{
-#if USE_XDG
-	static gchar *thumbnails_cache_dir = g_build_filename(xdg_cache_home_get(), GQ_APPNAME_LC, GQ_CACHE_THUMB, NULL);
-#else
-	static gchar *thumbnails_cache_dir = g_build_filename(get_rc_dir(), GQ_CACHE_THUMB, NULL);
-#endif
-
-	return thumbnails_cache_dir;
-}
-
-const gchar *get_thumbnails_standard_cache_dir()
-{
-	static gchar *thumbnails_standard_cache_dir = g_build_filename(xdg_cache_home_get(),
-	                                                               THUMB_FOLDER_GLOBAL, NULL);
-
-	return thumbnails_standard_cache_dir;
+	return static_cast<gint>(stale.size());
 }

@@ -21,7 +21,6 @@
 
 #include "cache-maint.h"
 
-#include <dirent.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -52,48 +51,19 @@ namespace
 
 struct CMData
 {
-	GList *list;
-	GList *done_list;
-	guint idle_id; /* event source id */
 	GenericDialog *gd;
 	GtkWidget *entry;
 	GtkWidget *spinner;
-	GtkWidget *button_stop;
 	GtkWidget *button_close;
-	gboolean remote;
+	gint removed;
+	GDestroyNotify done_func; /**< command line runs only: called with this instead of updating a dialog */
 };
 
 constexpr gint PURGE_DIALOG_WIDTH = 400;
 
-/* sorry for complexity (cm->done_list), but need it to remove empty dirs */
-CMData *cache_maintain_data_new(gboolean, gboolean, gboolean remote)
-{
-	const gchar *cache_folder = get_thumbnails_cache_dir();
-	FileData *dir_fd = file_data_new_dir(cache_folder);
-
-	GList *dlist;
-	if (!filelist_read(dir_fd, nullptr, &dlist))
-		{
-		file_data_unref(dir_fd);
-		return nullptr;
-		}
-
-	dlist = g_list_append(dlist, dir_fd);
-
-	auto *cm = g_new0(CMData, 1);
-	cm->list = dlist;
-	cm->done_list = nullptr;
-	cm->remote = remote;
-
-	return cm;
-}
-
 void cache_maintain_home_close(CMData *cm)
 {
-	if (cm->idle_id) g_source_remove(cm->idle_id);
 	if (cm->gd) generic_dialog_close(cm->gd);
-	filelist_free(cm->list);
-	g_list_free(cm->done_list);
 	g_free(cm);
 }
 
@@ -176,179 +146,35 @@ void cache_maintenance(const gchar *path)
  *-------------------------------------------------------------------
  */
 
-static gboolean isempty(const gchar *path)
-{
-	DIR *dp;
-	struct dirent *dir;
-	gchar *pathl;
-
-	pathl = path_from_utf8(path);
-	dp = opendir(pathl);
-	g_free(pathl);
-	if (!dp) return FALSE;
-
-	while ((dir = readdir(dp)) != nullptr)
-		{
-		gchar *name = dir->d_name;
-
-		if (name[0] != '.' || (name[1] != '\0' && (name[1] != '.' || name[2] != '\0')) )
-			{
-			closedir(dp);
-			return FALSE;
-			}
-		}
-
-	closedir(dp);
-	return TRUE;
-}
-
-static void cache_maintain_home_stop(CMData *cm)
-{
-	if (cm->idle_id)
-		{
-		g_source_remove(cm->idle_id);
-		cm->idle_id = 0;
-		}
-
-	if (!cm->remote)
-		{
-		gq_gtk_entry_set_text(GTK_ENTRY(cm->entry), _("done"));
-		gtk_spinner_stop(GTK_SPINNER(cm->spinner));
-
-		gtk_widget_set_sensitive(cm->button_stop, FALSE);
-		gtk_widget_set_sensitive(cm->button_close, TRUE);
-		}
-}
-
-static gboolean cache_maintain_home_cb(gpointer data)
+static gboolean cache_maintain_home_done_cb(gpointer data)
 {
 	auto cm = static_cast<CMData *>(data);
-	GList *dlist = nullptr;
-	GList *list = nullptr;
-	FileData *fd;
-	gboolean just_done = FALSE;
-	gboolean still_have_a_file = TRUE;
-	gsize base_length;
-	const gchar *cache_folder;
-	gboolean filter_disable;
 
-	cache_folder = get_thumbnails_cache_dir();
-
-	base_length = strlen(cache_folder);
-
-	if (!cm->list)
+	if (cm->done_func)
 		{
-		DEBUG_1("purge chk done.");
-		cm->idle_id = 0;
-		cache_maintain_home_stop(cm);
+		cm->done_func(cm);
 		return G_SOURCE_REMOVE;
 		}
 
-	fd = static_cast<FileData *>(cm->list->data);
+	g_autofree gchar *text = g_strdup_printf(_("done, %d entries removed"), cm->removed);
+	gq_gtk_entry_set_text(GTK_ENTRY(cm->entry), text);
+	gtk_spinner_stop(GTK_SPINNER(cm->spinner));
+	gtk_widget_set_sensitive(cm->button_close, TRUE);
 
-	DEBUG_1("purge chk \"%s\"", fd->path);
+	return G_SOURCE_REMOVE;
+}
 
-/**
- * It is necessary to disable the file filter when clearing the cache,
- * otherwise the .sim (file similarity) files are not deleted.
- */
-	filter_disable = options->file_filter.disable;
-	options->file_filter.disable = TRUE;
-
-	if (g_list_find(cm->done_list, fd) == nullptr)
+/* cache_sim_clean() stats the file of every row, so it runs on its own thread; cm outlives it because
+ * the dialog cannot be closed (and the command line chain does not continue) until the done callback. */
+static void cache_maintain_home_start(CMData *cm)
+{
+	g_thread_unref(g_thread_new("sim-cache-clean", [](gpointer data) -> gpointer
 		{
-		cm->done_list = g_list_prepend(cm->done_list, fd);
-
-		if (filelist_read(fd, &list, &dlist))
-			{
-			GList *work;
-
-			just_done = TRUE;
-			still_have_a_file = FALSE;
-
-			work = list;
-			while (work)
-				{
-				auto fd_list = static_cast<FileData *>(work->data);
-				const gchar *path = fd_list->path;
-				gboolean keep;
-
-				if (file_extension_match(path, GQ_CACHE_EXT_SIM))
-					{
-					/* named by md5 of the source; only the URI inside leads back. Files from the old
-					 * mirrored-path layout carry no URI and are dropped here, which migrates the cache. */
-					keep = cache_sim_file_valid(path);
-					}
-				else
-					{
-					/* legacy layout: <cache root>/<source path>.<ext> */
-					g_autofree gchar *path_buf = g_strdup(path);
-					gchar *dot = strrchr(path_buf, '.');
-					if (dot) *dot = '\0';
-					keep = !(strlen(path_buf) > base_length && !isfile(path_buf + base_length));
-					}
-
-				if (keep)
-					{
-					still_have_a_file = TRUE;
-					}
-				else if (!unlink_file(path))
-					{
-					log_printf("failed to delete:%s\n", path);
-					}
-				work = work->next;
-				}
-			}
-		}
-	options->file_filter.disable = filter_disable;
-
-	filelist_free(list);
-
-	cm->list = g_list_concat(dlist, cm->list);
-
-	if (cm->list && g_list_find(cm->done_list, cm->list->data) != nullptr)
-		{
-		/* check if the dir is empty */
-
-		if (cm->list->data == fd && just_done)
-			{
-			if (!still_have_a_file && !dlist && cm->list->next && !rmdir_utf8(fd->path))
-				{
-				log_printf("Unable to delete dir: %s\n", fd->path);
-				}
-			}
-		else
-			{
-			/* must re-check for an empty dir */
-			if (isempty(fd->path) && cm->list->next && !rmdir_utf8(fd->path))
-				{
-				log_printf("Unable to delete dir: %s\n", fd->path);
-				}
-			}
-
-		fd = static_cast<FileData *>(cm->list->data);
-		cm->done_list = g_list_remove(cm->done_list, fd);
-		cm->list = g_list_remove(cm->list, fd);
-		file_data_unref(fd);
-		}
-
-	if (cm->list && !cm->remote)
-		{
-		const gchar *buf;
-
-		fd = static_cast<FileData *>(cm->list->data);
-		if (strlen(fd->path) > base_length)
-			{
-			buf = fd->path + base_length;
-			}
-		else
-			{
-			buf = "...";
-			}
-		gq_gtk_entry_set_text(GTK_ENTRY(cm->entry), buf);
-		}
-
-	return G_SOURCE_CONTINUE;
+		auto cm = static_cast<CMData *>(data);
+		cm->removed = cache_sim_clean();
+		g_idle_add(cache_maintain_home_done_cb, cm);
+		return nullptr;
+		}, cm));
 }
 
 static void cache_maintain_home_close_cb(GenericDialog *, gpointer data)
@@ -360,22 +186,9 @@ static void cache_maintain_home_close_cb(GenericDialog *, gpointer data)
 	cache_maintain_home_close(cm);
 }
 
-static void cache_maintain_home_stop_cb(GenericDialog *, gpointer data)
-{
-	auto cm = static_cast<CMData *>(data);
-
-	cache_maintain_home_stop(cm);
-}
-
 static void cache_maintain_home(gboolean, gboolean, GtkWidget *parent)
 {
-	CMData *cm = cache_maintain_data_new(FALSE, FALSE, FALSE);
-	if (!cm) return;
-
-	const gchar *msg;
-	GtkWidget *hbox;
-
-	msg = _("Removing old thumbnails...");
+	auto cm = g_new0(CMData, 1);
 
 	cm->gd = generic_dialog_new(_("Maintenance"),
 				    "main_maintenance",
@@ -385,13 +198,11 @@ static void cache_maintain_home(gboolean, gboolean, GtkWidget *parent)
 	cm->button_close = generic_dialog_add_button(cm->gd, GQ_ICON_CLOSE, _("Close"),
 						     cache_maintain_home_close_cb, FALSE);
 	gtk_widget_set_sensitive(cm->button_close, FALSE);
-	cm->button_stop = generic_dialog_add_button(cm->gd, GQ_ICON_STOP, _("Stop"),
-						    cache_maintain_home_stop_cb, FALSE);
 
-	generic_dialog_add_message(cm->gd, nullptr, msg, nullptr, FALSE);
+	generic_dialog_add_message(cm->gd, nullptr, _("Removing similarity data of deleted or changed files..."), nullptr, FALSE);
 	gtk_window_set_default_size(GTK_WINDOW(cm->gd->dialog), PURGE_DIALOG_WIDTH, -1);
 
-	hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+	GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gq_gtk_box_pack_start(GTK_BOX(cm->gd->vbox), hbox, FALSE, FALSE, 5);
 	gtk_widget_show(hbox);
 
@@ -408,21 +219,19 @@ static void cache_maintain_home(gboolean, gboolean, GtkWidget *parent)
 
 	gtk_widget_show(cm->gd->dialog);
 
-	cm->idle_id = g_idle_add(cache_maintain_home_cb, cm);
+	cache_maintain_home_start(cm);
 }
 
 /**
  * @brief culls cached data
- * @param func Function called when idle loop function terminates
- *
- *
+ * @param func Called with the CMData when done
  */
 static void cache_maintain_home_remote(gboolean, gboolean, GDestroyNotify func)
 {
-	CMData *cm = cache_maintain_data_new(FALSE, FALSE, TRUE);
-	if (!cm) return;
+	auto cm = g_new0(CMData, 1);
+	cm->done_func = func;
 
-	cm->idle_id = g_idle_add_full(G_PRIORITY_LOW, cache_maintain_home_cb, cm, func);
+	cache_maintain_home_start(cm);
 }
 
 static void cache_maint_moved(FileData *fd)
@@ -432,27 +241,7 @@ static void cache_maint_moved(FileData *fd)
 
 	if (!src || !dest) return;
 
-	const auto cache_move = [src, dest](CacheType cache_type)
-	{
-		g_autofree gchar *src_path = cache_find_location(cache_type, src);
-		if (!src_path || !isfile(src_path)) return;
-
-		g_autofree gchar *dest_base = cache_create_location(cache_type, dest);
-		if (!dest_base) return;
-
-		g_autofree gchar *dest_path = cache_get_location(cache_type, dest);
-		if (!dest_path) return;
-
-		if (!move_file(src_path, dest_path))
-			{
-			DEBUG_1("Failed to move cache file \"%s\" to \"%s\"", src_path, dest_path);
-			/* we remove it anyway - it's stale */
-			unlink_file(src_path);
-			}
-	};
-
-	cache_move(CACHE_TYPE_THUMB);
-	cache_move(CACHE_TYPE_SIM);
+	cache_sim_moved(src, dest);
 
 	if (options->thumbnails.enable_caching)
 		thumb_std_maint_moved(src, dest);
@@ -460,19 +249,7 @@ static void cache_maint_moved(FileData *fd)
 
 static void cache_maint_removed(FileData *fd)
 {
-	const auto cache_remove = [fd](CacheType cache_type)
-	{
-		g_autofree gchar *path = cache_find_location(cache_type, fd->path);
-		if (!path || !isfile(path)) return;
-
-		if (!unlink_file(path))
-			{
-			DEBUG_1("Failed to remove cache file %s", path);
-			}
-	};
-
-	cache_remove(CACHE_TYPE_THUMB);
-	cache_remove(CACHE_TYPE_SIM);
+	cache_sim_removed(fd->path);
 
 	if (options->thumbnails.enable_caching)
 		thumb_std_maint_removed(fd->path);
@@ -1314,7 +1091,7 @@ static void cache_manager_sim_load_dialog(GtkWidget *widget, const gchar *path)
 	cd->remote = FALSE;
 	cd->recurse = TRUE;
 
-	cd->gd = generic_dialog_new(_("Create sim. files"), "create_sim_files", widget, FALSE, nullptr, cd);
+	cd->gd = generic_dialog_new(_("Create similarity data"), "create_sim_files", widget, FALSE, nullptr, cd);
 	gtk_window_set_default_size(GTK_WINDOW(cd->gd->dialog), PURGE_DIALOG_WIDTH, -1);
 	cd->gd->cancel_cb = cache_manager_sim_close_cb;
 	cd->button_close = generic_dialog_add_button(cd->gd, GQ_ICON_CLOSE, _("Close"),
@@ -1325,7 +1102,7 @@ static void cache_manager_sim_load_dialog(GtkWidget *widget, const gchar *path)
 						    cache_manager_sim_stop_cb, FALSE);
 	gtk_widget_set_sensitive(cd->button_stop, FALSE);
 
-	generic_dialog_add_message(cd->gd, nullptr, _("Create sim. files recursively"), nullptr, FALSE);
+	generic_dialog_add_message(cd->gd, nullptr, _("Create similarity data recursively"), nullptr, FALSE);
 
 	hbox = pref_box_new(cd->gd->vbox, FALSE, GTK_ORIENTATION_HORIZONTAL, 0);
 	pref_spacer(hbox, PREF_PAD_INDENT);
@@ -1441,7 +1218,7 @@ static void cache_manager_cache_maintenance_load_dialog(GtkWidget *widget, const
 	cd->button_start = generic_dialog_add_button(cd->gd, GQ_ICON_OK, _("S_tart"),
 						     cache_manager_cache_maintenance_start_cb, FALSE);
 
-	generic_dialog_add_message(cd->gd, nullptr, _("Recursively delete orphaned thumbnails\nand .sim files, and create new\nthumbnails and .sim files"), nullptr, FALSE);
+	generic_dialog_add_message(cd->gd, nullptr, _("Recursively delete orphaned thumbnails\nand similarity data, and create new\nthumbnails and similarity data"), nullptr, FALSE);
 
 	hbox = pref_box_new(cd->gd->vbox, FALSE, GTK_ORIENTATION_HORIZONTAL, 0);
 	pref_spacer(hbox, PREF_PAD_INDENT);
@@ -1499,16 +1276,16 @@ void cache_manager_show()
 
 	sizegroup = gtk_size_group_new(GTK_SIZE_GROUP_HORIZONTAL);
 
-	group = pref_group_new(gd->vbox, FALSE, _("Geeqie thumbnail and sim. cache"), GTK_ORIENTATION_VERTICAL);
+	group = pref_group_new(gd->vbox, FALSE, _("Similarity cache"), GTK_ORIENTATION_VERTICAL);
 
-	cache_manager_location_label(group, get_thumbnails_cache_dir());
+	cache_manager_location_label(group, get_sim_cache_path());
 
 	table = pref_table_new(group, 2, 2, FALSE, FALSE);
 
 	button = pref_table_button(table, 0, 0, GQ_ICON_CLEAR, _("Clean up"),
 				   G_CALLBACK(cache_manager_main_clean_cb), cache_manager);
 	gtk_size_group_add_widget(sizegroup, button);
-	pref_table_label(table, 1, 0, _("Remove orphaned or outdated thumbnails and sim. files."), GTK_ALIGN_START);
+	pref_table_label(table, 1, 0, _("Remove similarity data of deleted or changed files."), GTK_ALIGN_START);
 
 	group = pref_group_new(gd->vbox, FALSE, _("Shared thumbnail cache"), GTK_ORIENTATION_VERTICAL);
 
@@ -1540,7 +1317,7 @@ void cache_manager_show()
 	button = pref_table_button(table, 0, 0, GQ_ICON_RUN, _("Create"),
 				   G_CALLBACK(cache_manager_sim_load_cb), cache_manager);
 	gtk_size_group_add_widget(sizegroup, button);
-	pref_table_label(table, 1, 0, _("Create sim. files recursively."), GTK_ALIGN_START);
+	pref_table_label(table, 1, 0, _("Create similarity data recursively."), GTK_ALIGN_START);
 	gtk_widget_set_sensitive(group, options->thumbnails.enable_caching);
 
 	group = pref_group_new(gd->vbox, FALSE, _("Background cache maintenance"), GTK_ORIENTATION_VERTICAL);

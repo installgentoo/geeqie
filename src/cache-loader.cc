@@ -234,7 +234,7 @@ static gboolean cache_loader_phase2_process(CacheLoader *cl)
 		if (cache_sim_data_use_cache(cl->fd) &&
 		    cl->done_mask != CACHE_LOADER_NONE)
 			{
-			cache_sim_data_save_to_file(cl->fd, cl->cd);
+			cache_sim_data_save(cl->fd, cl->cd);
 			}
 
 		cl->idle_id = 0;
@@ -277,7 +277,7 @@ CacheLoader *cache_loader_new(FileData *fd, CacheDataType load_mask,
 	cl->done_func = done_func;
 	cl->done_data = done_data;
 
-	cl->cd = cache_sim_data_load_from_file(cl->fd);
+	cl->cd = cache_sim_data_load(cl->fd);
 	if (!cl->cd) cl->cd = cache_sim_data_new();
 
 	cl->todo_mask = load_mask;

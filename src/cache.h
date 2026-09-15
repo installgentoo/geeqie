@@ -22,29 +22,14 @@
 #ifndef CACHE_H
 #define CACHE_H
 
-#include <sys/types.h>
-
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <glib.h>
 
 struct ImageSimilarityData;
 class FileData;
 
-#define GQ_CACHE_THUMB		"thumbnails"
-
-#define GQ_CACHE_EXT_THUMB      ".png"
-#define GQ_CACHE_EXT_SIM        ".sim"
-
-
-enum CacheType {
-	CACHE_TYPE_THUMB,
-	CACHE_TYPE_SIM
-};
-
 struct CacheData
 {
-	gchar *path;
-	gchar *uri; /**< source file; the cache file name is its md5, so this is the only way back */
 	gint width;
 	gint height;
 	guchar md5sum[16];
@@ -59,17 +44,18 @@ struct CacheData
 CacheData *cache_sim_data_new();
 void cache_sim_data_free(CacheData *cd);
 
-gboolean cache_sim_data_save(CacheData *cd);
-CacheData *cache_sim_data_load(const gchar *path);
-
 void cache_sim_data_set_dimensions(CacheData *cd, gint w, gint h);
 void cache_sim_data_set_md5sum(CacheData *cd, const guchar digest[16]);
 void cache_sim_data_set_similarity(CacheData *cd, ImageSimilarityData *sd);
 gint cache_sim_data_filled(ImageSimilarityData *sd);
-CacheData *cache_sim_data_load_from_file(FileData *fd);
-gboolean cache_sim_data_save_to_file(FileData *fd, CacheData *cd);
+
+/* The similarity database; all of these are safe to call from any thread. */
+CacheData *cache_sim_data_load(FileData *fd); /**< nullptr if there is no row or the file changed since it was written */
+gboolean cache_sim_data_save(FileData *fd, CacheData *cd); /**< replaces the whole row */
 gboolean cache_sim_data_use_cache(FileData *fd);
-gboolean cache_sim_file_valid(const gchar *cache_path);
+void cache_sim_moved(const gchar *source, const gchar *dest);
+void cache_sim_removed(const gchar *path);
+gint cache_sim_clean(); /**< drops rows for files that are gone or changed; returns how many; blocking */
 
 /**
  * Contact sheet of evenly spaced frames, the image a video's similarity data is computed from.
@@ -77,11 +63,7 @@ gboolean cache_sim_file_valid(const gchar *cache_path);
  */
 GdkPixbuf *cache_sim_video_pixbuf(FileData *fd);
 
-gchar *cache_create_location(CacheType cache_type, const gchar *source);
-gchar *cache_get_location(CacheType cache_type, const gchar *source);
-gchar *cache_find_location(CacheType type, const gchar *source);
-
-const gchar *get_thumbnails_cache_dir();
+const gchar *get_sim_cache_path();
 const gchar *get_thumbnails_standard_cache_dir();
 
 #endif

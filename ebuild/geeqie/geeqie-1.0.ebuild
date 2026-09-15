@@ -20,6 +20,7 @@ IUSE="debug djvu ffmpegthumbnailer heif jpeg jpeg2k jpegxl pdf tiff webp X"
 RDEPEND="virtual/libintl
 	x11-libs/gtk+:3[X?]
 	>=media-gfx/exiv2-0.17:=
+	>=dev-db/sqlite-3.20:3
 	djvu? ( app-text/djvu )
 	ffmpegthumbnailer? ( media-video/ffmpegthumbnailer )
 	heif? ( >=media-libs/libheif-1.3.2 )

@@ -1248,15 +1248,15 @@ static void config_tab_general(GtkWidget *notebook)
 	pref_label_new(hbox, _("Displayed size: "));
 	pref_spin_new_int(hbox, _("Width:"), nullptr, 1, 512, 1, options->thumbnails.display_width, &c_options->thumbnails.display_width);
 
-	ct_button = pref_checkbox_new_int(group, _("Cache thumbnails and sim. files"),
+	ct_button = pref_checkbox_new_int(group, _("Cache thumbnails and similarity data"),
 					  options->thumbnails.enable_caching, &c_options->thumbnails.enable_caching);
 
 	subgroup = pref_box_new(group, FALSE, GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
 	pref_checkbox_link_sensitivity(ct_button, subgroup);
 
-	group_frame = pref_frame_new(subgroup, TRUE, _("Geeqie .sim cache"),
+	group_frame = pref_frame_new(subgroup, TRUE, _("Similarity cache"),
 							GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
-	pref_label_new(group_frame, _(get_thumbnails_cache_dir()));
+	pref_label_new(group_frame, get_sim_cache_path());
 
 	group_frame = pref_frame_new(subgroup, TRUE,
 							_("Standard thumbnail cache"),
