@@ -100,11 +100,6 @@ struct ImageWindow
 	gpointer data_scroll_notify;
 
 	/* color profiles */
-	gboolean color_profile_enable;
-	gint color_profile_input;
-	gboolean color_profile_use_image;
-	gint color_profile_from_image;
-	gpointer cm;
 
 	FileData *read_ahead_fd;
 	ImageLoader *read_ahead_il;
@@ -187,11 +182,6 @@ void image_background_set_color(ImageWindow *imd, GdkRGBA *color);
 void image_background_set_color_from_options(ImageWindow *imd, gboolean fullscreen);
 
 /* color profiles */
-void image_color_profile_set(ImageWindow *imd, gint input_type, gboolean use_image);
-gboolean image_color_profile_get(const ImageWindow *imd, gint &input_type, gboolean &use_image);
-void image_color_profile_set_use(ImageWindow *imd, gboolean enable);
-gboolean image_color_profile_get_use(ImageWindow *imd);
-gboolean image_color_profile_get_status(ImageWindow *imd, gchar **image_profile, gchar **screen_profile);
 
 void image_set_delay_flip(ImageWindow *imd, gint delay);
 

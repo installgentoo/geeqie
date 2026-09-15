@@ -62,12 +62,6 @@
 /* Define to enable JPEG XL support */
 #mesondefine HAVE_JPEGXL
 
-/* color profiles with lcms */
-#mesondefine HAVE_LCMS
-
-/* Define to enable use of lcms2 */
-#mesondefine HAVE_LCMS2
-
 /* Define to enable use of maps */
 #mesondefine HAVE_LIBCHAMPLAIN_GTK
 

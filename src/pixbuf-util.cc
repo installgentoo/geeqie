@@ -40,7 +40,6 @@
 #include <config.h>
 
 #include "debug.h"
-#include "exif.h"
 #include "filedata.h"
 #include "main-defines.h"
 #include "typedefs.h"
@@ -567,53 +566,6 @@ GdkPixbuf *pixbuf_copy_mirror(GdkPixbuf *src, gboolean mirror, gboolean flip)
 		}
 
 	return dest;
-}
-
-GdkPixbuf *pixbuf_apply_orientation(GdkPixbuf *pixbuf, gint orientation)
-{
-	GdkPixbuf *dest;
-	GdkPixbuf *tmp = nullptr;
-
-	switch (orientation)
-		{
-		case EXIF_ORIENTATION_TOP_LEFT:
-			dest = gdk_pixbuf_copy(pixbuf);
-			break;
-		case EXIF_ORIENTATION_TOP_RIGHT:
-			/* mirrored */
-			dest = pixbuf_copy_mirror(pixbuf, TRUE, FALSE);
-			break;
-		case EXIF_ORIENTATION_BOTTOM_RIGHT:
-			/* upside down */
-			dest = pixbuf_copy_mirror(pixbuf, TRUE, TRUE);
-			break;
-		case EXIF_ORIENTATION_BOTTOM_LEFT:
-			/* flipped */
-			dest = pixbuf_copy_mirror(pixbuf, FALSE, TRUE);
-			break;
-		case EXIF_ORIENTATION_LEFT_TOP:
-			tmp = pixbuf_copy_mirror(pixbuf, FALSE, TRUE);
-			dest = pixbuf_copy_rotate_90(tmp, FALSE);
-			break;
-		case EXIF_ORIENTATION_RIGHT_TOP:
-			/* rotated -90 (270) */
-			dest = pixbuf_copy_rotate_90(pixbuf, FALSE);
-			break;
-		case EXIF_ORIENTATION_RIGHT_BOTTOM:
-			tmp = pixbuf_copy_mirror(pixbuf, FALSE, TRUE);
-			dest = pixbuf_copy_rotate_90(tmp, TRUE);
-			break;
-		case EXIF_ORIENTATION_LEFT_BOTTOM:
-			/* rotated 90 */
-			dest = pixbuf_copy_rotate_90(pixbuf, TRUE);
-			break;
-		default:
-			dest = gdk_pixbuf_copy(pixbuf);
-			break;
-		}
-	if (tmp) g_object_unref(tmp);
-	return dest;
-
 }
 
 

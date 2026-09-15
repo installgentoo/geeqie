@@ -20,7 +20,6 @@ option('gq_appdir', type : 'string', value : '', description : 'Location of appl
 option('gq_bindir', type : 'string', value : '', description : 'Location of plugin scripts and executables')
 option('gq_localedir', type : 'string', value : '', description : 'Location where the catalogs will be installed')
 
-option('cms', type : 'feature', value : 'auto', description : 'color management system')
 option('djvu', type : 'feature', value : 'auto', description : 'djvu')
 option('evince', type : 'feature', value : 'auto', description : 'print preview')
 option('execinfo', type : 'feature', value : 'auto', description : 'execinfo.h')

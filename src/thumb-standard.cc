@@ -34,7 +34,6 @@
 
 #include "cache.h"
 #include "debug.h"
-#include "exif.h"
 #include "filedata.h"
 #include "image-load.h"
 #include "md5-util.h"
@@ -300,28 +299,6 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoader *tl, GdkPixbuf *pixbuf)
 {
 	GdkPixbuf *pixbuf_thumb = nullptr;
 	GdkPixbuf *result;
-	GdkPixbuf *rotated = nullptr;
-
-	if (!tl->cache_hit && options->image.exif_rotate_enable)
-		{
-		if (!tl->fd->exif_orientation)
-			{
-			if (g_strcmp0(tl->fd->format_name, "heif") != 0)
-				{
-				tl->fd->exif_orientation = exif_read_orientation(tl->fd, EXIF_ORIENTATION_TOP_LEFT);
-				}
-			else
-				{
-				tl->fd->exif_orientation = EXIF_ORIENTATION_TOP_LEFT;
-				}
-			}
-
-		if (tl->fd->exif_orientation != EXIF_ORIENTATION_TOP_LEFT)
-			{
-			rotated = pixbuf_apply_orientation(pixbuf, tl->fd->exif_orientation);
-			pixbuf = rotated;
-			}
-		}
 
 	gint sw = gdk_pixbuf_get_width(pixbuf);
 	gint sh = gdk_pixbuf_get_height(pixbuf);
@@ -385,7 +362,6 @@ static GdkPixbuf *thumb_loader_std_finish(ThumbLoader *tl, GdkPixbuf *pixbuf)
 		}
 
 	if (pixbuf_thumb) g_object_unref(pixbuf_thumb);
-	if (rotated) g_object_unref(rotated);
 
 	return result;
 }

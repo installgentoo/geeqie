@@ -22,8 +22,6 @@ main_sources = files(
 'cache-maint.h',
 'cellrenderericon.cc',
 'cellrenderericon.h',
-'color-man.cc',
-'color-man.h',
 'compat.cc',
 'compat.h',
 'debug.cc',
@@ -37,7 +35,6 @@ main_sources = files(
 'editors.cc',
 'editors.h',
 'exiv2.cc',
-'exif-common.cc',
 'exif.h',
 'filecache.cc',
 'filecache.h',
@@ -241,24 +238,12 @@ gq_marshal_pragma = custom_target('gq-marshal-pragma',
 
 project_sources += gq_marshal_pragma
 
-if conf_data.get('HAVE_LCMS', 0) == 1
-    xxd_sh = find_program('generate-ClayRGB1998-icc-h.sh', dirs : join_paths(meson.project_source_root(), 'scripts'))
-
-    ClayRGB1998_icc_h = custom_target('ClayRGB1998',
-                        input: 'ClayRGB1998.icc',
-                        output : 'ClayRGB1998_icc.h',
-                        command : [xxd_sh, '@INPUT@', '@OUTPUT@'])
-
-    project_sources += ClayRGB1998_icc_h
-endif
-
 geeqie_exe = executable('geeqie', project_sources,
 dependencies : [
 gtk_dep,
 ddjvuapi_dep,
 exiv2_dep,
 glib_dep,
-lcms_dep,
 libdw_dep,
 libexecinfo_dep,
 libffmpegthumbnailer_dep,

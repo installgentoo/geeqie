@@ -55,7 +55,6 @@ public:
 
 enum ImageLoaderPreview {
 	IMAGE_LOADER_PREVIEW_NONE = 0,
-	IMAGE_LOADER_PREVIEW_EXIF = 1,
 	IMAGE_LOADER_PREVIEW_LIBRAW = 2
 };
 

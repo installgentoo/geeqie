@@ -38,7 +38,6 @@
 #include <config.h>
 
 #include "debug.h"
-#include "exif.h"
 #include "filefilter.h"
 #include "intl.h"
 #include "options.h"

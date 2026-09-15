@@ -30,7 +30,6 @@ src/collect.cc
 src/collect-dlg.cc
 src/collect-io.cc
 src/collect-table.cc
-src/color-man.cc
 src/compat.cc
 src/debug.cc
 src/desktop-file.cc
@@ -38,7 +37,6 @@ src/dnd.cc
 src/dupe.cc
 src/editors.cc
 src/exif.cc
-src/exif-common.cc
 src/exiv2.cc
 src/filecache.cc
 src/filedata.cc

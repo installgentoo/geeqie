@@ -36,7 +36,6 @@
 #include "debug.h"
 #include "dnd.h"
 #include "editors.h"
-#include "exif.h"
 #include "filedata.h"
 #include "fullscreen.h"
 #include "history-list.h"
@@ -618,34 +617,6 @@ void layout_image_zoom_set(LayoutWindow *lw, gdouble zoom)
 		}
 }
 
-void layout_image_reset_orientation(LayoutWindow *lw)
-{
-	ImageWindow *imd= lw->image;
-
-	if (!layout_valid(&lw)) return;
-	if (!imd || !imd->pr || !imd->image_fd) return;
-
-	if (imd->orientation < 1 || imd->orientation > 8) imd->orientation = 1;
-
-	if (options->image.exif_rotate_enable)
-		{
-		if (g_strcmp0(imd->image_fd->format_name, "heif") != 0)
-			{
-			imd->orientation = exif_read_orientation(imd->image_fd, EXIF_ORIENTATION_TOP_LEFT);
-			}
-		else
-			{
-			imd->orientation = EXIF_ORIENTATION_TOP_LEFT;
-			}
-		}
-	else
-		{
-		imd->orientation = 1;
-		}
-
-	pixbuf_renderer_set_orientation(PIXBUF_RENDERER(imd->pr), imd->orientation);
-}
-
 void layout_image_set_desaturate(LayoutWindow *lw, gboolean desaturate)
 {
 	if (!layout_valid(&lw)) return;
@@ -784,41 +755,6 @@ void layout_image_refresh(LayoutWindow *lw)
 	if (!layout_valid(&lw)) return;
 
 	image_reload(lw->image);
-}
-
-void layout_image_color_profile_set(LayoutWindow *lw, gint input_type, gboolean use_image)
-{
-	if (!layout_valid(&lw)) return;
-
-	image_color_profile_set(lw->image, input_type, use_image);
-}
-
-gboolean layout_image_color_profile_get(LayoutWindow *lw, gint &input_type, gboolean &use_image)
-{
-	if (!layout_valid(&lw)) return FALSE;
-
-	return image_color_profile_get(lw->image, input_type, use_image);
-}
-
-void layout_image_color_profile_set_use(LayoutWindow *lw, gboolean enable)
-{
-	if (!layout_valid(&lw)) return;
-
-	image_color_profile_set_use(lw->image, enable);
-}
-
-gboolean layout_image_color_profile_get_use(LayoutWindow *lw)
-{
-	if (!layout_valid(&lw)) return FALSE;
-
-	return image_color_profile_get_use(lw->image);
-}
-
-gboolean layout_image_color_profile_get_status(LayoutWindow *lw, gchar **image_profile, gchar **screen_profile)
-{
-	if (!layout_valid(&lw)) return FALSE;
-
-	return image_color_profile_get_status(lw->image, image_profile, screen_profile);
 }
 
 /*
@@ -1095,11 +1031,6 @@ void layout_image_init(LayoutWindow *lw)
 
 	image_background_set_color_from_options(imd, FALSE);
 	image_auto_refresh_enable(imd, TRUE);
-
-	image_color_profile_set(imd,
-				options->color_profile.input_type,
-				options->color_profile.use_image);
-	image_color_profile_set_use(imd, options->color_profile.enabled);
 
 	/* Activate — inlined from layout_image_activate */
 	image_set_update_func(imd, layout_image_update_cb, lw);

@@ -39,11 +39,6 @@ void layout_image_set_index(LayoutWindow *lw, gint index);
 
 void layout_image_refresh(LayoutWindow *lw);
 
-void layout_image_color_profile_set(LayoutWindow *lw, gint input_type, gboolean use_image);
-gboolean layout_image_color_profile_get(LayoutWindow *lw, gint &input_type, gboolean &use_image);
-void layout_image_color_profile_set_use(LayoutWindow *lw, gint enable);
-gboolean layout_image_color_profile_get_use(LayoutWindow *lw);
-gboolean layout_image_color_profile_get_status(LayoutWindow *lw, gchar **image_profile, gchar **screen_profile);
 
 FileData *layout_image_get_fd(LayoutWindow *lw);
 
@@ -68,6 +63,5 @@ void layout_image_full_screen_toggle(LayoutWindow *lw);
 void layout_image_animate_toggle(LayoutWindow *lw);
 
 void layout_image_notify_cb(FileData *fd, NotifyType type, gpointer data);
-void layout_image_reset_orientation(LayoutWindow *lw);
 #endif
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

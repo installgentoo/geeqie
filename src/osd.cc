@@ -114,7 +114,7 @@ static void osd_load_exif_data(FileData *fd, OsdValueCache &cache)
 {
 	if (cache.exif_loaded || !fd) return;
 
-	ExifData *exif = exif_read_fd(fd);
+	ExifData *exif = exif_read(fd->path);
 	if (exif)
 		{
 		g_autofree gchar *exif_text = exif_get_all_exif_as_text(exif);
@@ -123,7 +123,7 @@ static void osd_load_exif_data(FileData *fd, OsdValueCache &cache)
 		cache.values["exif"] = exif_text ? exif_text : "";
 		cache.values["xmp"] = xmp_text ? xmp_text : "";
 		cache.values["metadata"] = metadata_text ? metadata_text : "";
-		exif_free_fd(fd, exif);
+		exif_free(exif);
 		}
 
 	cache.exif_loaded = true;

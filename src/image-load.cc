@@ -28,7 +28,6 @@
 #include <config.h>
 
 #include "debug.h"
-#include "exif.h"
 #include "filedata.h"
 #include "gq-marshal.h"
 #include "image-load-dds.h"
@@ -73,7 +72,6 @@
 #include "typedefs.h"
 #include "ui-fileops.h"
 
-struct ExifData;
 
 enum {
 	IMAGE_LOADER_READ_BUFFER_SIZE_DEFAULT = 	4096,
@@ -988,52 +986,13 @@ static gboolean image_loader_setup_source(ImageLoader *il)
 
 	if (il->fd)
 		{
-		ExifData *exif = exif_read_fd(il->fd);
-
-		if (options->thumbnails.use_exif)
-			{
-			il->mapped_file = exif_get_preview(exif, reinterpret_cast<guint *>(&il->bytes_total), il->requested_width, il->requested_height);
-
-			if (il->mapped_file)
-				{
-				il->preview = IMAGE_LOADER_PREVIEW_EXIF;
-				}
-			}
-		else
-			{
-			il->mapped_file = libraw_get_preview(il->fd->path, il->bytes_total);
-
-			if (il->mapped_file)
-				{
-				il->preview = IMAGE_LOADER_PREVIEW_LIBRAW;
-				}
-			}
-
-		/* If libraw does not find a thumbnail, try exiv2 */
-		if (!il->mapped_file)
-			{
-			il->mapped_file = exif_get_preview(exif, reinterpret_cast<guint *>(&il->bytes_total), 0, 0); /* get the largest available preview image or NULL for normal images*/
-
-			if (il->mapped_file)
-				{
-				/* exiv2 sometimes returns a pointer to a file section that is not a jpeg */
-				if (!is_jpeg_container(il->mapped_file, il->bytes_total))
-					{
-					exif_free_preview(il->mapped_file);
-					il->mapped_file = nullptr;
-					}
-				else
-					{
-					il->preview = IMAGE_LOADER_PREVIEW_EXIF;
-					}
-				}
-			}
+		il->mapped_file = libraw_get_preview(il->fd->path, il->bytes_total);
 
 		if (il->mapped_file)
 			{
+			il->preview = IMAGE_LOADER_PREVIEW_LIBRAW;
 			DEBUG_1("Usable reduced size (preview) image loaded from file %s", il->fd->path);
 			}
-		exif_free_fd(il->fd, exif);
 		}
 
 	if (!il->mapped_file)
@@ -1058,11 +1017,7 @@ static void image_loader_stop_source(ImageLoader *il)
 
 	if (il->mapped_file)
 		{
-		if (il->preview == IMAGE_LOADER_PREVIEW_EXIF)
-			{
-			exif_free_preview(il->mapped_file);
-			}
-		else if (il->preview == IMAGE_LOADER_PREVIEW_LIBRAW)
+		if (il->preview == IMAGE_LOADER_PREVIEW_LIBRAW)
 			{
 			libraw_free_preview(il->mapped_file);
 			}

@@ -45,13 +45,6 @@ ConfOptions *init_options(ConfOptions *options)
 
 	options->collections.rectangular_selection = FALSE;
 
-	options->color_profile.enabled = TRUE;
-	options->color_profile.input_type = 0;
-	options->color_profile.screen_file = nullptr;
-	options->color_profile.use_image = TRUE;
-	options->color_profile.use_x11_screen_profile = TRUE;
-	options->color_profile.render_intent = 0;
-
 	options->dnd_icon_size = 48;
 	options->dnd_default_action = DND_ACTION_ASK;
 	options->duplicates_similarity_threshold = 99;
@@ -93,7 +86,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->image.alpha_color_2.green = static_cast<gdouble>(0x006666) / 65535;
 	options->image.alpha_color_2.blue = static_cast<gdouble>(0x006666) / 65535;
 	options->image.enable_read_ahead = TRUE;
-	options->image.exif_rotate_enable = TRUE;
 	options->image.scroll_reset_method = ScrollReset::NOCHANGE;
 	options->image.tile_cache_max = 10;
 	options->image.image_cache_max = 128; /* 4 x 10MPix */
@@ -136,7 +128,6 @@ ConfOptions *init_options(ConfOptions *options)
 	options->thumbnails.save_width = 128;
 	options->thumbnails.display_width = 128;
 	options->thumbnails.quality = GDK_INTERP_TILES;
-	options->thumbnails.use_exif = FALSE;
 	options->thumbnails.use_ft_metadata = TRUE;
 
 	options->circular_selection_lists = TRUE;
@@ -162,7 +153,6 @@ ConfOptions *init_options(ConfOptions *options)
 void setup_default_options(ConfOptions *options)
 {
 	gchar *path;
-	gint i;
 
 	path = get_current_dir();
 	bookmark_add_default(".", path);
@@ -174,12 +164,6 @@ void setup_default_options(ConfOptions *options)
 
 	g_free(options->file_ops.safe_delete_path);
 	options->file_ops.safe_delete_path = g_strdup(get_trash_dir());
-
-	for (i = 0; i < COLOR_PROFILE_INPUTS; i++)
-		{
-		options->color_profile.input_file[i] = nullptr;
-		options->color_profile.input_name[i] = nullptr;
-		}
 
 	set_image_overlay_template_string(&options->image_overlay.template_string, "%name%");
 
@@ -216,18 +200,13 @@ LayoutOptions *init_layout_options(LayoutOptions *options)
 	return options;
 }
 
-static void sync_options_with_current_state(ConfOptions *options)
+static void sync_options_with_current_state(ConfOptions *)
 {
 	LayoutWindow *lw = nullptr;
 
 	if (layout_valid(&lw))
 		{
 		layout_sync_options_with_current_state(lw);
-
-		options->color_profile.enabled = layout_image_color_profile_get_use(lw);
-		layout_image_color_profile_get(lw,
-		                               options->color_profile.input_type,
-		                               options->color_profile.use_image);
 		}
 
 }

@@ -12,15 +12,20 @@
 #
 
 target_string = '--target=' + meson.current_build_dir() + '/ui.h'
+# glib-compile-resources embeds these; without them as dependencies an edited .ui never reaches the binary
+ui_resource_files = files('custom.css', 'menu-classic.ui')
+
 ui_resources_h = custom_target('ui_resources_h',
                 input : 'ui.gresource.xml',
                 output : 'ui.h',
+                depend_files : ui_resource_files,
                 command : [glib_compile_resources, '--generate-header', target_string, '--sourcedir=@CURRENT_SOURCE_DIR@', '@INPUT@'])
 
 target_string = '--target=' + meson.current_build_dir() + '/ui.c'
 ui_resources_c = custom_target('ui_resources_c',
                 input : 'ui.gresource.xml',
                 output : 'ui.c',
+                depend_files : ui_resource_files,
                 command : [glib_compile_resources, '--generate-source', target_string, '--sourcedir=@CURRENT_SOURCE_DIR@', '@INPUT@'])
 
 project_sources += ui_resources_h

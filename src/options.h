@@ -32,7 +32,6 @@ enum TextPosition : gint;
 
 struct SecureSaveInfo;
 
-#define COLOR_PROFILE_INPUTS 4
 
 /**
  * @enum DnDAction
@@ -95,7 +94,6 @@ struct ConfOptions
 
 	/* image */
 	struct {
-		gboolean exif_rotate_enable;
 		ScrollReset scroll_reset_method;
 
 		gint tile_cache_max;	/**< in megabytes */
@@ -124,7 +122,6 @@ struct ConfOptions
 		gint display_width;
 		gboolean enable_caching;
 		guint quality;
-		gboolean use_exif;
 		gboolean use_ft_metadata;
 	} thumbnails;
 
@@ -178,18 +175,6 @@ struct ConfOptions
 	struct {
 		gchar *tabs_order;
 	} properties;
-
-	/* color profiles */
-	struct {
-		gboolean enabled;
-		gint input_type;
-		gchar *input_file[COLOR_PROFILE_INPUTS];
-		gchar *input_name[COLOR_PROFILE_INPUTS];
-		gchar *screen_file;
-		gboolean use_image;
-		gboolean use_x11_screen_profile;
-		gint render_intent;
-	} color_profile;
 
 	/* External preview extraction */
 	struct {

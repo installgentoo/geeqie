@@ -388,7 +388,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_INT(*options, image.tile_cache_max);
 	WRITE_NL(); WRITE_INT(*options, image.image_cache_max);
 	WRITE_NL(); WRITE_BOOL(*options, image.enable_read_ahead);
-	WRITE_NL(); WRITE_BOOL(*options, image.exif_rotate_enable);
 	WRITE_NL(); WRITE_BOOL(*options, image.use_custom_border_color);
 	WRITE_NL(); WRITE_BOOL(*options, image.use_custom_border_color_in_fullscreen);
 	WRITE_NL(); WRITE_COLOR(*options, image.border_color);
@@ -401,7 +400,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_INT(*options, thumbnails.display_width);
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.enable_caching);
 	WRITE_NL(); WRITE_UINT(*options, thumbnails.quality);
-	WRITE_NL(); WRITE_BOOL(*options, thumbnails.use_exif);
 	WRITE_NL(); WRITE_BOOL(*options, thumbnails.use_ft_metadata);
 
 	/* File sorting Options */
@@ -455,35 +453,6 @@ static void write_global_attributes(GString *outstr, gint indent)
 	WRITE_NL(); WRITE_BOOL(*options, alternate_similarity_algorithm.enabled);
 	WRITE_NL(); WRITE_BOOL(*options, alternate_similarity_algorithm.grayscale);
 	WRITE_SEPARATOR();
-}
-
-static void write_color_profile(GString *outstr, gint indent)
-{
-	gint i;
-#if !HAVE_LCMS
-	g_string_append_printf(outstr, "<!-- NOTICE: %s was not built with support for color profiles,\n"
-				"		 color profile options will have no effect.\n-->\n", GQ_APPNAME);
-#endif
-
-	WRITE_NL(); WRITE_STRING("<color_profiles ");
-	WRITE_CHAR(options->color_profile, screen_file);
-	WRITE_BOOL(options->color_profile, enabled);
-	WRITE_BOOL(options->color_profile, use_image);
-	WRITE_INT(options->color_profile, input_type);
-	WRITE_BOOL(options->color_profile, use_x11_screen_profile);
-	WRITE_INT(options->color_profile, render_intent);
-	WRITE_STRING(">");
-
-	indent++;
-	for (i = 0; i < COLOR_PROFILE_INPUTS; i++)
-		{
-		WRITE_NL(); WRITE_STRING("<profile ");
-		write_char_option(outstr, indent, "input_file", options->color_profile.input_file[i]);
-		write_char_option(outstr, indent, "input_name", options->color_profile.input_name[i]);
-		WRITE_STRING("/>");
-		}
-	indent--;
-	WRITE_NL(); WRITE_STRING("</color_profiles>");
 }
 
 static void write_class_filter(GString *outstr, gint indent)
@@ -583,9 +552,6 @@ gboolean save_config_to_file(const gchar *utf8_path, ConfOptions *, LayoutWindow
 
 		indent++;
 
-		write_color_profile(outstr, indent);
-
-		WRITE_SEPARATOR();
 		filter_write_list(outstr, indent);
 
 		WRITE_SEPARATOR();
@@ -693,7 +659,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 		if (READ_UINT_CLAMP(*options, image.zoom_quality, GDK_INTERP_NEAREST, GDK_INTERP_BILINEAR)) continue;
 		if (READ_INT(*options, image.zoom_increment)) continue;
 		if (READ_BOOL(*options, image.enable_read_ahead)) continue;
-		if (READ_BOOL(*options, image.exif_rotate_enable)) continue;
 		if (READ_BOOL(*options, image.use_custom_border_color)) continue;
 		if (READ_BOOL(*options, image.use_custom_border_color_in_fullscreen)) continue;
 		if (READ_COLOR(*options, image.border_color)) continue;
@@ -707,7 +672,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 
 		if (READ_BOOL(*options, thumbnails.enable_caching)) continue;
 		if (READ_UINT_CLAMP(*options, thumbnails.quality, GDK_INTERP_NEAREST, GDK_INTERP_BILINEAR)) continue;
-		if (READ_BOOL(*options, thumbnails.use_exif)) continue;
 		if (READ_BOOL(*options, thumbnails.use_ft_metadata)) continue;
 
 		/* File sorting options */
@@ -772,44 +736,6 @@ static gboolean load_global_params(const gchar **attribute_names, const gchar **
 	return TRUE;
 }
 
-static void options_load_color_profiles(const gchar **attribute_names, const gchar **attribute_values)
-{
-	while (*attribute_names)
-		{
-		const gchar *option = *attribute_names++;
-		const gchar *value = *attribute_values++;
-
-		if (READ_BOOL(options->color_profile, enabled)) continue;
-		if (READ_BOOL(options->color_profile, use_image)) continue;
-		if (READ_INT(options->color_profile, input_type)) continue;
-		if (READ_CHAR(options->color_profile, screen_file)) continue;
-		if (READ_BOOL(options->color_profile, use_x11_screen_profile)) continue;
-		if (READ_INT(options->color_profile, render_intent)) continue;
-
-		log_printf("unknown attribute %s = %s\n", option, value);
-		}
-
-}
-
-static void options_load_profile(GQParserData *parser_data, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
-{
-	gint i = GPOINTER_TO_INT(data);
-	if (i < 0 || i >= COLOR_PROFILE_INPUTS) return;
-	while (*attribute_names)
-		{
-		const gchar *option = *attribute_names++;
-		const gchar *value = *attribute_values++;
-
-		if (READ_CHAR_FULL("input_file", options->color_profile.input_file[i])) continue;
-		if (READ_CHAR_FULL("input_name", options->color_profile.input_name[i])) continue;
-
-		log_printf("unknown attribute %s = %s\n", option, value);
-		}
-	i++;
-	parser_data->func_set_data(GINT_TO_POINTER(i));
-
-}
-
 static void options_load_disabled_plugins(GQParserData *parser_data, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
 {
 	gint i = GPOINTER_TO_INT(data);
@@ -841,20 +767,6 @@ static void options_load_disabled_plugins(GQParserData *parser_data, const gchar
 static void options_parse_leaf(GQParserData *parser_data, const gchar *element_name, const gchar **, const gchar **, gpointer)
 {
 	log_printf("unexpected: %s\n", element_name);
-	parser_data->func_push(options_parse_leaf, nullptr, nullptr);
-}
-
-static void options_parse_color_profiles(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
-{
-	if (g_ascii_strcasecmp(element_name, "profile") == 0)
-		{
-		options_load_profile(parser_data, attribute_names, attribute_values, data);
-		}
-	else
-		{
-		log_printf("unexpected in <color_profiles>: <%s>\n", element_name);
-		}
-
 	parser_data->func_push(options_parse_leaf, nullptr, nullptr);
 }
 
@@ -971,12 +883,7 @@ static void options_parse_filter_end(gpointer data)
 
 static void options_parse_global(GQParserData *parser_data, const gchar *element_name, const gchar **attribute_names, const gchar **attribute_values, gpointer data)
 {
-	if (g_ascii_strcasecmp(element_name, "color_profiles") == 0)
-		{
-		options_load_color_profiles(attribute_names, attribute_values);
-		parser_data->func_push(options_parse_color_profiles, nullptr, GINT_TO_POINTER(0));
-		}
-	else if (g_ascii_strcasecmp(element_name, "filter") == 0)
+	if (g_ascii_strcasecmp(element_name, "filter") == 0)
 		{
 		parser_data->func_push(options_parse_filter, options_parse_filter_end, GINT_TO_POINTER(parser_data->startup));
 		}

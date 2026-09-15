@@ -125,7 +125,6 @@
 #define GQ_ICON_GENERIC "text-x-generic"
 #define GQ_ICON_SELECT_FONT "font-select"
 #define GQ_ICON_SELECT_COLOR "color-select"
-#define GQ_ICON_COLOR_MANAGEMENT "preferences-color" // breeze has nicer "color-management" icon, missing in others
 
 // not done... plus many more
 // PIXBUF_INLINE_ICON_ZOOMFILLHOR

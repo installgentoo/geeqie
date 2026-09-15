@@ -27,10 +27,8 @@
 #include <cairo.h>
 #include <glib-object.h>
 
-#include "color-man.h"
 #include "compat.h"
 #include "debug.h"
-#include "exif.h"
 #include "filecache.h"
 #include "filedata.h"
 #include "image-load.h"
@@ -42,7 +40,6 @@
 #include "pixbuf-util.h"
 #include "ui-fileops.h"
 
-struct ExifData;
 struct FileCacheData;
 
 static GList *image_list = nullptr;
@@ -187,166 +184,9 @@ void image_update_title(ImageWindow *imd)
  * rotation, flip, etc.
  *-------------------------------------------------------------------
  */
-static gboolean image_get_x11_screen_profile(ImageWindow *imd, guchar **screen_profile, gint *screen_profile_len)
-{
-	GdkScreen *screen = gtk_widget_get_screen(imd->widget);;
-	GdkAtom    type   = GDK_NONE;
-	gint       format = 0;
-
-	return (gdk_property_get(gdk_screen_get_root_window(screen),
-				 gdk_atom_intern ("_ICC_PROFILE", FALSE),
-				 GDK_NONE,
-				 0, 64 * 1024 * 1024, FALSE,
-				 &type, &format, screen_profile_len, screen_profile) && *screen_profile_len > 0);
-}
-
-static gboolean image_post_process_color(ImageWindow *imd, gint start_row, gboolean run_in_bg)
-{
-	ColorMan *cm;
-	ColorManProfileType input_type;
-	ColorManProfileType screen_type;
-	const gchar *input_file = nullptr;
-	const gchar *screen_file = nullptr;
-	guchar *profile = nullptr;
-	guint profile_len;
-	guchar *screen_profile = nullptr;
-	gint screen_profile_len;
-	ExifData *exif;
-
-	if (imd->cm) return FALSE;
-
-	if (imd->color_profile_input >= COLOR_PROFILE_FILE &&
-	    imd->color_profile_input <  COLOR_PROFILE_FILE + COLOR_PROFILE_INPUTS)
-		{
-		const gchar *file = options->color_profile.input_file[imd->color_profile_input - COLOR_PROFILE_FILE];
-
-		if (!is_readable_file(file)) return FALSE;
-
-		input_type = COLOR_PROFILE_FILE;
-		input_file = file;
-		}
-	else if (imd->color_profile_input >= COLOR_PROFILE_SRGB &&
-		 imd->color_profile_input <  COLOR_PROFILE_FILE)
-		{
-		input_type = static_cast<ColorManProfileType>(imd->color_profile_input);
-		input_file = nullptr;
-		}
-	else
-		{
-		return FALSE;
-		}
-
-	if (options->color_profile.use_x11_screen_profile &&
-	    image_get_x11_screen_profile(imd, &screen_profile, &screen_profile_len))
-		{
-		screen_type = COLOR_PROFILE_MEM;
-		DEBUG_1("Using X11 screen profile, length: %d", screen_profile_len);
-		}
-	else if (options->color_profile.screen_file &&
-	    is_readable_file(options->color_profile.screen_file))
-		{
-		screen_type = COLOR_PROFILE_FILE;
-		screen_file = options->color_profile.screen_file;
-		}
-	else
-		{
-		screen_type = COLOR_PROFILE_SRGB;
-		screen_file = nullptr;
-		}
-
-
-	imd->color_profile_from_image = COLOR_PROFILE_NONE;
-
-	exif = exif_read_fd(imd->image_fd);
-
-	if (exif)
-		{
-		if (g_strcmp0(imd->image_fd->format_name, "heif") == 0)
-			{
-			profile = heif_color_profile(imd->image_fd, &profile_len);
-			}
-
-		if (!profile)
-			{
-			profile = exif_get_color_profile(exif, &profile_len);
-			}
-
-		if (profile)
-			{
-			if (!imd->color_profile_use_image)
-				{
-				g_free(profile);
-				profile = nullptr;
-				}
-			DEBUG_1("Found embedded color profile");
-			imd->color_profile_from_image = COLOR_PROFILE_MEM;
-			}
-		else
-			{
-			const auto color_space = exif_read_colorspace(imd->image_fd);
-			if (color_space == EXIF_COLORSPACE_SRGB)
-				{
-				imd->color_profile_from_image = COLOR_PROFILE_SRGB;
-				DEBUG_1("Found EXIF ColorSpace of sRGB");
-				}
-			else if (color_space == EXIF_COLORSPACE_ADOBERGB)
-				{
-				imd->color_profile_from_image = COLOR_PROFILE_ADOBERGB;
-				DEBUG_1("Found EXIF ColorSpace of AdobeRGB");
-				}
-
-			if (imd->color_profile_use_image && imd->color_profile_from_image != COLOR_PROFILE_NONE)
-                               {
-                               input_type = static_cast<ColorManProfileType>(imd->color_profile_from_image);
-                               input_file = nullptr;
-                               }
-			}
-
-		exif_free_fd(imd->image_fd, exif);
-		}
-
-
-	if (profile)
-		{
-		cm = color_man_new_embedded(run_in_bg ? imd : nullptr, nullptr,
-					    profile, profile_len,
-					    screen_type, screen_file, screen_profile, screen_profile_len);
-		g_free(profile);
-		}
-	else
-		{
-		cm = color_man_new(run_in_bg ? imd : nullptr, nullptr,
-				   input_type, input_file,
-				   screen_type, screen_file, screen_profile, screen_profile_len);
-		}
-
-	if (cm)
-		{
-		if (start_row > 0)
-			{
-			cm->row = start_row;
-			cm->incremental_sync = TRUE;
-			}
-
-		imd->cm = cm;
-		}
-
-	image_update_util(imd);
-
-	if (screen_profile)
-		{
-		g_free(screen_profile);
-		screen_profile = nullptr;
-		}
-
-	return !!cm;
-}
-
-
 static void image_post_process_tile_color_cb(PixbufRenderer *, GdkPixbuf **pixbuf, gint x, gint y, gint w, gint h, gpointer data)
 {
 	auto imd = static_cast<ImageWindow *>(data);
-	if (imd->cm) color_man_correct_region(static_cast<ColorMan *>(imd->cm), *pixbuf, x, y, w, h);
 	if (imd->desaturate) pixbuf_desaturate_rect(*pixbuf, x, y, w, h);
 	if (imd->overunderexposed) pixbuf_highlight_overunderexposed(*pixbuf, x, y, w, h);
 }
@@ -354,8 +194,8 @@ static void image_post_process_tile_color_cb(PixbufRenderer *, GdkPixbuf **pixbu
 void image_set_desaturate(ImageWindow *imd, gboolean desaturate)
 {
 	imd->desaturate = desaturate;
-	if (imd->cm || imd->desaturate || imd->overunderexposed)
-		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), image_post_process_tile_color_cb, imd, (imd->cm != nullptr) );
+	if (imd->desaturate || imd->overunderexposed)
+		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), image_post_process_tile_color_cb, imd, FALSE);
 	else
 		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), nullptr, nullptr, TRUE);
 	pixbuf_renderer_set_orientation(PIXBUF_RENDERER(imd->pr), imd->orientation);
@@ -369,8 +209,8 @@ gboolean image_get_desaturate(ImageWindow *imd)
 void image_set_overunderexposed(ImageWindow *imd, gboolean overunderexposed)
 {
 	imd->overunderexposed = overunderexposed;
-	if (imd->cm || imd->desaturate || imd->overunderexposed)
-		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), image_post_process_tile_color_cb, imd, (imd->cm != nullptr) );
+	if (imd->desaturate || imd->overunderexposed)
+		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), image_post_process_tile_color_cb, imd, FALSE);
 	else
 		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), nullptr, nullptr, TRUE);
 	pixbuf_renderer_set_orientation(PIXBUF_RENDERER(imd->pr), imd->orientation);
@@ -428,7 +268,7 @@ static void image_read_ahead_start(ImageWindow *imd)
 	if (!imd->read_ahead_fd || imd->read_ahead_il || imd->read_ahead_fd->pixbuf) return;
 
 	/* still loading ?, do later */
-	if (imd->il /*|| imd->cm*/) return;
+	if (imd->il) return;
 
 	DEBUG_1("%s read ahead started for :%s", get_exec_time(), imd->read_ahead_fd->path);
 
@@ -719,9 +559,6 @@ static void image_reset(ImageWindow *imd)
 	image_loader_free(imd->il);
 	imd->il = nullptr;
 
-	color_man_free(static_cast<ColorMan *>(imd->cm));
-	imd->cm = nullptr;
-
 	image_state_set(imd, IMAGE_STATE_NONE);
 }
 
@@ -954,31 +791,9 @@ void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboo
 	   here before it is taken over by the renderer. */
 	if (pixbuf) g_object_ref(pixbuf);
 
-	imd->orientation = EXIF_ORIENTATION_TOP_LEFT;
-	if (imd->image_fd)
-		{
-		if (options->image.exif_rotate_enable)
-			{
-			if (g_strcmp0(imd->image_fd->format_name, "heif") == 0)
-				{
-				imd->orientation = EXIF_ORIENTATION_TOP_LEFT;
-				imd->image_fd->exif_orientation = imd->orientation;
-				}
-			else
-				{
-				imd->orientation = exif_read_orientation(imd->image_fd, EXIF_ORIENTATION_TOP_LEFT);
-				imd->image_fd->exif_orientation = imd->orientation;
-				}
-			}
-		}
+	imd->orientation = 1;
 
 	pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), nullptr, nullptr, FALSE);
-	if (imd->cm)
-		{
-		color_man_free(static_cast<ColorMan *>(imd->cm));
-		imd->cm = nullptr;
-		}
-
 	if (lazy)
 		{
 		pixbuf_renderer_set_pixbuf_lazy(PIXBUF_RENDERER(imd->pr), pixbuf, zoom, imd->orientation);
@@ -991,13 +806,8 @@ void image_change_pixbuf(ImageWindow *imd, GdkPixbuf *pixbuf, gdouble zoom, gboo
 
 	if (pixbuf) g_object_unref(pixbuf);
 
-	if (imd->color_profile_enable && main_lw && !main_lw->animation)
-		{
-		image_post_process_color(imd, 0, FALSE); /** @todo error handling */
-		}
-
-	if (imd->cm || imd->desaturate || imd->overunderexposed)
-		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), image_post_process_tile_color_cb, imd, (imd->cm != nullptr) );
+	if (imd->desaturate || imd->overunderexposed)
+		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), image_post_process_tile_color_cb, imd, FALSE);
 
 	image_state_set(imd, IMAGE_STATE_IMAGE);
 }
@@ -1046,23 +856,6 @@ void image_move_from_image(ImageWindow *imd, ImageWindow *source)
 		image_loader_sync_data(imd->il, source, imd);
 		}
 
-	imd->color_profile_enable = source->color_profile_enable;
-	imd->color_profile_input = source->color_profile_input;
-	imd->color_profile_use_image = source->color_profile_use_image;
-	color_man_free(static_cast<ColorMan *>(imd->cm));
-	imd->cm = nullptr;
-	if (source->cm)
-		{
-		ColorMan *cm;
-
-		imd->cm = source->cm;
-		source->cm = nullptr;
-
-		cm = static_cast<ColorMan *>(imd->cm);
-		cm->imd = imd;
-		cm->func_done_data = imd;
-		}
-
 	file_data_unref(imd->read_ahead_fd);
 	source->read_ahead_fd = nullptr;
 
@@ -1071,8 +864,8 @@ void image_move_from_image(ImageWindow *imd, ImageWindow *source)
 
 	pixbuf_renderer_move(PIXBUF_RENDERER(imd->pr), PIXBUF_RENDERER(source->pr));
 
-	if (imd->cm || imd->desaturate || imd->overunderexposed)
-		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), image_post_process_tile_color_cb, imd, (imd->cm != nullptr) );
+	if (imd->desaturate || imd->overunderexposed)
+		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), image_post_process_tile_color_cb, imd, FALSE);
 	else
 		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), nullptr, nullptr, TRUE);
 
@@ -1093,23 +886,6 @@ void image_copy_from_image(ImageWindow *imd, ImageWindow *source)
 	image_set_fd(imd, image_get_fd(source));
 
 
-	imd->color_profile_enable = source->color_profile_enable;
-	imd->color_profile_input = source->color_profile_input;
-	imd->color_profile_use_image = source->color_profile_use_image;
-	color_man_free(static_cast<ColorMan *>(imd->cm));
-	imd->cm = nullptr;
-	if (source->cm)
-		{
-		ColorMan *cm;
-
-		imd->cm = source->cm;
-		source->cm = nullptr;
-
-		cm = static_cast<ColorMan *>(imd->cm);
-		cm->imd = imd;
-		cm->func_done_data = imd;
-		}
-
 	image_loader_free(imd->read_ahead_il);
 	imd->read_ahead_il = source->read_ahead_il;
 	source->read_ahead_il = nullptr;
@@ -1128,8 +904,8 @@ void image_copy_from_image(ImageWindow *imd, ImageWindow *source)
 
 	pixbuf_renderer_copy(PIXBUF_RENDERER(imd->pr), PIXBUF_RENDERER(source->pr));
 
-	if (imd->cm || imd->desaturate || imd->overunderexposed)
-		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), image_post_process_tile_color_cb, imd, (imd->cm != nullptr) );
+	if (imd->desaturate || imd->overunderexposed)
+		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), image_post_process_tile_color_cb, imd, FALSE);
 	else
 		pixbuf_renderer_set_post_process_func(PIXBUF_RENDERER(imd->pr), nullptr, nullptr, TRUE);
 
@@ -1331,56 +1107,6 @@ void image_background_set_color_from_options(ImageWindow *imd, gboolean fullscre
 	image_background_set_color(imd, color);
 }
 
-void image_color_profile_set(ImageWindow *imd, gint input_type, gboolean use_image)
-{
-	if (!imd) return;
-
-	if (input_type < 0 || input_type >= COLOR_PROFILE_FILE + COLOR_PROFILE_INPUTS)
-		{
-		return;
-		}
-
-	imd->color_profile_input = input_type;
-	imd->color_profile_use_image = use_image;
-}
-
-gboolean image_color_profile_get(const ImageWindow *imd, gint &input_type, gboolean &use_image)
-{
-	if (!imd) return FALSE;
-
-	input_type = imd->color_profile_input;
-	use_image = imd->color_profile_use_image;
-
-	return TRUE;
-}
-
-void image_color_profile_set_use(ImageWindow *imd, gboolean enable)
-{
-	if (!imd) return;
-
-	if (imd->color_profile_enable == enable) return;
-
-	imd->color_profile_enable = enable;
-}
-
-gboolean image_color_profile_get_use(ImageWindow *imd)
-{
-	if (!imd) return FALSE;
-
-	return imd->color_profile_enable;
-}
-
-gboolean image_color_profile_get_status(ImageWindow *imd, gchar **image_profile, gchar **screen_profile)
-{
-	ColorMan *cm;
-	if (!imd) return FALSE;
-
-	cm = static_cast<ColorMan *>(imd->cm);
-	if (!cm) return FALSE;
-	return color_man_get_status(cm, image_profile, screen_profile);
-
-}
-
 /**
  * @brief Set delayed page flipping
  */
@@ -1564,7 +1290,6 @@ ImageWindow *image_new(gboolean frame)
 	imd->unknown = TRUE;
 	imd->has_frame = -1; /* not initialized; for image_set_frame */
 	imd->state = IMAGE_STATE_NONE;
-	imd->color_profile_from_image = COLOR_PROFILE_NONE;
 	imd->orientation = 1;
 
 	imd->pr = GTK_WIDGET(pixbuf_renderer_new());

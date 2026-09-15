@@ -37,18 +37,9 @@
 #include <gspell/gspell.h>
 #endif
 
-#if HAVE_LCMS
-#if HAVE_LCMS2
-#include <lcms2.h>
-#else
-#include <lcms.h>
-#endif
-#endif
-
 #include <pango/pango.h>
 
 #include "cache.h"
-#include "color-man.h"
 #include "compat.h"
 #include "debug.h"
 #include "editors.h"
@@ -150,9 +141,6 @@ static GtkTreeStore *accel_store = nullptr;
 
 static GtkWidget *safe_delete_path_entry;
 
-static GtkWidget *color_profile_input_file_entry[COLOR_PROFILE_INPUTS];
-static GtkWidget *color_profile_input_name_entry[COLOR_PROFILE_INPUTS];
-static GtkWidget *color_profile_screen_file_entry;
 static GtkWidget *external_preview_select_entry;
 static GtkWidget *external_preview_extract_entry;
 
@@ -224,9 +212,6 @@ static gboolean accel_apply_cb(GtkTreeModel *model, GtkTreePath *, GtkTreeIter *
 static void config_window_apply()
 {
 	gboolean refresh = FALSE;
-#if HAVE_LCMS2
-	int i = 0;
-#endif
 
 	config_entry_to_option(safe_delete_path_entry, &options->file_ops.safe_delete_path, remove_trailing_slash);
 
@@ -257,7 +242,6 @@ static void config_window_apply()
 		options->thumbnails.quality = c_options->thumbnails.quality;
 		}
 	options->thumbnails.enable_caching = c_options->thumbnails.enable_caching;
-	options->thumbnails.use_exif = c_options->thumbnails.use_exif;
 	options->thumbnails.use_ft_metadata = c_options->thumbnails.use_ft_metadata;
 	options->file_filter.show_hidden_files = c_options->file_filter.show_hidden_files;
 	options->file_filter.disable_file_extension_checks = c_options->file_filter.disable_file_extension_checks;
@@ -332,21 +316,6 @@ static void config_window_apply()
 #ifdef DEBUG
 	set_debug_level(debug_c);
 	config_entry_to_option(log_window_f1_entry, &options->log_window.action, nullptr);
-#endif
-
-#if HAVE_LCMS
-	for (i = 0; i < COLOR_PROFILE_INPUTS; i++)
-		{
-		config_entry_to_option(color_profile_input_name_entry[i], &options->color_profile.input_name[i], nullptr);
-		config_entry_to_option(color_profile_input_file_entry[i], &options->color_profile.input_file[i], nullptr);
-		}
-	config_entry_to_option(color_profile_screen_file_entry, &options->color_profile.screen_file, nullptr);
-	options->color_profile.use_x11_screen_profile = c_options->color_profile.use_x11_screen_profile;
-	if (options->color_profile.render_intent != c_options->color_profile.render_intent)
-		{
-		options->color_profile.render_intent = c_options->color_profile.render_intent;
-		color_man_update();
-		}
 #endif
 
 	image_options_sync();
@@ -1302,9 +1271,6 @@ static void config_tab_general(GtkWidget *notebook)
 							GTK_ORIENTATION_VERTICAL, PREF_PAD_GAP);
 	pref_label_new(group_frame, _(get_thumbnails_standard_cache_dir()));
 
-	pref_checkbox_new_int(group, _("Use EXIF thumbnails when available (EXIF thumbnails may be outdated)"),
-			      options->thumbnails.use_exif, &c_options->thumbnails.use_exif);
-
 #if HAVE_FFMPEGTHUMBNAILER_METADATA
 	pref_checkbox_new_int(group, _("Use embedded metadata in video files as thumbnails when available"),
 			      options->thumbnails.use_ft_metadata, &c_options->thumbnails.use_ft_metadata);
@@ -1706,140 +1672,6 @@ static void config_tab_files(GtkWidget *notebook)
 				 G_CALLBACK(filter_add_cb), filter_view);
 	gq_gtk_box_pack_end(GTK_BOX(hbox), button, FALSE, FALSE, 0);
 	gtk_widget_show(button);
-}
-
-/* metadata tab */
-#if HAVE_LCMS
-static void intent_menu_cb(GtkWidget *combo, gpointer data)
-{
-	auto option = static_cast<gint *>(data);
-
-	switch (gtk_combo_box_get_active(GTK_COMBO_BOX(combo)))
-		{
-		case 0:
-		default:
-			*option = INTENT_PERCEPTUAL;
-			break;
-		case 1:
-			*option = INTENT_RELATIVE_COLORIMETRIC;
-			break;
-		case 2:
-			*option = INTENT_SATURATION;
-			break;
-		case 3:
-			*option = INTENT_ABSOLUTE_COLORIMETRIC;
-			break;
-		}
-}
-
-static void add_intent_menu(GtkWidget *table, gint column, gint row, const gchar *text,
-			     gint option, gint *option_c)
-{
-	GtkWidget *combo;
-	gint current = 0;
-
-	*option_c = option;
-
-	pref_table_label(table, column, row, text, GTK_ALIGN_START);
-
-	combo = gtk_combo_box_text_new();
-
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), _("Perceptual"));
-	if (option == INTENT_PERCEPTUAL) current = 0;
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), _("Relative Colorimetric"));
-	if (option == INTENT_RELATIVE_COLORIMETRIC) current = 1;
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), _("Saturation"));
-	if (option == INTENT_SATURATION) current = 2;
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), _("Absolute Colorimetric"));
-	if (option == INTENT_ABSOLUTE_COLORIMETRIC) current = 3;
-
-	gtk_combo_box_set_active(GTK_COMBO_BOX(combo), current);
-
-	gtk_widget_set_tooltip_text(combo,_("Refer to the lcms documentation for the defaults used when the selected Intent is not available"));
-
-	g_signal_connect(G_OBJECT(combo), "changed",
-			 G_CALLBACK(intent_menu_cb), option_c);
-
-	gq_gtk_grid_attach(GTK_GRID(table), combo, column + 1, column + 2, row, row + 1, GTK_SHRINK, static_cast<GtkAttachOptions>(0), 0, 0);
-	gtk_widget_show(combo);
-}
-#endif
-
-static void config_tab_color(GtkWidget *notebook)
-{
-	GtkWidget *label;
-	GtkWidget *vbox;
-	GtkWidget *group;
-	GtkWidget *tabcomp;
-	GtkWidget *table;
-	gint i;
-
-	vbox = scrolled_notebook_page(notebook, _("Color management"));
-
-	group =  pref_group_new(vbox, FALSE, _("Input profiles"), GTK_ORIENTATION_VERTICAL);
-#if !HAVE_LCMS
-	gtk_widget_set_sensitive(pref_group_parent(group), FALSE);
-#endif
-
-	table = pref_table_new(group, 3, COLOR_PROFILE_INPUTS + 1, FALSE, FALSE);
-	gtk_grid_set_column_spacing(GTK_GRID(table), PREF_PAD_GAP);
-
-	label = pref_table_label(table, 0, 0, _("Type"), GTK_ALIGN_START);
-	pref_label_bold(label, TRUE, FALSE);
-
-	label = pref_table_label(table, 1, 0, _("Menu name"), GTK_ALIGN_START);
-	pref_label_bold(label, TRUE, FALSE);
-
-	label = pref_table_label(table, 2, 0, _("File"), GTK_ALIGN_START);
-	pref_label_bold(label, TRUE, FALSE);
-
-	for (i = 0; i < COLOR_PROFILE_INPUTS; i++)
-		{
-		GtkWidget *entry;
-		gchar *buf;
-
-		buf = g_strdup_printf(_("Input %d:"), i + COLOR_PROFILE_FILE);
-		pref_table_label(table, 0, i + 1, buf, GTK_ALIGN_END);
-		g_free(buf);
-
-		entry = gtk_entry_new();
-		gtk_entry_set_max_length(GTK_ENTRY(entry), EDITOR_NAME_MAX_LENGTH);
-		if (options->color_profile.input_name[i])
-			{
-			gq_gtk_entry_set_text(GTK_ENTRY(entry), options->color_profile.input_name[i]);
-			}
-		gq_gtk_grid_attach(GTK_GRID(table), entry, 1, 2, i + 1, i + 2, static_cast<GtkAttachOptions>(GTK_FILL | GTK_EXPAND), static_cast<GtkAttachOptions>(0), 0, 0);
-		gtk_widget_show(entry);
-		color_profile_input_name_entry[i] = entry;
-
-		tabcomp = tab_completion_new(&entry, options->color_profile.input_file[i], nullptr, ".icc", "ICC Files", nullptr);
-		tab_completion_add_select_button(entry, _("Select color profile"), FALSE);
-		gtk_widget_set_size_request(entry, 160, -1);
-		gq_gtk_grid_attach(GTK_GRID(table), tabcomp, 2, 3, i + 1, i + 2, static_cast<GtkAttachOptions>(GTK_FILL | GTK_EXPAND), static_cast<GtkAttachOptions>(0), 0, 0);
-		gtk_widget_show(tabcomp);
-		color_profile_input_file_entry[i] = entry;
-		}
-
-	group =  pref_group_new(vbox, FALSE, _("Screen profile"), GTK_ORIENTATION_VERTICAL);
-#if !HAVE_LCMS
-	gtk_widget_set_sensitive(pref_group_parent(group), FALSE);
-#endif
-	pref_checkbox_new_int(group, _("Use system screen profile if available"),
-			      options->color_profile.use_x11_screen_profile, &c_options->color_profile.use_x11_screen_profile);
-
-	table = pref_table_new(group, 2, 1, FALSE, FALSE);
-
-	pref_table_label(table, 0, 0, _("Screen:"), GTK_ALIGN_END);
-	tabcomp = tab_completion_new(&color_profile_screen_file_entry,
-				     options->color_profile.screen_file, nullptr, ".icc", "ICC Files", nullptr);
-	tab_completion_add_select_button(color_profile_screen_file_entry, _("Select color profile"), FALSE);
-	gtk_widget_set_size_request(color_profile_screen_file_entry, 160, -1);
-#if HAVE_LCMS
-	add_intent_menu(table, 0, 1, _("Render Intent:"), options->color_profile.render_intent, &c_options->color_profile.render_intent);
-#endif
-	gq_gtk_grid_attach(GTK_GRID(table), tabcomp, 1, 2, 0, 1, static_cast<GtkAttachOptions>(GTK_FILL | GTK_EXPAND), static_cast<GtkAttachOptions>(0), 0, 0);
-
-	gtk_widget_show(tabcomp);
 }
 
 /* advanced entry tab */
@@ -2253,7 +2085,6 @@ static void config_window_create(LayoutWindow *lw)
 	config_tab_windows(notebook);
 	config_tab_accelerators(notebook);
 	config_tab_files(notebook);
-	config_tab_color(notebook);
 	config_tab_behavior(notebook);
 	config_tab_advanced(notebook);
 

@@ -15,7 +15,7 @@ S="${WORKDIR}/${PN}-${COMMIT}"
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="debug djvu ffmpegthumbnailer heif jpeg jpeg2k jpegxl lcms pdf raw tiff webp X"
+IUSE="debug djvu ffmpegthumbnailer heif jpeg jpeg2k jpegxl pdf raw tiff webp X"
 
 RDEPEND="virtual/libintl
 	x11-libs/gtk+:3[X?]
@@ -26,14 +26,12 @@ RDEPEND="virtual/libintl
 	jpeg2k? ( >=media-libs/openjpeg-2.3.0:2= )
 	jpeg? ( media-libs/libjpeg-turbo:= )
 	jpegxl? ( >=media-libs/libjxl-0.3.7:= )
-	lcms? ( media-libs/lcms:2 )
 	pdf? ( >=app-text/poppler-0.62[cairo] )
 	raw? ( >=media-libs/libraw-0.20:= )
 	tiff? ( media-libs/tiff:= )
 	webp? ( >=media-libs/libwebp-0.6.1:= )"
 DEPEND="${RDEPEND}"
 BDEPEND="
-	|| ( dev-util/xxd dev-util/xxdi app-editors/vim-core )
 	dev-util/glib-utils
 	sys-devel/gettext
 	virtual/pkgconfig"
@@ -58,7 +56,6 @@ src_configure() {
 		$(meson_feature jpeg)
 		$(meson_feature jpeg2k j2k)
 		$(meson_feature jpegxl)
-		$(meson_feature lcms cms)
 		$(meson_feature pdf)
 		$(meson_feature raw libraw)
 		$(meson_feature tiff)

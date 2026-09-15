@@ -33,19 +33,7 @@
         <menuitem action="CopyPath"/>
       </menu>
       <menu action="ViewMenu">
-        <menuitem action="ExifRotate"/>
-        <menu action="ColorMenu">
-          <menuitem action="UseColorProfiles"/>
-          <menuitem action="UseImageProfile"/>
-          <menuitem action="ColorProfile0"/>
-          <menuitem action="ColorProfile1"/>
-          <menuitem action="ColorProfile2"/>
-          <menuitem action="ColorProfile3"/>
-          <menuitem action="ColorProfile4"/>
-          <menuitem action="ColorProfile5"/>
-          <separator/>
-          <menuitem action="Grayscale"/>
-        </menu>
+        <menuitem action="Grayscale"/>
         <menuitem action="ImageOverlay"/>
         <menuitem action="OverUnderExposed"/>
         <menuitem action="FullScreen"/>

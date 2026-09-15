@@ -35,7 +35,6 @@
 #include <config.h>
 
 #include "cache-maint.h"
-#include "color-man.h"
 #include "compat.h"
 #include "debug.h"
 #include "desktop-file.h"
@@ -148,14 +147,6 @@ static void layout_menu_alter_desaturate_cb(GtkToggleAction *action, gpointer da
 	auto lw = static_cast<LayoutWindow *>(data);
 
 	layout_image_set_desaturate(lw, gq_gtk_toggle_action_get_active(action));
-}
-
-static void layout_menu_exif_rotate_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	options->image.exif_rotate_enable = gq_gtk_toggle_action_get_active(action);
-	layout_image_reset_orientation(lw);
 }
 
 static void layout_menu_select_overunderexposed_cb(GtkToggleAction *action, gpointer data)
@@ -566,60 +557,6 @@ static void layout_menu_edit_cb(GtkAction *action, gpointer data)
  * color profile button (and menu)
  *-----------------------------------------------------------------------------
  */
-#if HAVE_LCMS
-static void layout_color_menu_enable_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-
-	if (layout_image_color_profile_get_use(lw) == gq_gtk_toggle_action_get_active(action)) return;
-
-	layout_image_color_profile_set_use(lw, gq_gtk_toggle_action_get_active(action));
-	layout_util_sync_color(lw);
-	layout_image_refresh(lw);
-}
-
-static void layout_color_menu_use_image_cb(GtkToggleAction *action, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint input;
-	gboolean use_image;
-
-	if (!layout_image_color_profile_get(lw, input, use_image)) return;
-	if (use_image == gq_gtk_toggle_action_get_active(action)) return;
-	layout_image_color_profile_set(lw, input, gq_gtk_toggle_action_get_active(action));
-	layout_util_sync_color(lw);
-	layout_image_refresh(lw);
-}
-
-static void layout_color_menu_input_cb(GtkRadioAction *action, GtkRadioAction *, gpointer data)
-{
-	auto lw = static_cast<LayoutWindow *>(data);
-	gint type;
-	gint input;
-	gboolean use_image;
-
-	type = gq_gtk_radio_action_get_current_value(action);
-	if (type < 0 || type >= COLOR_PROFILE_FILE + COLOR_PROFILE_INPUTS) return;
-
-	if (!layout_image_color_profile_get(lw, input, use_image)) return;
-	if (type == input) return;
-
-	layout_image_color_profile_set(lw, type, use_image);
-	layout_image_refresh(lw);
-}
-#else
-static void layout_color_menu_enable_cb()
-{
-}
-
-static void layout_color_menu_use_image_cb()
-{
-}
-
-static void layout_color_menu_input_cb()
-{
-}
-#endif
 
 /*
  *-----------------------------------------------------------------------------
@@ -637,7 +574,6 @@ static void layout_color_menu_input_cb()
 static GtkActionEntry menu_entries[] = {
   { "About",                 GQ_ICON_ABOUT,                     N_("_About"),                                           nullptr,               N_("About"),                                           CB(layout_menu_about_cb) },
   { "Back",                  GQ_ICON_GO_PREV,                   N_("_Back"),                                            nullptr,               N_("Back in folder history"),                          CB(layout_menu_back_cb) },
-  { "ColorMenu",             nullptr,                           N_("_Color Management"),                                nullptr,               nullptr,                                               nullptr },
   { "Copy",                  GQ_ICON_COPY,                      N_("_Copy..."),                                         "<control>C",          N_("Copy..."),                                         CB(layout_menu_copy_cb) },
   { "CopyPath",              nullptr,                           N_("_Copy to clipboard"),                               nullptr,               N_("Copy to clipboard"),                               CB(layout_menu_copy_path_cb) },
   { "EditMenu",              nullptr,                           N_("_Edit"),                                            nullptr,               nullptr,                                               nullptr },
@@ -692,23 +628,11 @@ static GtkActionEntry menu_entries[] = {
 
 static GtkToggleActionEntry menu_toggle_entries[] = {
   { "Animate",                 nullptr,                              N_("_Animation"),               "A",               N_("Toggle animation"),              CB(layout_menu_animate_cb),                  FALSE  },
-  { "ExifRotate",              GQ_ICON_ROTATE_LEFT,                  N_("_Exif rotate"),             "<alt>X",          N_("Toggle Exif rotate"),            CB(layout_menu_exif_rotate_cb),              FALSE  },
   { "Grayscale",               PIXBUF_INLINE_ICON_GRAYSCALE,         N_("Toggle _grayscale"),        "<shift>G",        N_("Toggle grayscale"),              CB(layout_menu_alter_desaturate_cb),         FALSE  },
   { "ImageOverlay",            nullptr,                              N_("Image _Overlay"),           nullptr,           N_("Image Overlay"),                 CB(layout_menu_overlay_cb),                  FALSE  },
   { "OverUnderExposed",        PIXBUF_INLINE_ICON_EXPOSURE,          N_("Over/Under Exposed"),       "<shift>E",        N_("Highlight over/under exposed"),  CB(layout_menu_select_overunderexposed_cb),  FALSE  },
   { "RectangularSelection",    PIXBUF_INLINE_ICON_SELECT_RECTANGLE,  N_("Rectangular Selection"),    "<alt>R",          N_("Rectangular Selection"),         CB(layout_menu_rectangular_selection_cb),    FALSE  },
   { "ShowFileFilter",          GQ_ICON_FILE_FILTER,                  N_("Show File Filter"),         nullptr,           N_("Show File Filter"),              CB(layout_menu_file_filter_cb),              FALSE  },
-  { "UseColorProfiles",        GQ_ICON_COLOR_MANAGEMENT,             N_("Use _color profiles"),      nullptr,           N_("Use color profiles"),            CB(layout_color_menu_enable_cb),             FALSE  },
-  { "UseImageProfile",         nullptr,                              N_("Use profile from _image"),  nullptr,           N_("Use profile from image"),        CB(layout_color_menu_use_image_cb),          FALSE  }
-};
-
-static GtkRadioActionEntry menu_color_radio_entries[] = {
-  { "ColorProfile0",  nullptr,  N_("Input _0: sRGB"),                 nullptr,  N_("Input 0: sRGB"),                 COLOR_PROFILE_SRGB },
-  { "ColorProfile1",  nullptr,  N_("Input _1: AdobeRGB compatible"),  nullptr,  N_("Input 1: AdobeRGB compatible"),  COLOR_PROFILE_ADOBERGB },
-  { "ColorProfile2",  nullptr,  N_("Input _2"),                       nullptr,  N_("Input 2"),                       COLOR_PROFILE_FILE },
-  { "ColorProfile3",  nullptr,  N_("Input _3"),                       nullptr,  N_("Input 3"),                       COLOR_PROFILE_FILE + 1 },
-  { "ColorProfile4",  nullptr,  N_("Input _4"),                       nullptr,  N_("Input 4"),                       COLOR_PROFILE_FILE + 2 },
-  { "ColorProfile5",  nullptr,  N_("Input _5"),                       nullptr,  N_("Input 5"),                       COLOR_PROFILE_FILE + 3 }
 };
 
 #undef CB
@@ -794,9 +718,6 @@ void layout_actions_setup(LayoutWindow *lw)
 				     menu_entries, G_N_ELEMENTS(menu_entries), lw);
 	gq_gtk_action_group_add_toggle_actions(lw->action_group,
 					    menu_toggle_entries, G_N_ELEMENTS(menu_toggle_entries), lw);
-	gq_gtk_action_group_add_radio_actions(lw->action_group,
-					   menu_color_radio_entries, COLOR_PROFILE_FILE + COLOR_PROFILE_INPUTS,
-					   0, G_CALLBACK(layout_color_menu_input_cb), lw);
 
 
 	lw->ui_manager = gq_gtk_ui_manager_new();
@@ -977,83 +898,11 @@ GtkWidget *layout_actions_menu_bar(LayoutWindow *lw)
  *-----------------------------------------------------------------------------
  */
 
-static gchar *layout_color_name_parse(const gchar *name)
-{
-	if (!name || !*name) return g_strdup(_("Empty"));
-	return g_strdelimit(g_strdup(name), "_", '-');
-}
-
 void layout_util_sync_color(LayoutWindow *lw)
 {
 	GtkAction *action;
-	gint input = 0;
-	gboolean use_color;
-	gboolean use_image = FALSE;
-	gint i;
-	gchar action_name[15];
-#if HAVE_LCMS
-	gchar *image_profile;
-	gchar *screen_profile;
-#endif
 
 	if (!lw->action_group) return;
-	if (!layout_image_color_profile_get(lw, input, use_image)) return;
-
-	use_color = layout_image_color_profile_get_use(lw);
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "UseColorProfiles");
-#if HAVE_LCMS
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), use_color);
-	if (layout_image_color_profile_get_status(lw, &image_profile, &screen_profile))
-		{
-		gchar *buf;
-		buf = g_strdup_printf(_("Image profile: %s\nScreen profile: %s"), image_profile, screen_profile);
-		g_object_set(G_OBJECT(action), "tooltip", buf, NULL);
-		g_free(image_profile);
-		g_free(screen_profile);
-		g_free(buf);
-		}
-	else
-		{
-		g_object_set(G_OBJECT(action), "tooltip", _("Click to enable color management"), NULL);
-		}
-#else
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), FALSE);
-	gq_gtk_action_set_sensitive(action, FALSE);
-	g_object_set(G_OBJECT(action), "tooltip", _("Color profiles not supported"), NULL);
-#endif
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "UseImageProfile");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), use_image);
-	gq_gtk_action_set_sensitive(action, use_color);
-
-	for (i = 0; i < COLOR_PROFILE_FILE + COLOR_PROFILE_INPUTS; i++)
-		{
-		sprintf(action_name, "ColorProfile%d", i);
-		action = gq_gtk_action_group_get_action(lw->action_group, action_name);
-
-		if (i >= COLOR_PROFILE_FILE)
-			{
-			const gchar *name = options->color_profile.input_name[i - COLOR_PROFILE_FILE];
-			const gchar *file = options->color_profile.input_file[i - COLOR_PROFILE_FILE];
-			gchar *end;
-			gchar *buf;
-
-			if (!name || !name[0]) name = filename_from_path(file);
-
-			end = layout_color_name_parse(name);
-			buf = g_strdup_printf(_("Input _%d: %s"), i, end);
-			g_free(end);
-
-			g_object_set(G_OBJECT(action), "label", buf, NULL);
-			g_free(buf);
-
-			gq_gtk_action_set_visible(action, file && file[0]);
-			}
-
-		gq_gtk_action_set_sensitive(action, !use_image);
-		gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), (i == input));
-		}
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "Grayscale");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), layout_image_get_desaturate(lw));
@@ -1081,9 +930,6 @@ static void layout_util_sync_views(LayoutWindow *lw)
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "ImageOverlay");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), osd);
-
-	action = gq_gtk_action_group_get_action(lw->action_group, "ExifRotate");
-	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), options->image.exif_rotate_enable);
 
 	action = gq_gtk_action_group_get_action(lw->action_group, "OverUnderExposed");
 	gq_gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), options->overunderexposed);

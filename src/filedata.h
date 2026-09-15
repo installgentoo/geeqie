@@ -33,7 +33,6 @@
 
 #include "typedefs.h"
 
-struct ExifData;
 
 #ifdef DEBUG
 #define DEBUG_FILEDATA
@@ -153,9 +152,7 @@ class FileData {
 	gint ref;
 	gint version; /**< increased when any field in this structure is changed */
 
-	gint exif_orientation;
 
-	ExifData *exif;
 	SelectionType selected;  /**< Used by view-file-icon. */
 
 	gint page_num;

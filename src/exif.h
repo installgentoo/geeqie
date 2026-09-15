@@ -24,86 +24,16 @@
 
 #include <glib.h>
 
-#include "typedefs.h"
-
+/* Read-only metadata for the OSD's %exif%, %xmp% and %metadata% tags. Nothing else reads EXIF. */
 struct ExifData;
-struct ExifItem;
-class FileData;
-
-/*
- *-----------------------------------------------------------------------------
- * Tag formats
- *-----------------------------------------------------------------------------
- */
-
-#define EXIF_FORMAT_COUNT 13
-
-enum ExifFormatType {
-	EXIF_FORMAT_UNKNOWN		= 0,
-	EXIF_FORMAT_BYTE_UNSIGNED	= 1,
-	EXIF_FORMAT_STRING		= 2,
-	EXIF_FORMAT_SHORT_UNSIGNED	= 3,
-	EXIF_FORMAT_LONG_UNSIGNED	= 4,
-	EXIF_FORMAT_RATIONAL_UNSIGNED	= 5,
-	EXIF_FORMAT_BYTE		= 6,
-	EXIF_FORMAT_UNDEFINED		= 7,
-	EXIF_FORMAT_SHORT		= 8,
-	EXIF_FORMAT_LONG		= 9,
-	EXIF_FORMAT_RATIONAL		= 10,
-	EXIF_FORMAT_FLOAT		= 11,
-	EXIF_FORMAT_DOUBLE		= 12
-};
-
-/* enums useful for image manipulation */
-
-enum ExifOrientationType {
-	EXIF_ORIENTATION_UNKNOWN	= 0,
-	EXIF_ORIENTATION_TOP_LEFT	= 1,
-	EXIF_ORIENTATION_TOP_RIGHT	= 2,
-	EXIF_ORIENTATION_BOTTOM_RIGHT	= 3,
-	EXIF_ORIENTATION_BOTTOM_LEFT	= 4,
-	EXIF_ORIENTATION_LEFT_TOP	= 5,
-	EXIF_ORIENTATION_RIGHT_TOP	= 6,
-	EXIF_ORIENTATION_RIGHT_BOTTOM	= 7,
-	EXIF_ORIENTATION_LEFT_BOTTOM	= 8
-};
-
-enum ExifColorSpaceType {
-	EXIF_COLORSPACE_NONE		= 0,
-	EXIF_COLORSPACE_SRGB		= 1,
-	EXIF_COLORSPACE_ADOBERGB	= 2
-};
 
 void exif_init();
 
-ExifData *exif_read(gchar *path, gchar *, GHashTable *);
-
-ExifData *exif_read_fd(FileData *fd);
-void exif_free_fd(FileData *fd, ExifData *exif);
-
+ExifData *exif_read(const gchar *path);
 void exif_free(ExifData *exif);
 
 gchar *exif_get_all_exif_as_text(ExifData *exif);
 gchar *exif_get_all_xmp_as_text(ExifData *exif);
 gchar *exif_get_all_metadata_as_text(ExifData *exif);
-gint exif_read_orientation(FileData *fd, gint fallback);
-ExifColorSpaceType exif_read_colorspace(FileData *fd);
-
-ExifItem *exif_get_item(ExifData *exif, const gchar *key);
-
-gchar *exif_item_get_data(ExifItem *item, guint *data_len);
-guint exif_item_get_format_id(ExifItem *item);
-
-guchar *exif_get_color_profile(ExifData *exif, guint *data_len);
-
-/* jpeg embedded icc support */
-
-void exif_add_jpeg_color_profile(ExifData *exif, guchar *cp_data, guint cp_length);
-
-gboolean exif_jpeg_parse_color(ExifData *exif, guchar *data, guint size);
-
-/*raw support */
-guchar *exif_get_preview(ExifData *exif, guint *data_len, gint requested_width, gint requested_height);
-void exif_free_preview(const guchar *buf);
 
 #endif
