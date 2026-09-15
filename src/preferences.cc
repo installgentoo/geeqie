@@ -1280,6 +1280,16 @@ static void config_tab_general(GtkWidget *notebook)
 
 	pref_checkbox_new_int(group, _("Refresh on file change"),
 			      options->update_on_time_change, &c_options->update_on_time_change);
+
+	pref_spacer(group, PREF_PAD_GROUP);
+
+	group = pref_group_new(vbox, FALSE, _("Thread pool limits"), GTK_ORIENTATION_VERTICAL);
+
+	GtkWidget *threads_string_label = pref_label_new(group, _("This option limits the number of threads (or cpu cores) that Geeqie will use when running duplicate checks and creating thumbnails.\nThe value 0 means all available cores will be used."));
+	gtk_label_set_line_wrap(GTK_LABEL(threads_string_label), TRUE);
+
+	GtkWidget *dupes_threads_spin = pref_spin_new_int(group, _("Duplicates and thumbnails:"), _("max. threads"), 0, get_cpu_cores(), 1, options->threads.duplicates, &c_options->threads.duplicates);
+	gtk_widget_set_tooltip_markup(dupes_threads_spin, _("Set to 0 for unlimited"));
 }
 
 /* image tab */
@@ -1667,7 +1677,7 @@ static void config_tab_files(GtkWidget *notebook)
 	gtk_widget_show(button);
 }
 
-/* advanced entry tab */
+/* behavior tab */
 static void use_geeqie_trash_cb(GtkWidget *widget, gpointer)
 {
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)))
@@ -1961,30 +1971,6 @@ static void config_tab_accelerators(GtkWidget *notebook)
 	gtk_widget_show(button);
 }
 
-/* advanced tab */
-static void config_tab_advanced(GtkWidget *notebook)
-{
-	GtkWidget *dupes_threads_spin;
-	GtkWidget *group;
-	GtkWidget *threads_string_label;
-	GtkWidget *vbox;
-
-	vbox = scrolled_notebook_page(notebook, _("Advanced"));
-	gtk_widget_show(vbox);
-
-	group = pref_group_new(vbox, FALSE, _("Thread pool limits"), GTK_ORIENTATION_VERTICAL);
-
-	threads_string_label = pref_label_new(group, _("This option limits the number of threads (or cpu cores) that Geeqie will use when running duplicate checks and creating thumbnails.\nThe value 0 means all available cores will be used."));
-	gtk_label_set_line_wrap(GTK_LABEL(threads_string_label), TRUE);
-
-	pref_spacer(vbox, PREF_PAD_GROUP);
-
-	dupes_threads_spin = pref_spin_new_int(vbox, _("Duplicates and thumbnails:"), _("max. threads"), 0, get_cpu_cores(), 1, options->threads.duplicates, &c_options->threads.duplicates);
-	gtk_widget_set_tooltip_markup(dupes_threads_spin, _("Set to 0 for unlimited"));
-
-	pref_spacer(group, PREF_PAD_GROUP);
-}
-
 /* Main preferences window */
 static void config_window_create(LayoutWindow *lw)
 {
@@ -2022,7 +2008,6 @@ static void config_window_create(LayoutWindow *lw)
 	config_tab_accelerators(notebook);
 	config_tab_files(notebook);
 	config_tab_behavior(notebook);
-	config_tab_advanced(notebook);
 
 	gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), lw->options.preferences_window.page_number);
 
