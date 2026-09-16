@@ -242,28 +242,30 @@ gboolean FileData::FileList::read_list_real(const gchar *dir_path, GList **files
  * Code point order is deterministic, so the same names always land in the same places. */
 gint FileData::FileList::compare_names(const gchar *a, const gchar *b, gboolean case_sensitive, gboolean natural)
 {
-	const gchar *const a_start = a;
-
 	while (*a && *b)
 		{
 		/* Equal bytes are equal characters under any comparison mode, so a shared prefix is skipped without
 		 * decoding; the first difference is rewound to where its character, and for natural order its digit
-		 * run, begins, since only those compare as a whole. */
+		 * run, begins, since only those compare as a whole. The rewind must stop where the skip began: what lies
+		 * before was already compared, and rewinding into a digit run that compared equal hung on "19é" vs "19É". */
 		if (*a == *b)
 			{
+			const gchar *const skip_start = a;
 			while (*a && *a == *b)
 				{
 				a++;
 				b++;
 				}
-			while (a > a_start && (static_cast<guchar>(*a) & 0xC0) == 0x80)
+			/* either side: in a name that is not valid UTF-8 only one may be a continuation byte, and testing one
+			 * side made compare(a, b) disagree with compare(b, a) */
+			while (a > skip_start && ((static_cast<guchar>(*a) & 0xC0) == 0x80 || (static_cast<guchar>(*b) & 0xC0) == 0x80))
 				{
 				a--;
 				b--;
 				}
 			if (natural)
 				{
-				while (a > a_start && g_ascii_isdigit(a[-1]))
+				while (a > skip_start && g_ascii_isdigit(a[-1]))
 					{
 					a--;
 					b--;
