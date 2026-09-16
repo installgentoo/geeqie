@@ -21,9 +21,11 @@
 
 #include "cache.h"
 
+#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <csignal>
 #include <cstring>
 #include <string>
 #include <utility>
@@ -90,28 +92,41 @@ gboolean cache_video_tools_available()
 	return available;
 }
 
-gboolean cache_video_run_command(const gchar *command, gchar **stdout_text)
+/* Runs in the forked child. The signal fires when the spawning thread dies, which outlives the child since it blocks
+ * waiting for it; geeqie exiting or crashing kills every thread, so ffmpeg does not keep decoding into the void.
+ * A parent that died before prctl() is caught by the ppid check. */
+void cache_video_child_setup(gpointer parent_pid)
 {
-	gchar *stderr_text = nullptr;
-	gint exit_status = -1;
+	prctl(PR_SET_PDEATHSIG, SIGKILL);
+	if (getppid() != GPOINTER_TO_INT(parent_pid)) _exit(1);
+}
 
-	if (!g_spawn_command_line_sync(command, stdout_text, &stderr_text, &exit_status, nullptr))
+/* Returns the command's output, or nullptr if it could not run or failed. */
+GBytes *cache_video_run(const gchar *const *argv)
+{
+	g_autoptr(GSubprocessLauncher) launcher = g_subprocess_launcher_new(static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_PIPE));
+	g_subprocess_launcher_set_child_setup(launcher, cache_video_child_setup, GINT_TO_POINTER(getpid()), nullptr);
+
+	g_autoptr(GError) error = nullptr;
+	g_autoptr(GSubprocess) process = g_subprocess_launcher_spawnv(launcher, argv, &error);
+	GBytes *out = nullptr;
+	g_autoptr(GBytes) err = nullptr;
+	if (!process || !g_subprocess_communicate(process, nullptr, nullptr, &out, &err, &error))
 		{
-		log_printf("cache: failed to run command: %s\n", command);
-		g_free(stderr_text);
-		return FALSE;
+		log_printf("cache: failed to run %s: %s\n", argv[0], error->message);
+		return nullptr;
 		}
 
-	if (!g_spawn_check_exit_status(exit_status, nullptr))
+	if (!g_subprocess_get_successful(process))
 		{
-		log_printf("cache: command failed: %s\n", command);
-		if (stderr_text && *stderr_text) log_printf("cache: stderr: %s\n", stderr_text);
-		g_free(stderr_text);
-		return FALSE;
+		gsize len;
+		const auto *text = static_cast<const gchar *>(g_bytes_get_data(err, &len));
+		log_printf("cache: %s failed: %.*s\n", argv[0], static_cast<gint>(len), text ? text : "");
+		g_bytes_unref(out);
+		return nullptr;
 		}
 
-	g_free(stderr_text);
-	return TRUE;
+	return out;
 }
 
 /**
@@ -146,12 +161,16 @@ gboolean cache_video_probe(FileData *fd, CacheVideoProbe *probe)
 	*probe = {};
 	if (!cache_video_tools_available()) return FALSE;
 
-	g_autofree gchar *video_path = g_shell_quote(fd->path);
-	g_autofree gchar *cmd = g_strdup_printf("ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration:stream_side_data=rotation:format=duration -of default=noprint_wrappers=1 %s", video_path);
-	g_autofree gchar *out = nullptr;
-	if (!cache_video_run_command(cmd, &out)) return FALSE;
+	const gchar *const argv[] = {"ffprobe", "-v", "error", "-select_streams", "v:0",
+	                             "-show_entries", "stream=width,height,duration:stream_side_data=rotation:format=duration",
+	                             "-of", "default=noprint_wrappers=1", fd->path, nullptr};
+	g_autoptr(GBytes) out = cache_video_run(argv);
+	if (!out) return FALSE;
 
-	cache_video_parse_probe(out, probe);
+	gsize len;
+	const auto *data = static_cast<const gchar *>(g_bytes_get_data(out, &len));
+	g_autofree gchar *text = g_strndup(data, len);
+	cache_video_parse_probe(text, probe);
 	return probe->width > 0 && probe->height > 0;
 }
 
@@ -163,35 +182,25 @@ GdkPixbuf *cache_sim_video_pixbuf(FileData *fd, gdouble duration)
 		return nullptr;
 		}
 
-	g_autofree gchar *video_path = g_shell_quote(fd->path);
 	/* samples at 0, 1/n, ... (n-1)/n of the duration; padding the interval pushed the last samples past the end,
 	 * which left black cells on clips under about a minute */
 	const gdouble fps_interval = duration / (SHEET_SIDE * SHEET_SIDE);
+	g_autofree gchar *filter = g_strdup_printf("fps=1/%.6f,scale=%d:%d,tile=%dx%d", fps_interval,
+	                                           SHEET_FRAME_WIDTH, SHEET_FRAME_HEIGHT, SHEET_SIDE, SHEET_SIDE);
+	/* piped rather than written to a temporary file, which a killed ffmpeg would leave behind; png is lossless */
+	const gchar *const argv[] = {"ffmpeg", "-hide_banner", "-loglevel", "error", "-i", fd->path, "-frames:v", "1",
+	                             "-vf", filter, "-an", "-c:v", "png", "-f", "image2pipe", "-", nullptr};
+	g_autoptr(GBytes) out = cache_video_run(argv);
+	if (!out) return nullptr;
 
-	gchar *tmp_file = nullptr;
-	const gint fd_out = g_file_open_tmp("geeqie-sim-video-XXXXXX.jpeg", &tmp_file, nullptr);
-	if (fd_out < 0) return nullptr;
-	close(fd_out);
-
-	g_autofree gchar *tmp_path = tmp_file;
-	g_autofree gchar *tmp_path_quoted = g_shell_quote(tmp_path);
-	g_autofree gchar *ffmpeg_cmd = g_strdup_printf(
-		"ffmpeg -hide_banner -loglevel error -i %s -frames:v 1 -vf \"fps=1/%.6f,scale=%d:%d,tile=%dx%d\" -an -y %s",
-		video_path, fps_interval, SHEET_FRAME_WIDTH, SHEET_FRAME_HEIGHT, SHEET_SIDE, SHEET_SIDE, tmp_path_quoted);
-
-	GdkPixbuf *pixbuf = nullptr;
-	if (cache_video_run_command(ffmpeg_cmd, nullptr))
+	g_autoptr(GInputStream) stream = g_memory_input_stream_new_from_bytes(out);
+	g_autoptr(GError) error = nullptr;
+	GdkPixbuf *pixbuf = gdk_pixbuf_new_from_stream(stream, nullptr, &error);
+	if (!pixbuf)
 		{
-		GError *error = nullptr;
-		pixbuf = gdk_pixbuf_new_from_file(tmp_path, &error);
-		if (error)
-			{
-			log_printf("cache: cannot load generated video similarity pixbuf for %s: %s\n", fd->path, error->message);
-			g_error_free(error);
-			}
+		log_printf("cache: cannot load generated video similarity pixbuf for %s: %s\n", fd->path, error->message);
 		}
 
-	g_unlink(tmp_path);
 	return pixbuf;
 }
 
