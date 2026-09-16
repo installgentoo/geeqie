@@ -57,6 +57,16 @@ namespace
 {
 
 constexpr gint SIM_GRID_BYTES = 3 * 1024;
+constexpr gint SIM_GRID_SIDE = 32;
+
+/* A video's similarity grid is taken from a contact sheet of SHEET_SIDE x SHEET_SIDE frames. The grid must split
+ * evenly into frames and pixels, or a cell straddling two frames blends them. */
+constexpr gint SHEET_SIDE = 4;
+constexpr gint SHEET_FRAME_WIDTH = 160;
+constexpr gint SHEET_FRAME_HEIGHT = 120;
+G_STATIC_ASSERT(SIM_GRID_SIDE % SHEET_SIDE == 0);
+G_STATIC_ASSERT(SHEET_FRAME_WIDTH % (SIM_GRID_SIDE / SHEET_SIDE) == 0);
+G_STATIC_ASSERT(SHEET_FRAME_HEIGHT % (SIM_GRID_SIDE / SHEET_SIDE) == 0);
 
 gboolean cache_video_tools_available()
 {
@@ -154,7 +164,9 @@ GdkPixbuf *cache_sim_video_pixbuf(FileData *fd, gdouble duration)
 		}
 
 	g_autofree gchar *video_path = g_shell_quote(fd->path);
-	const gdouble fps_interval = (duration + 1.8) / 36.0;
+	/* samples at 0, 1/n, ... (n-1)/n of the duration; padding the interval pushed the last samples past the end,
+	 * which left black cells on clips under about a minute */
+	const gdouble fps_interval = duration / (SHEET_SIDE * SHEET_SIDE);
 
 	gchar *tmp_file = nullptr;
 	const gint fd_out = g_file_open_tmp("geeqie-sim-video-XXXXXX.jpeg", &tmp_file, nullptr);
@@ -164,8 +176,8 @@ GdkPixbuf *cache_sim_video_pixbuf(FileData *fd, gdouble duration)
 	g_autofree gchar *tmp_path = tmp_file;
 	g_autofree gchar *tmp_path_quoted = g_shell_quote(tmp_path);
 	g_autofree gchar *ffmpeg_cmd = g_strdup_printf(
-		"ffmpeg -hide_banner -loglevel error -i %s -frames:v 1 -vf \"fps=1/%.6f,scale=160:120,tile=6x6\" -an -y %s",
-		video_path, fps_interval, tmp_path_quoted);
+		"ffmpeg -hide_banner -loglevel error -i %s -frames:v 1 -vf \"fps=1/%.6f,scale=%d:%d,tile=%dx%d\" -an -y %s",
+		video_path, fps_interval, SHEET_FRAME_WIDTH, SHEET_FRAME_HEIGHT, SHEET_SIDE, SHEET_SIDE, tmp_path_quoted);
 
 	GdkPixbuf *pixbuf = nullptr;
 	if (cache_video_run_command(ffmpeg_cmd, nullptr))

@@ -134,13 +134,13 @@ gint image_sim_sad(const guint8 *a, const guint8 *b, gint limit)
 }
 
 /* Best score over the isometries in use; limit is the abort threshold as a raw difference sum. */
-gdouble image_sim_data_compare(const ImageSimilarityData *a, const ImageSimilarityData *b, gint limit)
+gdouble image_sim_data_compare(const ImageSimilarityData *a, const ImageSimilarityData *b, gint limit, gboolean isometries)
 {
 	if (!a || !b || !a->filled || !b->filled) return 0.0;
 
 	gint best = image_sim_sad(a->avg_r, b->avg_r, limit);
 
-	if (options->rot_invariant_sim)
+	if (isometries)
 		{
 		guint8 local[SIM_GRID_BYTES];
 		for (gchar t = 1; t < SIM_ISOMETRIES; t++)
@@ -164,6 +164,11 @@ gdouble image_sim_data_compare(const ImageSimilarityData *a, const ImageSimilari
 }
 
 } // namespace
+
+gboolean image_sim_isometries_allowed(FileFormatClass a, FileFormatClass b)
+{
+	return options->rot_invariant_sim && a != FORMAT_CLASS_VIDEO && b != FORMAT_CLASS_VIDEO;
+}
 
 ImageSimilarityData *image_sim_new()
 {
@@ -405,15 +410,15 @@ static gdouble alternate_image_sim_compare_fast(const ImageSimilarityData *a, co
 	return (1.0 - ((gdouble)sim / (255.0 * 1024.0 * 4.0)) );
 }
 
-gdouble image_sim_compare(ImageSimilarityData *a, ImageSimilarityData *b)
+gdouble image_sim_compare(ImageSimilarityData *a, ImageSimilarityData *b, gboolean isometries)
 {
-	return image_sim_data_compare(a, b, G_MAXINT);
+	return image_sim_data_compare(a, b, G_MAXINT, isometries);
 }
 
 /* this uses a cutoff point so that it can abort early when it gets to
  * a point that can simply no longer make the cut-off point.
  */
-gdouble image_sim_compare_fast(ImageSimilarityData *a, ImageSimilarityData *b, gdouble min)
+gdouble image_sim_compare_fast(ImageSimilarityData *a, ImageSimilarityData *b, gdouble min, gboolean isometries)
 {
 	min = 1.0 - min;
 
@@ -422,6 +427,6 @@ gdouble image_sim_compare_fast(ImageSimilarityData *a, ImageSimilarityData *b, g
 		return alternate_image_sim_compare_fast(a, b, min);
 		}
 
-	return image_sim_data_compare(a, b, static_cast<gint>(min * 255.0 * 1024.0 * 3.0));
+	return image_sim_data_compare(a, b, static_cast<gint>(min * 255.0 * 1024.0 * 3.0), isometries);
 }
 /* vim: set shiftwidth=8 softtabstop=0 cindent cinoptions={1s: */

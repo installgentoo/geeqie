@@ -25,6 +25,8 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <glib.h>
 
+#include "typedefs.h"
+
 /* avg_r/g/b must stay adjacent: the compare treats them as one 3072-byte block. */
 struct ImageSimilarityData
 {
@@ -44,8 +46,14 @@ void image_sim_free(ImageSimilarityData *sd);
 void image_sim_fill_data(ImageSimilarityData *sd, GdkPixbuf *pixbuf);
 ImageSimilarityData *image_sim_new_from_pixbuf(GdkPixbuf *pixbuf);
 
-gdouble image_sim_compare(ImageSimilarityData *a, ImageSimilarityData *b);
-gdouble image_sim_compare_fast(ImageSimilarityData *a, ImageSimilarityData *b, gdouble min);
+/**
+ * Whether a pair may also match flipped or rotated. Never for a video: its grid is a contact sheet laid out
+ * in time, so an isometry reorders the frames and only gives unrelated videos more chances to match.
+ */
+gboolean image_sim_isometries_allowed(FileFormatClass a, FileFormatClass b);
+
+gdouble image_sim_compare(ImageSimilarityData *a, ImageSimilarityData *b, gboolean isometries);
+gdouble image_sim_compare_fast(ImageSimilarityData *a, ImageSimilarityData *b, gdouble min, gboolean isometries);
 
 /**
  * Rotation-invariant comparison needs the 8 isometries of the second argument. Preparing them

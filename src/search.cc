@@ -39,6 +39,7 @@
 #include "debug.h"
 #include "dnd.h"
 #include "filedata.h"
+#include "filefilter.h"
 #include "image-load.h"
 #include "intl.h"
 #include "layout-util.h"
@@ -1605,7 +1606,8 @@ static gboolean search_file_do_extra(SearchData *sd, FileData *fd, gint *match,
 			gdouble result;
 
 			result = image_sim_compare_fast(sd->search_similarity_cd->sim, sd->img_cd->sim,
-							static_cast<gdouble>(sd->search_similarity) / 100.0);
+							static_cast<gdouble>(sd->search_similarity) / 100.0,
+							image_sim_isometries_allowed(filter_file_get_class(sd->search_similarity_path), fd->format_class));
 			result *= 100.0;
 			if (result >= static_cast<gdouble>(sd->search_similarity))
 				{

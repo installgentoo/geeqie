@@ -170,7 +170,8 @@ static void dupe_comparison_func(gpointer d1, gpointer d2)
 
 	if (!dw->abort)
 		{
-		image_sim_needle_prepare(dqi->needle->simd);
+		FileFormatClass needle_class = dqi->needle->fd->format_class;
+		if (image_sim_isometries_allowed(needle_class, needle_class)) image_sim_needle_prepare(dqi->needle->simd);
 
 		GList *work = dqi->work;
 		while (work)
@@ -1585,6 +1586,7 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 		{
 		gdouble f;
 		gdouble m;
+		const gboolean isometries = image_sim_isometries_allowed(a->fd->format_class, b->fd->format_class);
 
 		if (mask & DUPE_MATCH_SIM_HIGH) m = 0.95;
 		else if (mask & DUPE_MATCH_SIM_MED) m = 0.90;
@@ -1593,11 +1595,11 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 
 		if (fast)
 			{
-			f = image_sim_compare_fast(a->simd, b->simd, m);
+			f = image_sim_compare_fast(a->simd, b->simd, m, isometries);
 			}
 		else
 			{
-			f = image_sim_compare(a->simd, b->simd);
+			f = image_sim_compare(a->simd, b->simd, isometries);
 			}
 
 		*rank = f * 100.0;
