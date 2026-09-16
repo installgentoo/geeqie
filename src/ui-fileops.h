@@ -84,6 +84,11 @@ gchar *get_current_dir();
 GList *string_list_copy(const GList *list);
 
 gchar *unique_filename(const gchar *path, const gchar *ext, const gchar *divider, gboolean pad);
+/**
+ * name, cut at a character boundary before its extension, so that extra_bytes more still fit in one file name.
+ * The limit is in bytes: 85 CJK characters already fill it.
+ */
+gchar *filename_shorten(const gchar *name, gsize extra_bytes);
 
 const gchar *filename_from_path(const gchar *path);
 gchar *remove_level_from_path(const gchar *path);

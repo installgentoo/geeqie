@@ -22,6 +22,7 @@
 #include "trash.h"
 
 #include <cstdlib>
+#include <cstring>
 
 #include "debug.h"
 #include "editors.h"
@@ -80,7 +81,9 @@ static gchar *file_util_safe_dest(const gchar *path)
 	gchar *dest;
 
 	n = file_util_safe_number();
-	name = g_strdup_printf("%06d_%s", n, filename_from_path(path));
+	g_autofree gchar *prefix = g_strdup_printf("%06d_", n);
+	g_autofree gchar *base = filename_shorten(filename_from_path(path), strlen(prefix));
+	name = g_strconcat(prefix, base, nullptr);
 	dest = g_build_filename(options->file_ops.safe_delete_path, name, NULL);
 	g_free(name);
 

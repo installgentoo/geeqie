@@ -27,10 +27,10 @@
 #include <unistd.h>
 #include <utime.h>
 
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
 
 #include <glib-object.h>
 #include <gtk/gtk.h>
@@ -525,24 +525,12 @@ gboolean copy_file(const gchar *s, const gchar *t)
 	/* First we write to a temporary file, then we rename it on success,
 	   and attributes from original file are copied */
 
-	const auto safe_filename = [](const gchar* path, const gchar* suffix) {
-		glong max_name_len = 255 - std::strlen(suffix);
-
-		std::unique_ptr<gchar, decltype(&g_free)> dirname{g_path_get_dirname(path), g_free};
-		std::unique_ptr<gchar, decltype(&g_free)> basename{g_path_get_basename(path), g_free};
-
-		if (std::strlen(basename.get()) < size_t(max_name_len)) {
-			return g_strconcat(path, suffix, NULL);
-		}
-
-		glong max_chars = g_utf8_strlen(basename.get(), max_name_len);
-		basename.reset(g_utf8_substring(basename.get(), 0, max_chars));
-		basename.reset(g_strconcat(basename.get(), suffix, NULL));
-
-		return g_build_filename(dirname.get(), basename.get(), NULL);
-	};
-
-	g_autofree gchar *randname = safe_filename(tl, ".tmp_XXXXXX");
+	static constexpr const gchar *tmp_suffix = ".tmp_XXXXXX";
+	g_autofree gchar *dirname = g_path_get_dirname(tl);
+	g_autofree gchar *basename = g_path_get_basename(tl);
+	g_autofree gchar *shortened = filename_shorten(basename, strlen(tmp_suffix));
+	g_autofree gchar *tmp_name = g_strconcat(shortened, tmp_suffix, nullptr);
+	g_autofree gchar *randname = g_build_filename(dirname, tmp_name, nullptr);
 
 	if (!randname)
 		{
@@ -666,6 +654,25 @@ GList *string_list_copy(const GList *list)
 		}
 
 	return g_list_reverse(new_list);
+}
+
+gchar *filename_shorten(const gchar *name, gsize extra_bytes)
+{
+	/* a longer "extension" is more likely part of the name, and would leave nothing of the stem */
+	constexpr gsize max_extension_bytes = 16;
+
+	const gsize len = strlen(name);
+	if (len + extra_bytes <= NAME_MAX) return g_strdup(name);
+
+	const gchar *ext = strrchr(name, '.');
+	if (!ext || ext == name || static_cast<gsize>(name + len - ext) > max_extension_bytes) ext = name + len;
+
+	const gsize budget = NAME_MAX - MIN(extra_bytes, NAME_MAX) - static_cast<gsize>(name + len - ext);
+	gsize cut = MIN(budget, static_cast<gsize>(ext - name));
+	while (cut > 0 && (static_cast<guchar>(name[cut]) & 0xC0) == 0x80) cut--;
+
+	g_autofree gchar *stem = g_strndup(name, cut);
+	return g_strconcat(stem, ext, nullptr);
 }
 
 gchar *unique_filename(const gchar *path, const gchar *ext, const gchar *divider, gboolean pad)
