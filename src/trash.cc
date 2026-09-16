@@ -41,53 +41,49 @@
  *--------------------------------------------------------------------------
  */
 
-static gint file_util_safe_number()
+/* Every entry counts, not only the file types geeqie lists: a trashed file it does not list still holds its number. */
+static gint file_util_safe_number(const gchar *trash_path)
 {
+	g_autofree gchar *trash_path_l = path_from_utf8(trash_path);
+	g_autoptr(GDir) dir = g_dir_open(trash_path_l, 0, nullptr);
+	if (!dir) return 0;
+
 	gint n = 0;
-	GList *list;
-	GList *work;
-	FileData *dir_fd;
-
-	dir_fd = file_data_new_dir(options->file_ops.safe_delete_path);
-	if (!filelist_read(dir_fd, &list, nullptr))
+	while (const gchar *name = g_dir_read_name(dir))
 		{
-		file_data_unref(dir_fd);
-		return 0;
-		}
-	file_data_unref(dir_fd);
-
-	work = list;
-	while (work)
-		{
-		FileData *fd;
-		gint v;
-
-		fd = static_cast<FileData *>(work->data);
-		work = work->next;
-
-		v = static_cast<gint>(strtol(fd->name, nullptr, 10));
+		const auto v = static_cast<gint>(strtol(name, nullptr, 10));
 		if (v >= n) n = v + 1;
 		}
-
-	filelist_free(list);
 
 	return n;
 }
 
+/**
+ * The trash is listed once for its next number, then counted on here; listing it for every file made deleting
+ * n files take n^2 time. A number taken since, by another geeqie or by hand, is skipped: rename() would replace it.
+ */
 static gchar *file_util_safe_dest(const gchar *path)
 {
-	gint n;
-	gchar *name;
-	gchar *dest;
+	static gchar *counted_path = nullptr;
+	static gint next = 0;
 
-	n = file_util_safe_number();
-	g_autofree gchar *prefix = g_strdup_printf("%06d_", n);
-	g_autofree gchar *base = filename_shorten(filename_from_path(path), strlen(prefix));
-	name = g_strconcat(prefix, base, nullptr);
-	dest = g_build_filename(options->file_ops.safe_delete_path, name, NULL);
-	g_free(name);
+	const gchar *trash_path = options->file_ops.safe_delete_path;
+	if (g_strcmp0(counted_path, trash_path) != 0)
+		{
+		g_free(counted_path);
+		counted_path = g_strdup(trash_path);
+		next = file_util_safe_number(trash_path);
+		}
 
-	return dest;
+	while (true)
+		{
+		g_autofree gchar *prefix = g_strdup_printf("%06d_", next++);
+		g_autofree gchar *base = filename_shorten(filename_from_path(path), strlen(prefix));
+		g_autofree gchar *name = g_strconcat(prefix, base, nullptr);
+		gchar *dest = g_build_filename(trash_path, name, NULL);
+		if (!isname(dest)) return dest;
+		g_free(dest);
+		}
 }
 
 gboolean file_util_move_to_trash(const gchar *path)
