@@ -40,7 +40,7 @@
 static gboolean cache_loader_phase2_idle_cb(gpointer data);
 
 /*
- * Video: the contact sheet is rendered by ffmpeg on a worker thread. The worker
+ * Video: the size is probed and the contact sheet rendered by ffmpeg on a worker thread. The worker
  * touches only the job; the loader is reached again from the main thread via idle.
  * Freeing the loader detaches the job (cl = nullptr) and the job then frees itself.
  */
@@ -48,6 +48,8 @@ static gboolean cache_loader_phase2_idle_cb(gpointer data);
 struct CacheLoaderVideoJob {
 	FileData *fd;
 	CacheLoader *cl; /**< main thread only; nullptr once the loader is gone */
+	gboolean have_size;
+	CacheVideoProbe probe;
 	GdkPixbuf *pixbuf;
 	gint cancelled; /**< atomic; lets a queued job skip the render */
 };
@@ -69,6 +71,13 @@ static gboolean cache_loader_video_done_idle_cb(gpointer data)
 	if (cl)
 		{
 		cl->video_job = nullptr;
+		if (job->have_size)
+			{
+			cache_sim_data_set_dimensions(cl->cd, job->probe.width, job->probe.height);
+			cl->done_mask = static_cast<CacheDataType>(cl->done_mask | CACHE_LOADER_DIMENSIONS);
+			}
+		/* the dimensions branch would decode a whole frame on the main thread to learn what the probe already answered */
+		cl->todo_mask = static_cast<CacheDataType>(cl->todo_mask & ~CACHE_LOADER_DIMENSIONS);
 		cl->pixbuf = job->pixbuf;
 		job->pixbuf = nullptr;
 		if (!cl->pixbuf) cl->error = TRUE;
@@ -85,7 +94,11 @@ static void cache_loader_video_thread_run(gpointer data, gpointer)
 
 	if (!g_atomic_int_get(&job->cancelled))
 		{
-		job->pixbuf = cache_sim_video_pixbuf(job->fd);
+		job->have_size = cache_video_probe(job->fd, &job->probe);
+		}
+	if (!g_atomic_int_get(&job->cancelled))
+		{
+		job->pixbuf = cache_sim_video_pixbuf(job->fd, job->probe.duration);
 		}
 
 	g_idle_add(cache_loader_video_done_idle_cb, job);

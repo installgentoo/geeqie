@@ -26,6 +26,7 @@
 
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <glib/gstdio.h>
@@ -45,7 +46,7 @@
  *
  *   path    source file path (UTF-8), unique
  *   mtime   source mtime when the row was written; a row whose mtime differs from the file is stale
- *   width, height   image dimensions, NULL if unknown
+ *   width, height   displayed dimensions (a video's frame, not its contact sheet), NULL if unknown
  *   md5     16-byte digest, NULL if unknown
  *   grid    3072 bytes: the 32x32 avg_r, avg_g, avg_b planes, NULL if unknown
  *
@@ -103,45 +104,56 @@ gboolean cache_video_run_command(const gchar *command, gchar **stdout_text)
 	return TRUE;
 }
 
-/* ffprobe prints one line per stream/format entry, "N/A" when a container has no value; the first positive one wins. */
-gboolean cache_video_parse_positive_double(const gchar *text, gdouble *value)
+/**
+ * ffprobe prints "key=value" lines: the stream's width, height and duration, then its display
+ * matrix rotation if it has one, then the container's duration. A value the container lacks
+ * reads "N/A", and mkv has no stream duration, so the first positive duration wins.
+ */
+void cache_video_parse_probe(const gchar *text, CacheVideoProbe *probe)
 {
-	if (!text || !value) return FALSE;
-
+	gint rotation = 0;
 	g_auto(GStrv) lines = g_strsplit(text, "\n", -1);
-	for (gchar **line = lines; line && *line; line++)
+	for (gchar **line = lines; *line; line++)
 		{
-		gchar *endptr = nullptr;
-		const gchar *trimmed = g_strstrip(*line);
-		const gdouble parsed = g_ascii_strtod(trimmed, &endptr);
-		if (*trimmed && endptr && *endptr == '\0' && parsed > 0.0)
-			{
-			*value = parsed;
-			return TRUE;
-			}
+		gchar *value = strchr(*line, '=');
+		if (!value) continue;
+		*value++ = '\0';
+
+		if (!strcmp(*line, "width")) probe->width = atoi(value);
+		else if (!strcmp(*line, "height")) probe->height = atoi(value);
+		else if (!strcmp(*line, "rotation")) rotation = atoi(value);
+		else if (!strcmp(*line, "duration") && probe->duration <= 0.0) probe->duration = g_ascii_strtod(value, nullptr);
 		}
 
-	return FALSE;
+	/* phone footage is stored landscape and rotated on playback */
+	if (rotation % 180 != 0) std::swap(probe->width, probe->height);
 }
 
 } // namespace
 
-GdkPixbuf *cache_sim_video_pixbuf(FileData *fd)
+gboolean cache_video_probe(FileData *fd, CacheVideoProbe *probe)
 {
-	if (!fd || !fd->path) return nullptr;
-	if (!cache_video_tools_available()) return nullptr;
+	*probe = {};
+	if (!cache_video_tools_available()) return FALSE;
 
 	g_autofree gchar *video_path = g_shell_quote(fd->path);
-	g_autofree gchar *duration_cmd = g_strdup_printf("ffprobe -v error -select_streams v:0 -show_entries stream=duration:format=duration -of default=noprint_wrappers=1:nokey=1 %s", video_path);
-	g_autofree gchar *duration_out = nullptr;
-	gdouble duration = 0.0;
+	g_autofree gchar *cmd = g_strdup_printf("ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration:stream_side_data=rotation:format=duration -of default=noprint_wrappers=1 %s", video_path);
+	g_autofree gchar *out = nullptr;
+	if (!cache_video_run_command(cmd, &out)) return FALSE;
 
-	if (!cache_video_run_command(duration_cmd, &duration_out) || !cache_video_parse_positive_double(duration_out, &duration))
+	cache_video_parse_probe(out, probe);
+	return probe->width > 0 && probe->height > 0;
+}
+
+GdkPixbuf *cache_sim_video_pixbuf(FileData *fd, gdouble duration)
+{
+	if (duration <= 0.0)
 		{
 		log_printf("cache: no duration for %s, cannot sample frames for similarity\n", fd->path);
 		return nullptr;
 		}
 
+	g_autofree gchar *video_path = g_shell_quote(fd->path);
 	const gdouble fps_interval = (duration + 1.8) / 36.0;
 
 	gchar *tmp_file = nullptr;

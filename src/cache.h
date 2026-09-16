@@ -57,11 +57,19 @@ void cache_sim_moved(const gchar *source, const gchar *dest);
 void cache_sim_removed(const gchar *path);
 gint cache_sim_clean(); /**< drops rows for files that are gone or changed; returns how many; blocking */
 
-/**
- * Contact sheet of evenly spaced frames, the image a video's similarity data is computed from.
- * Blocking (spawns ffprobe/ffmpeg); touches nothing but fd->path, so safe off the main thread.
- */
-GdkPixbuf *cache_sim_video_pixbuf(FileData *fd);
+/* The video functions block on ffprobe/ffmpeg and touch nothing but fd->path, so they are safe off the main thread. */
+
+struct CacheVideoProbe
+{
+	gint width; /**< as displayed, rotation applied */
+	gint height;
+	gdouble duration; /**< seconds, 0 if unknown */
+};
+
+gboolean cache_video_probe(FileData *fd, CacheVideoProbe *probe); /**< FALSE if the size is unknown */
+
+/** Contact sheet of evenly spaced frames, the image a video's similarity data is computed from. */
+GdkPixbuf *cache_sim_video_pixbuf(FileData *fd, gdouble duration);
 
 const gchar *get_sim_cache_path();
 const gchar *get_thumbnails_standard_cache_dir();

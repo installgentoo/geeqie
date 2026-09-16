@@ -37,16 +37,12 @@ enum DupeMatchType
 {
 	DUPE_MATCH_NONE = 0,
 	DUPE_MATCH_NAME = 1 << 0,
-	DUPE_MATCH_SUM  = 1 << 4,	/**< MD5sum */
-	DUPE_MATCH_PATH = 1 << 5,
-	DUPE_MATCH_SIM_HIGH = 1 << 6,	/**< similarity */
-	DUPE_MATCH_SIM_MED  = 1 << 7,
-	DUPE_MATCH_SIM_LOW  = 1 << 8,
-	DUPE_MATCH_SIM_CUSTOM = 1 << 9,
-	DUPE_MATCH_NAME_CI = 1 << 10,	/**< same as name, but case insensitive */
-	DUPE_MATCH_NAME_CONTENT = 1 << 11,	/**< same name, but different content */
-	DUPE_MATCH_NAME_CI_CONTENT = 1 << 12,	/**< same name - case insensitive, but different content */
-	DUPE_MATCH_ALL = 1 << 13 /**< N.B. this is used as a clamp value in rcfile.cc */
+	DUPE_MATCH_SUM  = 1 << 1,	/**< MD5sum */
+	DUPE_MATCH_SIM_HIGH = 1 << 2,	/**< similarity */
+	DUPE_MATCH_SIM_MED  = 1 << 3,
+	DUPE_MATCH_SIM_LOW  = 1 << 4,
+	DUPE_MATCH_SIM_CUSTOM = 1 << 5,
+	DUPE_MATCH_NAME_LOOSE = 1 << 6,	/**< name ignoring case and extension; the highest value, rcfile.cc clamps to it */
 };
 
 enum DupeSelectType
@@ -63,7 +59,6 @@ struct DupeItem
 	gchar *md5sum;
 	gint width;
 	gint height;
-	gint dimensions; /**< Computed as (#DupeItem->width << 16) + #DupeItem->height */
 
 	ImageSimilarityData *simd;
 
@@ -108,7 +103,7 @@ struct DupeWindow
 
 	guint idle_id; /**< event source id */
 	GList *working;
-	gint setup_done; /**< Boolean. Set TRUE when all checksums/dimensions/similarity data have been read or created */
+	gint setup_done; /**< Boolean. Set TRUE when all checksums/similarity data have been read or created */
 	gint setup_count; /**< length of set1 or if 2 sets, total length of both */
 	gint setup_n;			/**< Set to zero on start/reset. These are merely for speed optimization */
 	GList *setup_point;		/**< these are merely for speed optimization */

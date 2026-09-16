@@ -77,11 +77,7 @@ enum {
 	DUPE_COLUMN_COUNT	/**< total columns */
 };
 
-enum DUPE_CHECK_RESULT {
-	DUPE_MATCH = 0,
-	DUPE_NO_MATCH,
-	DUPE_NAME_MATCH
-};
+constexpr gint DUPE_NAME_AUTOSIZE_CHARS = 36;
 
 /** Used for similarity checks. One for each item pushed
  * onto the thread pool.
@@ -421,6 +417,26 @@ static void dupe_listview_realign_colors(DupeWindow *dw)
  * ------------------------------------------------------------------
  */
 
+/* Names without their extension, ignoring case; a pair that differs only in format or letter case compares equal. */
+static gint dupe_compare_loose_names(const FileData *a, const FileData *b)
+{
+	const gchar *pa = a->name;
+	const gchar *pb = b->name;
+	const gchar *const ea = pa + strlen(pa) - strlen(a->extension);
+	const gchar *const eb = pb + strlen(pb) - strlen(b->extension);
+
+	while (pa < ea && pb < eb)
+		{
+		const gunichar ca = g_unichar_tolower(g_utf8_get_char(pa));
+		const gunichar cb = g_unichar_tolower(g_utf8_get_char(pb));
+		if (ca != cb) return ca < cb ? -1 : 1;
+		pa = g_utf8_next_char(pa);
+		pb = g_utf8_next_char(pb);
+		}
+
+	return (pa < ea) - (pb < eb);
+}
+
 static DupeItem *dupe_item_new(FileData *fd)
 {
 	DupeItem *di;
@@ -500,7 +516,6 @@ static void dupe_item_apply_cache_data(DupeItem *di, CacheData *cd)
 		{
 		di->width = cd->width;
 		di->height = cd->height;
-		di->dimensions = (di->width << 16) + di->height;
 		}
 	if (!di->md5sum && cd->have_md5sum)
 		{
@@ -772,6 +787,44 @@ static void dupe_listview_add(DupeWindow *dw, DupeItem *parent, DupeItem *child)
 
 static void dupe_listview_select_dupes(DupeWindow *dw, DupeSelectType parents);
 
+static GtkTreeViewColumn *dupe_listview_get_column_by_model_id(GtkWidget *listview, gint model_column_id);
+
+/**
+ * An ellipsized cell requests only its minimum width, which collapses the column, so the name cell is given
+ * the width of the widest name, at most DUPE_NAME_AUTOSIZE_CHARS. Dragging the column wider still reveals more.
+ */
+static void dupe_listview_size_name_cell(DupeWindow *dw)
+{
+	GtkTreeViewColumn *column = dupe_listview_get_column_by_model_id(dw->listview, DUPE_COLUMN_NAME);
+	g_autoptr(GList) cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(column));
+	auto renderer = static_cast<GtkCellRenderer *>(cells->data);
+
+	g_autoptr(PangoLayout) layout = gtk_widget_create_pango_layout(dw->listview, nullptr);
+	PangoContext *context = pango_layout_get_context(layout);
+	PangoFontMetrics *metrics = pango_context_get_metrics(context, pango_context_get_font_description(context), nullptr);
+	const gint cap = PANGO_PIXELS(DUPE_NAME_AUTOSIZE_CHARS * pango_font_metrics_get_approximate_char_width(metrics));
+	pango_font_metrics_unref(metrics);
+
+	gint widest = 0;
+	const auto measure = [&](const DupeItem *di)
+		{
+		gint width;
+		pango_layout_set_text(layout, di->fd->name, -1);
+		pango_layout_get_pixel_size(layout, &width, nullptr);
+		widest = MAX(widest, width);
+		};
+	for (GList *work = dw->dupes; work && widest < cap; work = work->next)
+		{
+		auto parent = static_cast<DupeItem *>(work->data);
+		measure(parent);
+		for (GList *temp = parent->group; temp; temp = temp->next) measure(static_cast<DupeMatch *>(temp->data)->di);
+		}
+
+	gint xpad;
+	gtk_cell_renderer_get_padding(renderer, &xpad, nullptr);
+	gtk_cell_renderer_set_fixed_size(renderer, MIN(widest, cap) + 2 * xpad, -1);
+}
+
 static void dupe_listview_populate(DupeWindow *dw)
 {
 	GtkListStore *store;
@@ -779,6 +832,7 @@ static void dupe_listview_populate(DupeWindow *dw)
 
 	store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(dw->listview)));
 	gtk_list_store_clear(store);
+	dupe_listview_size_name_cell(dw);
 
 	work = g_list_last(dw->dupes);
 	while (work)
@@ -1508,56 +1562,13 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 
 	if (a->fd->path == b->fd->path) return FALSE;
 
-	if (mask & DUPE_MATCH_ALL)
-		{
-		return TRUE;
-		}
-	if (mask & DUPE_MATCH_PATH)
-		{
-		if (utf8_compare(a->fd->path, b->fd->path, TRUE) != 0) return FALSE;
-		}
 	if (mask & DUPE_MATCH_NAME)
 		{
 		if (filelist_compare_names(a->fd->name, b->fd->name, TRUE, FALSE) != 0) return FALSE;
 		}
-	if (mask & DUPE_MATCH_NAME_CI)
+	if (mask & DUPE_MATCH_NAME_LOOSE)
 		{
-		if (filelist_compare_names(a->fd->name, b->fd->name, FALSE, FALSE) != 0) return FALSE;
-		}
-	if (mask & DUPE_MATCH_NAME_CONTENT)
-		{
-		if (filelist_compare_names(a->fd->name, b->fd->name, TRUE, FALSE) == 0)
-			{
-			if (!a->md5sum) a->md5sum = md5_text_from_file_utf8(a->fd->path, "");
-			if (!b->md5sum) b->md5sum = md5_text_from_file_utf8(b->fd->path, "");
-			if (a->md5sum[0] == '\0' ||
-			    b->md5sum[0] == '\0' ||
-			    strcmp(a->md5sum, b->md5sum) != 0)
-				{
-				return TRUE;
-				}
-
-			return FALSE;
-			}
-		return FALSE;
-		}
-	if (mask & DUPE_MATCH_NAME_CI_CONTENT)
-		{
-		if (filelist_compare_names(a->fd->name, b->fd->name, FALSE, FALSE) == 0)
-			{
-			if (!a->md5sum) a->md5sum = md5_text_from_file_utf8(a->fd->path, "");
-			if (!b->md5sum) b->md5sum = md5_text_from_file_utf8(b->fd->path, "");
-			if (a->md5sum[0] == '\0' ||
-			    b->md5sum[0] == '\0' ||
-			    strcmp(a->md5sum, b->md5sum) != 0)
-				{
-				return TRUE;
-				}
-
-			return FALSE;
-			}
-		return FALSE;
-		
+		if (dupe_compare_loose_names(a->fd, b->fd) != 0) return FALSE;
 		}
 	if (mask & DUPE_MATCH_SUM)
 		{
@@ -1604,83 +1615,41 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
  * @param di1
  * @param di2
  * @param data
- * @returns DUPE_MATCH/DUPE_NO_MATCH/DUPE_NAME_MATCH
- * 			DUPE_NAME_MATCH is used for name != contents searches:
- * 							the name and content match i.e.
- * 							no match, but keep searching
+ * @returns TRUE if di1 and di2 match
  *
  * Called when stepping down the array looking for adjacent matches,
  * and from the 2nd set search.
  *
  * Is not used for similarity checks.
  */
-static DUPE_CHECK_RESULT dupe_match_check(DupeItem *di1, DupeItem *di2, gpointer data)
+static gboolean dupe_match_check(DupeItem *di1, DupeItem *di2, gpointer data)
 {
 	auto dw = static_cast<DupeWindow *>(data);
 	DupeMatchType mask = dw->match_mask;
 
-	if (mask & DUPE_MATCH_ALL)
-		{
-		return DUPE_MATCH;
-		}
-	if (mask & DUPE_MATCH_PATH)
-		{
-		if (utf8_compare(di1->fd->path, di2->fd->path, TRUE) != 0)
-			{
-			return DUPE_NO_MATCH;
-			}
-		}
 	if (mask & DUPE_MATCH_NAME)
 		{
 		if (filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE) != 0)
 			{
-			return DUPE_NO_MATCH;
+			return FALSE;
 			}
 		}
-	if (mask & DUPE_MATCH_NAME_CI)
+	if (mask & DUPE_MATCH_NAME_LOOSE)
 		{
-		if (filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE) != 0 )
+		if (dupe_compare_loose_names(di1->fd, di2->fd) != 0)
 			{
-			return DUPE_NO_MATCH;
-			}
-		}
-	if (mask & DUPE_MATCH_NAME_CONTENT)
-		{
-		if (filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE) == 0)
-			{
-			if (g_strcmp0(di1->md5sum, di2->md5sum) == 0)
-				{
-				return DUPE_NAME_MATCH;
-				}
-			}
-		else
-			{
-			return DUPE_NO_MATCH;
-			}
-		}
-	if (mask & DUPE_MATCH_NAME_CI_CONTENT)
-		{
-		if (filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE) == 0)
-			{
-			if (g_strcmp0(di1->md5sum, di2->md5sum) == 0)
-				{
-				return DUPE_NAME_MATCH;
-				}
-			}
-		else
-			{
-			return DUPE_NO_MATCH;
+			return FALSE;
 			}
 		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		if (g_strcmp0(di1->md5sum, di2->md5sum) != 0)
 			{
-			return DUPE_NO_MATCH;
+			return FALSE;
 			}
 		}
 
-	return DUPE_MATCH;
+	return TRUE;
 }
 
 /**
@@ -1702,29 +1671,13 @@ static gint dupe_match_binary_search_cb(gconstpointer a, gconstpointer b)
 	auto di2 = static_cast<const DupeItem *>(b);
 	DupeMatchType mask = param_match_mask;
 
-	if (mask & DUPE_MATCH_ALL)
-		{
-		return 0;
-		}
-	if (mask & DUPE_MATCH_PATH)
-		{
-		return utf8_compare(di1->fd->path, di2->fd->path, TRUE);
-		}
 	if (mask & DUPE_MATCH_NAME)
 		{
 		return filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE);
 		}
-	if (mask & DUPE_MATCH_NAME_CI)
+	if (mask & DUPE_MATCH_NAME_LOOSE)
 		{
-		return filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE);
-		}
-	if (mask & DUPE_MATCH_NAME_CONTENT)
-		{
-		return filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE);
-		}
-	if (mask & DUPE_MATCH_NAME_CI_CONTENT)
-		{
-		return filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE);
+		return dupe_compare_loose_names(di1->fd, di2->fd);
 		}
 	if (mask & DUPE_MATCH_SUM)
 		{
@@ -1750,29 +1703,13 @@ static gint dupe_match_sort_cb(gconstpointer a, gconstpointer b, gpointer data)
 	auto dw = static_cast<DupeWindow *>(data);
 	DupeMatchType mask = dw->match_mask;
 
-	if (mask & DUPE_MATCH_ALL)
-		{
-		return 0;
-		}
-	if (mask & DUPE_MATCH_PATH)
-		{
-		return utf8_compare(di1->fd->path, di2->fd->path, TRUE);
-		}
 	if (mask & DUPE_MATCH_NAME)
 		{
 		return filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE);
 		}
-	if (mask & DUPE_MATCH_NAME_CI)
+	if (mask & DUPE_MATCH_NAME_LOOSE)
 		{
-		return filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE);
-		}
-	if (mask & DUPE_MATCH_NAME_CONTENT)
-		{
-		return filelist_compare_names(di1->fd->name, di2->fd->name, TRUE, FALSE);
-		}
-	if (mask & DUPE_MATCH_NAME_CI_CONTENT)
-		{
-		return filelist_compare_names(di1->fd->name, di2->fd->name, FALSE, FALSE);
+		return dupe_compare_loose_names(di1->fd, di2->fd);
 		}
 	if (mask & DUPE_MATCH_SUM)
 		{
@@ -1808,7 +1745,7 @@ static void dupe_array_check(DupeWindow *dw )
 	GList *work;
 	gint i_set1;
 	gint i_set2;
-	DUPE_CHECK_RESULT check_result;
+	gboolean matched;
 	param_match_mask = dw->match_mask;
 	guint out_match_index;
 	gboolean match_found = FALSE;;
@@ -1850,8 +1787,8 @@ static void dupe_array_check(DupeWindow *dw )
 				if (i_set1 < static_cast<gint>(array_set1->len) - 2)
 					{
 					di2 = static_cast<DupeItem *>(g_array_index(array_set1, gpointer, i_set1 + 1));
-					check_result = dupe_match_check(di1, di2, dw);
-					if (check_result == DUPE_MATCH || check_result == DUPE_NAME_MATCH)
+					matched = dupe_match_check(di1, di2, dw);
+					if (matched)
 						{
 						continue;
 						}
@@ -1866,8 +1803,8 @@ static void dupe_array_check(DupeWindow *dw )
 				for(i=0; i < array_set2->len; i++)
 					{
 					di2 = static_cast<DupeItem *>(g_array_index(array_set2,  gpointer, i));
-					check_result = dupe_match_check(di1, di2, dw);
-					if (check_result == DUPE_MATCH)
+					matched = dupe_match_check(di1, di2, dw);
+					if (matched)
 						{
 						match_found = TRUE;
 						out_match_index = i;
@@ -1880,13 +1817,10 @@ static void dupe_array_check(DupeWindow *dw )
 					{
 					di2 = static_cast<DupeItem *>(g_array_index(array_set2, gpointer, out_match_index));
 
-					check_result = dupe_match_check(di1, di2, dw);
-					if (check_result == DUPE_MATCH || check_result == DUPE_NAME_MATCH)
+					matched = dupe_match_check(di1, di2, dw);
+					if (matched)
 						{
-						if (check_result == DUPE_MATCH)
-							{
-							dupe_match_link(di2, di1, 0.0);
-							}
+						dupe_match_link(di2, di1, 0.0);
 						i_set2 = out_match_index + 1;
 
 						if (i_set2 > static_cast<gint>(array_set2->len) - 1)
@@ -1895,20 +1829,17 @@ static void dupe_array_check(DupeWindow *dw )
 							}
 						/* Look for multiple matches in set 2 for item di1 */
 						di2 = static_cast<DupeItem *>(g_array_index(array_set2, gpointer, i_set2));
-						check_result = dupe_match_check(di1, di2, dw);
-						while (check_result == DUPE_MATCH || check_result == DUPE_NAME_MATCH)
+						matched = dupe_match_check(di1, di2, dw);
+						while (matched)
 							{
-							if (check_result == DUPE_MATCH)
-								{
-								dupe_match_link(di2, di1, 0.0);
-								}
+							dupe_match_link(di2, di1, 0.0);
 							i_set2++;
 							if (i_set2 > static_cast<gint>(array_set2->len) - 1)
 								{
 								break;
 								}
 							di2 = static_cast<DupeItem *>(g_array_index(array_set2, gpointer, i_set2));
-							check_result = dupe_match_check(di1, di2, dw);
+							matched = dupe_match_check(di1, di2, dw);
 							}
 						}
 					}
@@ -1928,13 +1859,10 @@ static void dupe_array_check(DupeWindow *dw )
 				auto di1 = static_cast<DupeItem *>(g_array_index(array_set1, gpointer, i_set1));
 				auto di2 = static_cast<DupeItem *>(g_array_index(array_set1, gpointer, i_set1 + 1));
 
-				check_result = dupe_match_check(di1, di2, dw);
-				if (check_result == DUPE_MATCH || check_result == DUPE_NAME_MATCH)
+				matched = dupe_match_check(di1, di2, dw);
+				if (matched)
 					{
-					if (check_result == DUPE_MATCH)
-						{
-						dupe_match_link(di2, di1, 0.0);
-						}
+					dupe_match_link(di2, di1, 0.0);
 					i_set1++;
 
 					if ( i_set1 + 1 > static_cast<gint>(array_set1->len) - 1)
@@ -1943,13 +1871,10 @@ static void dupe_array_check(DupeWindow *dw )
 						}
 					/* Look for multiple matches for item di1 */
 					di2 = static_cast<DupeItem *>(g_array_index(array_set1, gpointer, i_set1 + 1));
-					check_result = dupe_match_check(di1, di2, dw);
-					while (check_result == DUPE_MATCH || check_result == DUPE_NAME_MATCH)
+					matched = dupe_match_check(di1, di2, dw);
+					while (matched)
 						{
-						if (check_result == DUPE_MATCH)
-							{
-							dupe_match_link(di2, di1, 0.0);
-							}
+						dupe_match_link(di2, di1, 0.0);
 						i_set1++;
 
 						if (i_set1 + 1 > static_cast<gint>(array_set1->len) - 1)
@@ -1957,7 +1882,7 @@ static void dupe_array_check(DupeWindow *dw )
 							break;
 							}
 						di2 = static_cast<DupeItem *>(g_array_index(array_set1, gpointer, i_set1 + 1));
-						check_result = dupe_match_check(di1, di2, dw);
+						matched = dupe_match_check(di1, di2, dw);
 						}
 					}
 				}
@@ -2207,9 +2132,7 @@ static GList *dupe_setup_point_step(DupeWindow *dw, GList *p)
  */
 static gboolean create_checksums(DupeWindow *dw, GList *list)
 {
-		if ((dw->match_mask & DUPE_MATCH_SUM) ||
-			(dw->match_mask & DUPE_MATCH_NAME_CONTENT) ||
-			(dw->match_mask & DUPE_MATCH_NAME_CI_CONTENT))
+		if (dw->match_mask & DUPE_MATCH_SUM)
 			{
 			/* MD5SUM only */
 			if (!dw->setup_point) dw->setup_point = list; // setup_point clear on 1st entry
@@ -2270,7 +2193,7 @@ static gint sort_func(gconstpointer a, gconstpointer b)
  *
  * Initiated from start, loader done and item remove
  *
- * On first entry generates di->MD5SUM, di->dimensions and sim data,
+ * On first entry generates di->MD5SUM and sim data,
  * and updates the cache.
  */
 static gboolean dupe_check_cb(gpointer data)
@@ -2746,7 +2669,7 @@ void dupe_window_add_files(DupeWindow *dw, GList *list, gboolean recurse)
 
 static void dupe_item_update(DupeWindow *dw, DupeItem *di)
 {
-	if ( (dw->match_mask & DUPE_MATCH_NAME) || (dw->match_mask & DUPE_MATCH_PATH || (dw->match_mask & DUPE_MATCH_NAME_CI)) )
+	if (dw->match_mask & (DUPE_MATCH_NAME | DUPE_MATCH_NAME_LOOSE))
 		{
 		dupe_check_start(dw);
 		}
@@ -3539,16 +3462,12 @@ static void dupe_menu_setup(DupeWindow *dw)
 				       "text", DUPE_MENU_COLUMN_NAME, NULL);
 
 	dupe_menu_add_item(store, _("Name"), DUPE_MATCH_NAME, dw);
-	dupe_menu_add_item(store, _("Name case-insensitive"), DUPE_MATCH_NAME_CI, dw);
+	dupe_menu_add_item(store, _("Name (loose)"), DUPE_MATCH_NAME_LOOSE, dw);
 	dupe_menu_add_item(store, _("Checksum"), DUPE_MATCH_SUM, dw);
-	dupe_menu_add_item(store, _("Path"), DUPE_MATCH_PATH, dw);
 	dupe_menu_add_item(store, _("Similarity (high - 95)"), DUPE_MATCH_SIM_HIGH, dw);
 	dupe_menu_add_item(store, _("Similarity (med. - 90)"), DUPE_MATCH_SIM_MED, dw);
 	dupe_menu_add_item(store, _("Similarity (low - 85)"), DUPE_MATCH_SIM_LOW, dw);
 	dupe_menu_add_item(store, _("Similarity (custom)"), DUPE_MATCH_SIM_CUSTOM, dw);
-	dupe_menu_add_item(store, _("Name ≠ content"), DUPE_MATCH_NAME_CONTENT, dw);
-	dupe_menu_add_item(store, _("Name case-insensitive ≠ content"), DUPE_MATCH_NAME_CI_CONTENT, dw);
-	dupe_menu_add_item(store, _("Show all"), DUPE_MATCH_ALL, dw);
 
 	g_signal_connect(G_OBJECT(dw->combo), "changed",
 			 G_CALLBACK(dupe_menu_type_cb), dw);
@@ -3614,6 +3533,11 @@ static void dupe_listview_add_column(DupeWindow *dw, GtkWidget *listview, gint n
 		if (right_justify)
 			{
 			g_object_set(G_OBJECT(renderer), "xalign", 1.0, NULL);
+			}
+		if (n == DUPE_COLUMN_NAME)
+			{
+			/* sized by dupe_listview_size_name_cell(); the column's max-width would also stop the user dragging it wider */
+			g_object_set(G_OBJECT(renderer), "ellipsize", PANGO_ELLIPSIZE_MIDDLE, NULL);
 			}
 		gtk_tree_view_column_pack_start(column, renderer, TRUE);
 		gtk_tree_view_column_add_attribute(column, renderer, "text", n);
@@ -4108,7 +4032,7 @@ static void column_clicked_cb(GtkWidget *,  gpointer data)
 {
 	auto dw = static_cast<DupeWindow *>(data);
 
-	options->duplicates_match = DUPE_SELECT_NONE;
+	options->duplicates_select_type = DUPE_SELECT_NONE;
 	dupe_listview_select_dupes(dw, DUPE_SELECT_NONE);
 }
 
@@ -4139,15 +4063,11 @@ DupeWindow *dupe_window_new()
 	dw->match_mask = DUPE_MATCH_NAME;
 	if (options->duplicates_match == DUPE_MATCH_NAME) dw->match_mask = DUPE_MATCH_NAME;
 	if (options->duplicates_match == DUPE_MATCH_SUM) dw->match_mask = DUPE_MATCH_SUM;
-	if (options->duplicates_match == DUPE_MATCH_PATH) dw->match_mask = DUPE_MATCH_PATH;
 	if (options->duplicates_match == DUPE_MATCH_SIM_HIGH) dw->match_mask = DUPE_MATCH_SIM_HIGH;
 	if (options->duplicates_match == DUPE_MATCH_SIM_MED) dw->match_mask = DUPE_MATCH_SIM_MED;
 	if (options->duplicates_match == DUPE_MATCH_SIM_LOW) dw->match_mask = DUPE_MATCH_SIM_LOW;
 	if (options->duplicates_match == DUPE_MATCH_SIM_CUSTOM) dw->match_mask = DUPE_MATCH_SIM_CUSTOM;
-	if (options->duplicates_match == DUPE_MATCH_NAME_CI) dw->match_mask = DUPE_MATCH_NAME_CI;
-	if (options->duplicates_match == DUPE_MATCH_NAME_CONTENT) dw->match_mask = DUPE_MATCH_NAME_CONTENT;
-	if (options->duplicates_match == DUPE_MATCH_NAME_CI_CONTENT) dw->match_mask = DUPE_MATCH_NAME_CI_CONTENT;
-	if (options->duplicates_match == DUPE_MATCH_ALL) dw->match_mask = DUPE_MATCH_ALL;
+	if (options->duplicates_match == DUPE_MATCH_NAME_LOOSE) dw->match_mask = DUPE_MATCH_NAME_LOOSE;
 
 	dw->window = window_new("dupe", nullptr, nullptr, _("Find duplicates"));
 	DEBUG_NAME(dw->window);
