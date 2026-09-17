@@ -418,7 +418,6 @@ ui_sources = []
 
 # Process subdirs before the sources
 subdir('po')
-subdir('plugins')
 
 conditional_unit_test_deps = []
 if conf_data.get('ENABLE_UNIT_TESTS', 0) == 1

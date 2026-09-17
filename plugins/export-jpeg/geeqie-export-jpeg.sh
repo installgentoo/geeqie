@@ -1,1 +1,0 @@
-geeqie-export-jpeg
