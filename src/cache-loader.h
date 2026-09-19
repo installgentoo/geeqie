@@ -26,7 +26,7 @@
 #include <glib.h>
 
 struct CacheData;
-struct CacheLoaderVideoJob;
+struct CacheLoaderJob;
 class FileData;
 struct ImageLoader;
 
@@ -41,8 +41,8 @@ struct CacheLoader {
 	FileData *fd;
 	CacheData *cd;
 
-	CacheDataType todo_mask;
-	CacheDataType done_mask;
+	CacheDataType todo_mask; /**< what was asked for, unchanged for the loader's life */
+	CacheDataType done_mask; /**< what has been obtained so far */
 
 	using DoneFunc = void (*)(CacheLoader *, gint, gpointer);
 	DoneFunc done_func;
@@ -51,8 +51,8 @@ struct CacheLoader {
 	gboolean error;
 
 	ImageLoader *il; /**< still images decode here */
-	CacheLoaderVideoJob *video_job; /**< videos render a contact sheet on a worker thread */
-	GdkPixbuf *pixbuf; /**< whichever of the two produced it; similarity is computed from this */
+	CacheLoaderJob *job; /**< the worker computing similarity data, md5 and a video's contact sheet */
+	GdkPixbuf *pixbuf; /**< the decoded image or contact sheet, owned by the job while one runs */
 	guint idle_id; /**< event source id */
 };
 
