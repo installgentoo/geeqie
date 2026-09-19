@@ -225,6 +225,11 @@ gint get_cpu_cores()
     return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
+gint worker_thread_limit()
+{
+	return options->threads.duplicates > 0 ? options->threads.duplicates : get_cpu_cores();
+}
+
 void convert_gdkcolor_to_gdkrgba(gpointer data, GdkRGBA *gdk_rgba)
 {
 	auto gdk_color = static_cast<GdkColor *>(data);

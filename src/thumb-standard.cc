@@ -96,7 +96,7 @@ static GThreadPool *thumb_task_pool = nullptr;
 
 static void thumb_task_push(ThumbTask *task)
 {
-	const gint threads = options->threads.duplicates > 0 ? options->threads.duplicates : get_cpu_cores();
+	const gint threads = worker_thread_limit();
 
 	if (!thumb_task_pool)
 		{

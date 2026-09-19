@@ -574,11 +574,6 @@ struct DupeSimLoad
 	CacheLoader *cl;
 };
 
-static gint dupe_sim_load_limit()
-{
-	return options->threads.duplicates > 0 ? options->threads.duplicates : get_cpu_cores();
-}
-
 static void dupe_sim_load_free(DupeWindow *dw, DupeSimLoad *sl)
 {
 	dw->sim_loads = g_list_remove(dw->sim_loads, sl);
@@ -611,7 +606,7 @@ static GList *dupe_setup_point_step(DupeWindow *dw, GList *p);
 /* Starts loaders until the limit is reached or the lists are exhausted; TRUE while anything is still in flight. */
 static gboolean dupe_sim_load_fill(DupeWindow *dw)
 {
-	while (dw->setup_point && g_list_length(dw->sim_loads) < static_cast<guint>(dupe_sim_load_limit()))
+	while (dw->setup_point && g_list_length(dw->sim_loads) < static_cast<guint>(worker_thread_limit()))
 		{
 		auto di = static_cast<DupeItem *>(dw->setup_point->data);
 		dw->setup_point = dupe_setup_point_step(dw, dw->setup_point);
@@ -4326,7 +4321,7 @@ DupeWindow *dupe_window_new()
 
 	g_mutex_init(&dw->thread_count_mutex);
 	g_mutex_init(&dw->search_matches_mutex);
-	dw->dupe_comparison_thread_pool = g_thread_pool_new(dupe_comparison_func, dw, options->threads.duplicates, FALSE, nullptr);
+	dw->dupe_comparison_thread_pool = g_thread_pool_new(dupe_comparison_func, dw, worker_thread_limit(), FALSE, nullptr);
 
 	return dw;
 }

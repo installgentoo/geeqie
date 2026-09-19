@@ -297,9 +297,8 @@ struct CacheManager
 struct CacheOpsData
 {
 	GenericDialog *gd;
-	ThumbLoader *tl;
+	GList *active; /**< the loaders in flight: ThumbLoader* while rendering thumbnails, CacheLoader* for sim data */
 	ThumbValidate *tv;
-	CacheLoader *cl;
 	GSourceFunc destroy_func; /* Used by the command line prog. functions */
 
 	GList *list;
@@ -327,6 +326,27 @@ struct CacheOpsData
 	guint idle_id; /* event source id */
 };
 
+static void cache_manager_render_release_thumb_pixbuf(ThumbLoader *tl)
+{
+	if (!tl || !tl->fd || !tl->fd->thumb_pixbuf) return;
+
+	g_object_unref(tl->fd->thumb_pixbuf);
+	tl->fd->thumb_pixbuf = nullptr;
+}
+
+static void cache_manager_render_free_active(CacheOpsData *cd)
+{
+	for (GList *work = cd->active; work; work = work->next)
+		{
+		auto tl = static_cast<ThumbLoader *>(work->data);
+		cache_manager_render_release_thumb_pixbuf(tl);
+		thumb_loader_free(tl);
+		}
+
+	g_list_free(cd->active);
+	cd->active = nullptr;
+}
+
 static void cache_manager_render_reset(CacheOpsData *cd)
 {
 	filelist_free(cd->list);
@@ -335,8 +355,7 @@ static void cache_manager_render_reset(CacheOpsData *cd)
 	filelist_free(cd->list_dir);
 	cd->list_dir = nullptr;
 
-	thumb_loader_free(cd->tl);
-	cd->tl = nullptr;
+	cache_manager_render_free_active(cd);
 }
 
 static void cache_manager_render_close_cb(GenericDialog *, gpointer data)
@@ -394,80 +413,79 @@ static void cache_manager_render_folder(CacheOpsData *cd, FileData *dir_fd)
 	cd->list_dir = g_list_concat(list_d, cd->list_dir);
 }
 
-static gboolean cache_manager_render_file(CacheOpsData *cd);
+static void cache_manager_render_fill(CacheOpsData *cd);
 
-static void cache_manager_render_release_thumb_pixbuf(CacheOpsData *cd)
-{
-	auto tl = cd->tl;
-
-	if (!tl || !tl->fd || !tl->fd->thumb_pixbuf) return;
-
-	g_object_unref(tl->fd->thumb_pixbuf);
-	tl->fd->thumb_pixbuf = nullptr;
-}
-
-static void cache_manager_render_thumb_done_cb(ThumbLoader *, gpointer data)
+static void cache_manager_render_thumb_done_cb(ThumbLoader *tl, gpointer data)
 {
 	auto cd = static_cast<CacheOpsData *>(data);
 
-	cache_manager_render_release_thumb_pixbuf(cd);
+	cache_manager_render_release_thumb_pixbuf(tl);
+	cd->active = g_list_remove(cd->active, tl);
+	thumb_loader_free(tl);
 
-	thumb_loader_free(cd->tl);
-	cd->tl = nullptr;
-
-	while (cache_manager_render_file(cd));
+	cache_manager_render_fill(cd);
 }
 
-static gboolean cache_manager_render_file(CacheOpsData *cd)
+/**
+ * Keeps loaders in flight, so the thumbnail worker pool has something to decode on every core; it bounds the
+ * decoding itself (thumb-standard.cc), while this window bounds how many loaders a huge folder allocates.
+ */
+static void cache_manager_render_fill(CacheOpsData *cd)
 {
-	if (cd->list)
+	const guint in_flight_max = 2 * worker_thread_limit();
+
+	while (g_list_length(cd->active) < in_flight_max)
 		{
-		FileData *fd;
-		gint success;
-
-		fd = static_cast<FileData *>(cd->list->data);
-		cd->list = g_list_remove(cd->list, fd);
-
-		cd->tl = thumb_loader_new(options->thumbnails.save_width, options->thumbnails.display_width);
-		thumb_loader_set_callbacks(cd->tl,
-					   cache_manager_render_thumb_done_cb,
-					   cache_manager_render_thumb_done_cb,
-					   cd);
-		thumb_loader_set_cache(cd->tl);
-		success = thumb_loader_start(cd->tl, fd);
-		if (success)
+		if (cd->list)
 			{
-			if (!cd->remote)
+			auto fd = static_cast<FileData *>(cd->list->data);
+			cd->list = g_list_remove(cd->list, fd);
+
+			ThumbLoader *tl = thumb_loader_new(options->thumbnails.save_width, options->thumbnails.display_width);
+			thumb_loader_set_callbacks(tl,
+						   cache_manager_render_thumb_done_cb,
+						   cache_manager_render_thumb_done_cb,
+						   cd);
+			thumb_loader_set_cache(tl);
+
+			/* listed before starting: the done callback removes it, and must not run against a stale list */
+			cd->active = g_list_prepend(cd->active, tl);
+
+			if (thumb_loader_start(tl, fd))
 				{
-				gq_gtk_entry_set_text(GTK_ENTRY(cd->progress), fd->path);
-				cd->count_done = cd->count_done + 1;
-				gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(cd->progress_bar), static_cast<gdouble>(cd->count_done) / cd->count_total);
+				if (!cd->remote)
+					{
+					gq_gtk_entry_set_text(GTK_ENTRY(cd->progress), fd->path);
+					cd->count_done = cd->count_done + 1;
+					gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(cd->progress_bar), static_cast<gdouble>(cd->count_done) / cd->count_total);
+					}
 				}
+			else
+				{
+				cache_manager_render_release_thumb_pixbuf(tl);
+				cd->active = g_list_remove(cd->active, tl);
+				thumb_loader_free(tl);
+				}
+
+			file_data_unref(fd);
+			continue;
 			}
-		else
+
+		if (cd->list_dir)
 			{
-			cache_manager_render_release_thumb_pixbuf(cd);
-			thumb_loader_free(cd->tl);
-			cd->tl = nullptr;
+			auto fd = static_cast<FileData *>(cd->list_dir->data);
+			cd->list_dir = g_list_remove(cd->list_dir, fd);
+
+			cache_manager_render_folder(cd, fd);
+
+			file_data_unref(fd);
+			continue;
 			}
 
-		file_data_unref(fd);
-
-		return (!success);
+		break;
 		}
-	if (cd->list_dir)
-		{
-		FileData *fd;
 
-		fd = static_cast<FileData *>(cd->list_dir->data);
-		cd->list_dir = g_list_remove(cd->list_dir, fd);
-
-		cache_manager_render_folder(cd, fd);
-
-		file_data_unref(fd);
-
-		return TRUE;
-		}
+	if (cd->active) return;
 
 	if (!cd->remote)
 		{
@@ -479,8 +497,6 @@ static gboolean cache_manager_render_file(CacheOpsData *cd)
 		{
 		g_idle_add(cd->destroy_func, cd);
 		}
-
-	return FALSE;
 }
 
 static void cache_manager_render_start_cb(GenericDialog *, gpointer data)
@@ -530,7 +546,7 @@ static void cache_manager_render_start_cb(GenericDialog *, gpointer data)
 		g_list_free(list_total);
 		cd->count_done = 0;
 
-		while (cache_manager_render_file(cd));
+		cache_manager_render_fill(cd);
 		}
 
 	g_free(path);
@@ -554,7 +570,7 @@ static void cache_manager_render_start_render_remote(CacheOpsData *cd, const gch
 		dir_fd = file_data_new_dir(path);
 		cache_manager_render_folder(cd, dir_fd);
 		file_data_unref(dir_fd);
-		while (cache_manager_render_file(cd));
+		cache_manager_render_fill(cd);
 		}
 
 	g_free(path);
@@ -851,7 +867,7 @@ static GtkWidget *cache_manager_location_label(GtkWidget *group, const gchar *su
 	return label;
 }
 
-static gboolean cache_manager_sim_file(CacheOpsData *cd);
+static void cache_manager_sim_fill(CacheOpsData *cd);
 
 static void cache_manager_sim_reset(CacheOpsData *cd)
 {
@@ -861,8 +877,12 @@ static void cache_manager_sim_reset(CacheOpsData *cd)
 	filelist_free(cd->list_dir);
 	cd->list_dir = nullptr;
 
-	cache_loader_free(cd->cl);
-	cd->cl = nullptr;
+	for (GList *work = cd->active; work; work = work->next)
+		{
+		cache_loader_free(static_cast<CacheLoader *>(work->data));
+		}
+	g_list_free(cd->active);
+	cd->active = nullptr;
 }
 
 static void cache_manager_sim_close_cb(GenericDialog *, gpointer data)
@@ -919,14 +939,14 @@ static void cache_manager_sim_folder(CacheOpsData *cd, FileData *dir_fd)
 	cd->list_dir = g_list_concat(list_d, cd->list_dir);
 }
 
-static void cache_manager_sim_file_done_cb(CacheLoader *, gint, gpointer data)
+static void cache_manager_sim_file_done_cb(CacheLoader *cl, gint, gpointer data)
 {
 	auto cd = static_cast<CacheOpsData *>(data);
 
-	cache_loader_free(cd->cl);
-	cd->cl = nullptr;
+	cd->active = g_list_remove(cd->active, cl);
+	cache_loader_free(cl);
 
-	while (cache_manager_sim_file(cd));
+	cache_manager_sim_fill(cd);
 }
 
 static void cache_manager_sim_start_sim_remote(CacheOpsData *cd, const gchar *user_path)
@@ -947,7 +967,7 @@ static void cache_manager_sim_start_sim_remote(CacheOpsData *cd, const gchar *us
 		dir_fd = file_data_new_dir(path);
 		cache_manager_sim_folder(cd, dir_fd);
 		file_data_unref(dir_fd);
-		while (cache_manager_sim_file(cd));
+		cache_manager_sim_fill(cd);
 		}
 
 	g_free(path);
@@ -973,45 +993,48 @@ static void cache_manager_sim_remote(const gchar *path, gboolean recurse, GSourc
 	cache_manager_sim_start_sim_remote(cd, path);
 }
 
-static gboolean cache_manager_sim_file(CacheOpsData *cd)
+/** Up to worker_thread_limit() loaders run at once, as in the duplicates window; each decodes on its own thread. */
+static void cache_manager_sim_fill(CacheOpsData *cd)
 {
-	CacheDataType load_mask;
+	const guint in_flight_max = worker_thread_limit();
 
-	if (cd->list)
+	while (g_list_length(cd->active) < in_flight_max)
 		{
-		FileData *fd;
-		fd = static_cast<FileData *>(cd->list->data);
-		cd->list = g_list_remove(cd->list, fd);
-
-		load_mask = static_cast<CacheDataType>(CACHE_LOADER_DIMENSIONS | CACHE_LOADER_MD5SUM | CACHE_LOADER_SIMILARITY);
-		cd->cl = cache_loader_new(fd, load_mask, (cache_manager_sim_file_done_cb), cd);
-
-		if (!cd->remote)
+		if (cd->list)
 			{
-			gq_gtk_entry_set_text(GTK_ENTRY(cd->progress), fd->path);
+			auto fd = static_cast<FileData *>(cd->list->data);
+			cd->list = g_list_remove(cd->list, fd);
+
+			const auto load_mask = static_cast<CacheDataType>(CACHE_LOADER_DIMENSIONS | CACHE_LOADER_MD5SUM | CACHE_LOADER_SIMILARITY);
+			CacheLoader *cl = cache_loader_new(fd, load_mask, cache_manager_sim_file_done_cb, cd);
+			if (cl) cd->active = g_list_prepend(cd->active, cl);
+
+			cd->count_done = cd->count_done + 1;
+			if (!cd->remote)
+				{
+				gq_gtk_entry_set_text(GTK_ENTRY(cd->progress), fd->path);
+				gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(cd->progress_bar), static_cast<gdouble>(cd->count_done) / cd->count_total);
+				}
+
+			file_data_unref(fd);
+			continue;
 			}
 
-		file_data_unref(fd);
-		cd->count_done = cd->count_done + 1;
-		if (!cd->remote)
+		if (cd->list_dir)
 			{
-			gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(cd->progress_bar), static_cast<gdouble>(cd->count_done) / cd->count_total);
+			auto fd = static_cast<FileData *>(cd->list_dir->data);
+			cd->list_dir = g_list_remove(cd->list_dir, fd);
+
+			cache_manager_sim_folder(cd, fd);
+
+			file_data_unref(fd);
+			continue;
 			}
 
-		return FALSE;
+		break;
 		}
-	if (cd->list_dir)
-		{
-		FileData *fd;
 
-		fd = static_cast<FileData *>(cd->list_dir->data);
-		cd->list_dir = g_list_remove(cd->list_dir, fd);
-
-		cache_manager_sim_folder(cd, fd);
-		file_data_unref(fd);
-
-		return TRUE;
-		}
+	if (cd->active) return;
 
 	if (!cd->remote)
 		{
@@ -1024,8 +1047,6 @@ static gboolean cache_manager_sim_file(CacheOpsData *cd)
 		{
 		g_idle_add(cd->destroy_func, cd);
 		}
-
-	return FALSE;
 }
 
 static void cache_manager_sim_start_cb(GenericDialog *, gpointer data)
@@ -1075,7 +1096,7 @@ static void cache_manager_sim_start_cb(GenericDialog *, gpointer data)
 		g_list_free(list_total);
 		cd->count_done = 0;
 
-		while (cache_manager_sim_file(cd));
+		cache_manager_sim_fill(cd);
 		}
 
 	g_free(path);

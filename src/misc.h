@@ -32,6 +32,8 @@ gchar *expand_tilde(const gchar *filename);
 gchar *utf8_validate_or_convert(const gchar *text);
 gdouble get_zoom_increment();
 gint get_cpu_cores();
+/** Threads for decoding whole folders (thumbnails, similarity data): the "Duplicates and thumbnails" preference. */
+gint worker_thread_limit();
 gint utf8_compare(const gchar *s1, const gchar *s2, gboolean case_sensitive);
 gint gq_gtk_tree_iter_utf8_collate(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gint sort_column_id);
 int runcmd(const gchar *cmd);

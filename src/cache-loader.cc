@@ -108,7 +108,7 @@ static void cache_loader_video_start(CacheLoader *cl)
 {
 	if (!cache_loader_video_pool)
 		{
-		const gint threads = options->threads.duplicates > 0 ? options->threads.duplicates : get_cpu_cores();
+		const gint threads = worker_thread_limit();
 		cache_loader_video_pool = g_thread_pool_new(cache_loader_video_thread_run, nullptr, threads, FALSE, nullptr);
 		}
 
