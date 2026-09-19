@@ -41,8 +41,6 @@ struct ThumbValidate;
 #else
 #define THUMB_FOLDER_GLOBAL ".thumbnails"
 #endif
-#define THUMB_FOLDER_NORMAL "normal"
-#define THUMB_FOLDER_LARGE  "large"
 #define THUMB_NAME_EXTENSION ".png"
 
 

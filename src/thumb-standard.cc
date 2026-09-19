@@ -53,6 +53,10 @@
  *
  * This code attempts to conform to version 0.7.0 of the standard.
  *
+ * It deviates in one way: every thumbnail is written straight into the cache directory rather than into the
+ * standard's normal/ and large/ subfolders. Only one thumbnail size is ever configured here, so the split
+ * stored the same picture under two names. Thumbnails written by other applications are therefore not found.
+ *
  * Notes:
  *   > Validation of the thumb's embedded uri is a simple strcmp between our
  *   > version of the escaped uri and the thumb's escaped uri. But not all uri
@@ -63,7 +67,6 @@
  */
 
 
-#define THUMB_SIZE_NORMAL   128
 #define THUMB_MARKER_URI    "tEXt::Thumb::URI"
 #define THUMB_MARKER_MTIME  "tEXt::Thumb::MTime"
 #define THUMB_MARKER_SIZE   "tEXt::Thumb::Size"
@@ -186,33 +189,17 @@ static void thumb_loader_std_reset(ThumbLoader *tl)
 	tl->source_size = 0;
 }
 
-static gchar *thumb_std_cache_path(const gchar *path, const gchar *uri, const gchar *cache_subfolder)
+/* One thumbnail size, so one folder: the freedesktop normal/large split only mattered when both were kept. */
+static gchar *thumb_std_cache_path(const gchar *uri)
 {
-	gchar *result = nullptr;
-	gchar *md5_text;
-	gchar *name;
+	if (!uri) return nullptr;
 
-	if (!path || !uri || !cache_subfolder) return nullptr;
-
-	md5_text = md5_get_string(reinterpret_cast<const guchar *>(uri), strlen(uri));
-
+	g_autofree gchar *md5_text = md5_get_string(reinterpret_cast<const guchar *>(uri), strlen(uri));
 	if (!md5_text) return nullptr;
 
-	name = g_strconcat(md5_text, THUMB_NAME_EXTENSION, NULL);
+	g_autofree gchar *name = g_strconcat(md5_text, THUMB_NAME_EXTENSION, NULL);
 
-	result = g_build_filename(get_thumbnails_standard_cache_dir(),
-												cache_subfolder, name, NULL);
-
-	g_free(name);
-	g_free(md5_text);
-
-	return result;
-}
-
-static gchar *thumb_cache_path_for_size(const gchar *path, const gchar *uri, gint w, gint h)
-{
-	const gchar *folder = (w > THUMB_SIZE_NORMAL || h > THUMB_SIZE_NORMAL) ? THUMB_FOLDER_LARGE : THUMB_FOLDER_NORMAL;
-	return thumb_std_cache_path(path, uri, folder);
+	return g_build_filename(get_thumbnails_standard_cache_dir(), name, NULL);
 }
 
 static GdkPixbuf *thumb_scale_to(GdkPixbuf *pixbuf, gint size, GdkInterpType quality)
@@ -243,8 +230,7 @@ static gboolean thumb_job_cached_valid(const ThumbJob *job, GdkPixbuf *pixbuf)
 
 static void thumb_job_save(const ThumbJob *job, GdkPixbuf *pixbuf)
 {
-	g_autofree gchar *thumb_path = thumb_cache_path_for_size(job->path, job->thumb_uri,
-	                                                         gdk_pixbuf_get_width(pixbuf), gdk_pixbuf_get_height(pixbuf));
+	g_autofree gchar *thumb_path = thumb_std_cache_path(job->thumb_uri);
 	if (!thumb_path) return;
 
 	g_autofree gchar *base_path = remove_level_from_path(thumb_path);
@@ -447,7 +433,7 @@ gboolean thumb_loader_start(ThumbLoader *tl, FileData *fd)
 	g_autofree gchar *cached_path = nullptr;
 	if (tl->cache_enable && tl->thumb_uri)
 		{
-		cached_path = thumb_cache_path_for_size(tl->fd->path, tl->thumb_uri, tl->save_width, tl->save_width);
+		cached_path = thumb_std_cache_path(tl->thumb_uri);
 
 		/* stat-based pre-check: a thumb older than the source is stale without reading it */
 		struct stat thumb_st;
@@ -568,114 +554,59 @@ ThumbValidate *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gin
 	return tv;
 }
 
-static void thumb_std_maint_remove_one(const gchar *source, const gchar *uri, const gchar *subfolder)
+/* The thumbnail is keyed by the source's URI, so a gone source leaves an entry nothing can ever match. */
+void thumb_std_maint_removed(const gchar *source)
 {
-	gchar *thumb_path;
+	g_autofree gchar *sourcel = path_from_utf8(source);
+	g_autofree gchar *uri = g_filename_to_uri(sourcel, nullptr, nullptr);
+	g_autofree gchar *thumb_path = thumb_std_cache_path(uri);
 
-	thumb_path = thumb_std_cache_path(source, uri, subfolder);
-	if (isfile(thumb_path))
+	if (thumb_path && isfile(thumb_path))
 		{
 		DEBUG_1("thumb removing: %s", thumb_path);
 		unlink_file(thumb_path);
 		}
-	g_free(thumb_path);
-}
-
-/* this also removes local thumbnails (the source is gone so it makes sense) */
-void thumb_std_maint_removed(const gchar *source)
-{
-	gchar *uri;
-	gchar *sourcel;
-
-	sourcel = path_from_utf8(source);
-	uri = g_filename_to_uri(sourcel, nullptr, nullptr);
-	g_free(sourcel);
-
-	/* all this to remove a thumbnail? */
-
-	thumb_std_maint_remove_one(source, uri, THUMB_FOLDER_NORMAL);
-	thumb_std_maint_remove_one(source, uri, THUMB_FOLDER_LARGE);
-
-	g_free(uri);
 }
 
 struct TMaintMove
 {
 	gchar *source;
 	gchar *dest;
-
-	ThumbLoader *tl;
-	gchar *source_uri;
-	gchar *thumb_path;
-
-	gint pass;
 };
 
 static GList *thumb_std_maint_move_list = nullptr;
 static GList *thumb_std_maint_move_tail = nullptr;
 
-
-static void thumb_std_maint_move_step(TMaintMove *tm);
-static gboolean thumb_std_maint_move_idle(gpointer data);
-
-
-static void thumb_std_maint_move_step(TMaintMove *tm)
-{
-	if (tm->dest && tm->source)
-	{
-		DEBUG_1("thumb move attempting rename:");
-
-		auto* uri = g_filename_to_uri(tm->source, nullptr, nullptr);
-		auto* new_uri = g_filename_to_uri(tm->dest, nullptr, nullptr);
-		auto* thumb_path = thumb_std_cache_path(tm->source, uri, THUMB_FOLDER_NORMAL);
-		auto* new_thumb_path = thumb_std_cache_path(tm->dest, new_uri, THUMB_FOLDER_NORMAL);
-
-		gboolean success = rename_file(thumb_path, new_thumb_path);
-
-		if (!success)
-			{
-			DEBUG_1("thumb move failed: %s", tm->dest);
-			DEBUG_1("            thumb: %s", new_thumb_path);
-			}
-
-		g_free(uri);
-		g_free(new_uri);
-		g_free(thumb_path);
-		g_free(new_thumb_path);
-
-		g_free(tm->source);
-		g_free(tm->dest);
-		g_free(tm->source_uri);
-		g_free(tm->thumb_path);
-		g_free(tm);
-
-	}
-
-	if (thumb_std_maint_move_list)
-	{
-	g_idle_add_full(G_PRIORITY_LOW, thumb_std_maint_move_idle, nullptr, nullptr);
-	}
-}
-
+/* One move per idle: renaming thousands of thumbnails must not compete with the file operation that queued them. */
 static gboolean thumb_std_maint_move_idle(gpointer)
 {
-	TMaintMove *tm;
-	gchar *pathl;
-
 	if (!thumb_std_maint_move_list) return G_SOURCE_REMOVE;
 
-	tm = static_cast<TMaintMove *>(thumb_std_maint_move_list->data);
-
+	auto tm = static_cast<TMaintMove *>(thumb_std_maint_move_list->data);
 	thumb_std_maint_move_list = g_list_remove(thumb_std_maint_move_list, tm);
 	if (!thumb_std_maint_move_list) thumb_std_maint_move_tail = nullptr;
 
-	pathl = path_from_utf8(tm->source);
-	tm->source_uri = g_filename_to_uri(pathl, nullptr, nullptr);
-	g_free(pathl);
+	g_autofree gchar *sourcel = path_from_utf8(tm->source);
+	g_autofree gchar *destl = path_from_utf8(tm->dest);
+	g_autofree gchar *uri = g_filename_to_uri(sourcel, nullptr, nullptr);
+	g_autofree gchar *new_uri = g_filename_to_uri(destl, nullptr, nullptr);
+	g_autofree gchar *thumb_path = thumb_std_cache_path(uri);
+	g_autofree gchar *new_thumb_path = thumb_std_cache_path(new_uri);
 
-	tm->pass = 0;
+	if (!rename_file(thumb_path, new_thumb_path))
+		{
+		DEBUG_1("thumb move failed: %s", tm->dest);
+		DEBUG_1("            thumb: %s", new_thumb_path);
+		}
 
-	thumb_std_maint_move_step(tm);
+	g_free(tm->source);
+	g_free(tm->dest);
+	g_free(tm);
+
+	if (thumb_std_maint_move_list)
+		{
+		g_idle_add_full(G_PRIORITY_LOW, thumb_std_maint_move_idle, nullptr, nullptr);
+		}
 
 	return G_SOURCE_REMOVE;
 }
@@ -691,16 +622,12 @@ void thumb_notify_cb(FileData *fd, NotifyType type, gpointer)
 		}
 }
 
-/* This will schedule a move of the thumbnail for source image to dest when idle.
- * We do this so that file renaming or moving speed is not sacrificed by
- * moving the thumbnails at the same time because:
+/**
+ * Queues the thumbnail of a moved or renamed file to be renamed to its new key when idle, so that moving
+ * thousands of files does not wait on the cache. A queue lost at exit costs only regeneration.
  *
- * This cache design requires the tedious task of loading the png thumbnails and saving them.
- *
- * The thumbnails are processed when the app is idle. If the app
- * exits early well too bad - they can simply be regenerated from scratch.
- */
-/** @FIXME This does not manage local thumbnails (fixme ?)
+ * The renamed thumbnail still holds the old path in its embedded URI, which thumb_job_cached_valid() rejects,
+ * so it is rebuilt when the file is next viewed; the rename only keeps an orphan out of the cache.
  */
 void thumb_std_maint_moved(const gchar *source, const gchar *dest)
 {

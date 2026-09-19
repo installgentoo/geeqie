@@ -758,20 +758,9 @@ static void cache_manager_standard_clean_start(GenericDialog *, gpointer data)
 		gtk_progress_bar_set_text(GTK_PROGRESS_BAR(cd->progress), _("running..."));
 	}
 
-	const auto get_thumbnails_folder_files = [](const gchar *thumb_folder)
-	{
-		g_autofree gchar *path = g_build_filename(get_thumbnails_standard_cache_dir(), thumb_folder, NULL);
-		FileData *dir_fd = file_data_new_dir(path);
-
-		GList *list = nullptr;
-		filelist_read(dir_fd, &list, nullptr);
-		file_data_unref(dir_fd);
-
-		return list;
-	};
-
-	cd->list = get_thumbnails_folder_files(THUMB_FOLDER_NORMAL);
-	cd->list = g_list_concat(cd->list, get_thumbnails_folder_files(THUMB_FOLDER_LARGE));
+	FileData *dir_fd = file_data_new_dir(get_thumbnails_standard_cache_dir());
+	filelist_read(dir_fd, &cd->list, nullptr);
+	file_data_unref(dir_fd);
 
 	cd->count_total = g_list_length(cd->list);
 	cd->count_done = 0;
