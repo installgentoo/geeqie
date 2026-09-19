@@ -304,8 +304,6 @@ struct CacheOpsData
 	GList *list;
 	GList *list_dir;
 
-	gint days;
-
 	GtkWidget *button_close;
 	GtkWidget *button_stop;
 	GtkWidget *button_start;
@@ -733,7 +731,7 @@ static void cache_manager_standard_clean_valid_cb(const gchar *path, gboolean va
 		next_fd = static_cast<FileData *>(cd->list->data);
 		cd->list = g_list_remove(cd->list, next_fd);
 
-		cd->tv = thumb_loader_std_thumb_file_validate(next_fd->path, cd->days,
+		cd->tv = thumb_loader_std_thumb_file_validate(next_fd->path,
 							      cache_manager_standard_clean_valid_cb, cd);
 		file_data_unref(next_fd);
 		}
@@ -806,7 +804,6 @@ static void cache_manager_standard_process(GtkWidget *widget, gboolean)
 	gq_gtk_box_pack_start(GTK_BOX(cd->gd->vbox), cd->progress, FALSE, FALSE, 0);
 	gtk_widget_show(cd->progress);
 
-	cd->days = 30;
 	cd->tv = nullptr;
 	cd->idle_id = 0;
 

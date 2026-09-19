@@ -78,7 +78,7 @@ void thumb_loader_free(ThumbLoader *tl);
 
 GdkPixbuf *thumb_loader_get_pixbuf(ThumbLoader *tl);
 
-ThumbValidate *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gint allowed_days,
+ThumbValidate *thumb_loader_std_thumb_file_validate(const gchar *thumb_path,
                                                     void (*func_valid)(const gchar *path, gboolean valid, gpointer data),
                                                     gpointer data);
 void thumb_loader_std_thumb_file_validate_cancel(ThumbValidate *tv);

@@ -472,10 +472,68 @@ GdkPixbuf *thumb_loader_get_pixbuf(ThumbLoader *tl)
 }
 
 
+/** A corrupt length must not turn into an allocation; nothing written here is anywhere near this big. */
+constexpr gsize THUMB_TEXT_CHUNK_MAX = 64 * 1024;
+
+/**
+ * The source of a thumbnail can only be read out of the thumbnail itself: its name is the md5 of the source URI,
+ * which cannot be reversed. gdk-pixbuf writes the URI as an uncompressed tEXt chunk ahead of the pixel data, so
+ * walking chunk headers as far as IDAT finds it without decoding anything. A thumbnail that keeps its text after
+ * the pixel data reads as sourceless here and is deleted, which costs one regeneration.
+ */
+static gchar *thumb_std_source_uri(const gchar *thumb_path)
+{
+	static const guchar png_signature[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
+	/* gdk-pixbuf names an option by its chunk type and the chunk's own keyword */
+	const gchar *keyword = &THUMB_MARKER_URI[strlen("tEXt::")];
+	const gsize keyword_len = strlen(keyword);
+
+	g_autofree gchar *pathl = path_from_utf8(thumb_path);
+	FILE *f = fopen(pathl, "rb");
+	if (!f) return nullptr;
+
+	gchar *uri = nullptr;
+	guchar head[8];
+
+	if (fread(head, 1, sizeof(head), f) == sizeof(head) && memcmp(head, png_signature, sizeof(head)) == 0)
+		{
+		while (fread(head, 1, sizeof(head), f) == sizeof(head))
+			{
+			const gsize len = (static_cast<gsize>(head[0]) << 24) | (head[1] << 16) | (head[2] << 8) | head[3];
+			const auto *type = reinterpret_cast<const gchar *>(head) + 4;
+
+			if (strncmp(type, "IDAT", 4) == 0) break;
+
+			if (strncmp(type, "tEXt", 4) == 0 && len > keyword_len && len < THUMB_TEXT_CHUNK_MAX)
+				{
+				g_autofree gchar *text = g_new(gchar, len + 1);
+				if (fread(text, 1, len, f) != len) break;
+				text[len] = '\0';
+
+				/* keyword and value are NUL separated */
+				if (strcmp(text, keyword) == 0)
+					{
+					uri = g_strdup(text + keyword_len + 1);
+					break;
+					}
+				}
+			else if (fseek(f, static_cast<long>(len), SEEK_CUR) != 0)
+				{
+				break;
+				}
+
+			if (fseek(f, 4, SEEK_CUR) != 0) break; /* the chunk's crc */
+			}
+		}
+
+	fclose(f);
+
+	return uri;
+}
+
 struct ThumbValidate : ThumbTask
 {
 	gchar *path = nullptr;
-	gint days = 0;
 	void (*func_valid)(const gchar *path, gboolean valid, gpointer data) = nullptr;
 	gpointer data = nullptr;
 
@@ -499,32 +557,20 @@ static gboolean thumb_validate_done_idle_cb(gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
+/*
+ * The source file's mtime is deliberately not compared: the loader does that when the file is next viewed
+ * (thumb_job_cached_valid), so a stale thumbnail costs one regeneration, whereas reading the recorded mtime here
+ * would cost a decode of every thumbnail in the cache.
+ */
 void ThumbValidate::run()
 {
-	g_autofree gchar *pathl = g_atomic_int_get(&cancelled) ? nullptr : path_from_utf8(path);
-	g_autoptr(GdkPixbuf) pixbuf = pathl ? gdk_pixbuf_new_from_file(pathl, nullptr) : nullptr;
-
-	const gchar *uri = pixbuf ? gdk_pixbuf_get_option(pixbuf, THUMB_MARKER_URI) : nullptr;
-	const gchar *mtime_str = pixbuf ? gdk_pixbuf_get_option(pixbuf, THUMB_MARKER_MTIME) : nullptr;
-
-	if (uri && mtime_str)
+	if (!g_atomic_int_get(&cancelled))
 		{
-		struct stat st;
+		g_autofree gchar *uri = thumb_std_source_uri(path);
+		g_autofree gchar *target = uri ? g_filename_from_uri(uri, nullptr, nullptr) : nullptr;
 
-		if (strncmp(uri, "file:", strlen("file:")) == 0)
-			{
-			g_autofree gchar *target = g_filename_from_uri(uri, nullptr, nullptr);
-			valid = target && stat(target, &st) == 0 && st.st_mtime == strtol(mtime_str, nullptr, 10);
-			}
-		else
-			{
-			DEBUG_1("thumb uri foreign, doing day check: %s", uri);
-			valid = stat_utf8(path, &st) && st.st_atime >= time(nullptr) - static_cast<time_t>(days) * 24 * 60 * 60;
-			}
-		}
-	else if (pixbuf)
-		{
-		DEBUG_1("invalid image found in std cache: %s", path);
+		valid = target && access(target, F_OK) == 0;
+		if (!valid && !target) DEBUG_1("thumb without a readable source uri: %s", path);
 		}
 
 	g_idle_add(thumb_validate_done_idle_cb, this);
@@ -536,17 +582,15 @@ void thumb_loader_std_thumb_file_validate_cancel(ThumbValidate *tv)
 }
 
 /**
- * @brief Validates a thumbnail file on a worker, calling func_valid on the main thread;
- * a thumbnail without a file: uri is validated against allowed_days
+ * @brief Checks on a worker whether the thumbnail's source file still exists, calling func_valid on the main thread
  */
-ThumbValidate *thumb_loader_std_thumb_file_validate(const gchar *thumb_path, gint allowed_days,
+ThumbValidate *thumb_loader_std_thumb_file_validate(const gchar *thumb_path,
                                                     void (*func_valid)(const gchar *path, gboolean valid, gpointer data),
                                                     gpointer data)
 {
 	auto tv = new ThumbValidate();
 
 	tv->path = g_strdup(thumb_path);
-	tv->days = allowed_days;
 	tv->func_valid = func_valid;
 	tv->data = data;
 
