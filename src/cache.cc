@@ -293,6 +293,57 @@ SimDb *sim_db()
 	return instance;
 }
 
+/** Below this, rewriting the whole file to win the space back is not worth the time it takes. */
+constexpr gdouble SIM_DB_VACUUM_FREE_FRACTION = 0.2;
+
+/**
+ * How much of the file holds nothing, as a fraction, or -1 when sqlite cannot say.
+ *
+ * Deleting a row of this table frees space inside a page rather than freeing the page: a 3 KB row in a 16 KB page
+ * means freelist_count still reads 0 after a third of the rows are gone, while a VACUUM recovers a third of the
+ * file. dbstat's per-page unused bytes do see that (measured: 33% reported, 30% recovered). It reads every page,
+ * which is still far cheaper than the rewrite it is deciding on, and needs SQLITE_ENABLE_DBSTAT_VTAB, which some
+ * sqlite builds leave off.
+ */
+gdouble sim_db_free_fraction(SimDb *s)
+{
+	sqlite3_stmt *stmt = nullptr;
+	gdouble fraction = -1.0;
+
+	if (sqlite3_prepare_v2(s->db, "SELECT sum(pgsize), sum(pgsize - unused) FROM dbstat", -1, &stmt, nullptr) == SQLITE_OK &&
+	    sqlite3_step(stmt) == SQLITE_ROW)
+		{
+		const gint64 bytes = sqlite3_column_int64(stmt, 0);
+		const gint64 used = sqlite3_column_int64(stmt, 1);
+
+		if (bytes > 0) fraction = 1.0 - (static_cast<gdouble>(used) / static_cast<gdouble>(bytes));
+		}
+	sqlite3_finalize(stmt);
+
+	return fraction;
+}
+
+void sim_db_compact(SimDb *s)
+{
+	g_mutex_lock(&s->mutex);
+
+	const gdouble free_fraction = sim_db_free_fraction(s);
+
+	if (free_fraction < 0.0)
+		{
+		log_printf("similarity cache: sqlite cannot report free space, compacting\n");
+		}
+	else
+		{
+		log_printf("similarity cache: %.0f%% of the file is free, %s\n", free_fraction * 100.0,
+		           free_fraction >= SIM_DB_VACUUM_FREE_FRACTION ? "compacting" : "not worth compacting");
+		}
+
+	if (free_fraction < 0.0 || free_fraction >= SIM_DB_VACUUM_FREE_FRACTION) sim_db_exec(s->db, "VACUUM");
+
+	g_mutex_unlock(&s->mutex);
+}
+
 /* Runs one bound statement to completion; the caller holds the mutex. */
 gboolean sim_db_step_done(SimDb *s, sqlite3_stmt *stmt)
 {
@@ -528,18 +579,21 @@ gint cache_sim_clean()
 		if (!stat_utf8(row.path.c_str(), &st) || st.st_mtime != row.mtime) stale.push_back(&row);
 		}
 
-	if (stale.empty()) return 0;
-
-	g_mutex_lock(&s->mutex);
-	sim_db_exec(s->db, "BEGIN");
-	for (const Row *row : stale)
+	if (!stale.empty())
 		{
-		sqlite3_bind_text(s->remove, 1, row->path.c_str(), -1, SQLITE_STATIC);
-		sim_db_step_done(s, s->remove);
+		g_mutex_lock(&s->mutex);
+		sim_db_exec(s->db, "BEGIN");
+		for (const Row *row : stale)
+			{
+			sqlite3_bind_text(s->remove, 1, row->path.c_str(), -1, SQLITE_STATIC);
+			sim_db_step_done(s, s->remove);
+			}
+		sim_db_exec(s->db, "COMMIT");
+		g_mutex_unlock(&s->mutex);
 		}
-	sim_db_exec(s->db, "COMMIT");
-	sim_db_exec(s->db, "VACUUM");
-	g_mutex_unlock(&s->mutex);
+
+	/* the only place rows are deleted in bulk, so the only place the file can have grown loose */
+	sim_db_compact(s);
 
 	return static_cast<gint>(stale.size());
 }
