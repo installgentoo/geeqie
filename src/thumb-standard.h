@@ -37,9 +37,9 @@ struct ThumbJob;
 struct ThumbValidate;
 
 #if GLIB_CHECK_VERSION (2, 34, 0)
-#define THUMB_FOLDER_GLOBAL "thumbnails"
+#define THUMB_FOLDER_GLOBAL "thumbnails/normal"
 #else
-#define THUMB_FOLDER_GLOBAL ".thumbnails"
+#define THUMB_FOLDER_GLOBAL ".thumbnails/normal"
 #endif
 #define THUMB_NAME_EXTENSION ".png"
 
