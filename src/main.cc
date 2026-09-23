@@ -778,6 +778,7 @@ static void exit_program_final()
 
 void exit_program()
 {
+	layout_image_animate_stop(main_lw);
 	layout_image_full_screen_stop(nullptr);
 	exit_program_final();
 }

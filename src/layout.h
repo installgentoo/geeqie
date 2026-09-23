@@ -29,6 +29,7 @@
 #include "typedefs.h"
 
 struct AnimationData;
+struct VideoAnimationData;
 class FileData;
 struct FullScreenData;
 struct ImageWindow;
@@ -86,6 +87,7 @@ struct LayoutWindow
 	FullScreenData *full_screen;
 
 	AnimationData *animation;
+	VideoAnimationData *video_animation;
 
 	GtkWidget *log_window;
 };

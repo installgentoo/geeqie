@@ -61,6 +61,7 @@ void layout_image_full_screen_stop(LayoutWindow *lw);
 void layout_image_full_screen_toggle(LayoutWindow *lw);
 
 void layout_image_animate_toggle(LayoutWindow *lw);
+void layout_image_animate_stop(LayoutWindow *lw);
 
 void layout_image_notify_cb(FileData *fd, NotifyType type, gpointer data);
 #endif

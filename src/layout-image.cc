@@ -21,6 +21,7 @@
 
 #include "layout-image.h"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 
@@ -60,6 +61,320 @@ static GtkWidget *layout_image_pop_menu(LayoutWindow *lw);
 static void layout_image_set_buttons(LayoutWindow *lw);
 static gboolean layout_image_animate_new_file(LayoutWindow *lw);
 static void layout_image_animate_update_image(LayoutWindow *lw);
+
+constexpr gint VIDEO_PREVIEW_FPS = 15;
+constexpr gint VIDEO_PREVIEW_MAX_DIMENSION = 1920;
+
+enum class VideoAnimationOperation {
+	NONE,
+	PROBING,
+	READING
+};
+
+struct VideoAnimationData
+{
+	ImageWindow *iw;
+	LayoutWindow *lw;
+	FileData *fd;
+	GSubprocess *process;
+	GInputStream *stream;
+	GCancellable *cancellable;
+	guchar *pixels;
+	gsize frame_size;
+	gint width;
+	gint height;
+	guint timer_id;
+	VideoAnimationOperation operation;
+	gboolean valid;
+};
+
+static void video_animation_free(VideoAnimationData *video)
+{
+	if (!video) return;
+
+	if (video->timer_id) g_source_remove(video->timer_id);
+	if (video->pixels) g_free(video->pixels);
+	if (video->process) g_object_unref(video->process);
+	if (video->stream) g_object_unref(video->stream);
+	if (video->cancellable) g_object_unref(video->cancellable);
+	file_data_unref(video->fd);
+	g_free(video);
+}
+
+static void video_animation_stop(LayoutWindow *lw)
+{
+	if (!lw || !lw->video_animation) return;
+
+	auto video = lw->video_animation;
+	lw->video_animation = nullptr;
+	video->valid = FALSE;
+
+	if (video->process) g_subprocess_force_exit(video->process);
+	g_cancellable_cancel(video->cancellable);
+
+	if (video->timer_id)
+		{
+		g_source_remove(video->timer_id);
+		video->timer_id = 0;
+		video_animation_free(video);
+		}
+	else if (video->operation == VideoAnimationOperation::NONE)
+		{
+		video_animation_free(video);
+		}
+}
+
+static void video_animation_finish(VideoAnimationData *video)
+{
+	if (video->lw && video->lw->video_animation == video)
+		video->lw->video_animation = nullptr;
+	video->valid = FALSE;
+	if (video->process) g_subprocess_force_exit(video->process);
+	video_animation_free(video);
+}
+
+static void video_animation_frame_free(guchar *pixels, gpointer)
+{
+	g_free(pixels);
+}
+
+static gboolean video_animation_read_next(gpointer data);
+
+static void video_animation_read_cb(GObject *source, GAsyncResult *result, gpointer data)
+{
+	auto video = static_cast<VideoAnimationData *>(data);
+	gsize bytes_read = 0;
+	GError *error = nullptr;
+	const gboolean complete = g_input_stream_read_all_finish(G_INPUT_STREAM(source), result, &bytes_read, &error);
+	guchar *pixels = video->pixels;
+	video->pixels = nullptr;
+	video->operation = VideoAnimationOperation::NONE;
+
+	if (!video->valid)
+		{
+		g_free(pixels);
+		g_clear_error(&error);
+		video_animation_free(video);
+		return;
+		}
+
+	if (!complete || bytes_read != video->frame_size)
+		{
+		if (error && !g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+			DEBUG_1("Video preview stopped: %s", error->message);
+		g_free(pixels);
+		g_clear_error(&error);
+		video_animation_finish(video);
+		return;
+		}
+	g_clear_error(&error);
+
+	auto pixbuf = gdk_pixbuf_new_from_data(pixels, GDK_COLORSPACE_RGB, FALSE, 8,
+	                                        video->width, video->height, video->width * 3,
+	                                        video_animation_frame_free, nullptr);
+	if (!pixbuf)
+		{
+		g_free(pixels);
+		video_animation_finish(video);
+		return;
+		}
+
+	layout_image_animate_update_image(video->lw);
+	if (video->iw && image_get_fd(video->iw) == video->fd)
+		{
+		image_change_pixbuf(video->iw, pixbuf, image_zoom_get(video->iw), FALSE);
+		if (video->iw->func_update)
+			video->iw->func_update(video->iw, video->iw->data_update);
+		}
+	else
+		{
+		g_object_unref(pixbuf);
+		video_animation_finish(video);
+		return;
+		}
+	g_object_unref(pixbuf);
+
+	video->timer_id = g_timeout_add(1000 / VIDEO_PREVIEW_FPS, video_animation_read_next, video);
+}
+
+static gboolean video_animation_read_next(gpointer data)
+{
+	auto video = static_cast<VideoAnimationData *>(data);
+	video->timer_id = 0;
+
+	if (!video->valid)
+		{
+		video_animation_free(video);
+		return G_SOURCE_REMOVE;
+		}
+
+	video->pixels = static_cast<guchar *>(g_try_malloc(video->frame_size));
+	if (!video->pixels)
+		{
+		DEBUG_1("Video preview frame allocation failed");
+		video_animation_finish(video);
+		return G_SOURCE_REMOVE;
+		}
+
+	video->operation = VideoAnimationOperation::READING;
+	g_input_stream_read_all_async(video->stream, video->pixels, video->frame_size,
+	                              G_PRIORITY_DEFAULT, video->cancellable,
+	                              video_animation_read_cb, video);
+	return G_SOURCE_REMOVE;
+}
+
+static gboolean video_animation_parse_probe(const gchar *text, gint *width, gint *height, gint *rotation)
+{
+	g_auto(GStrv) lines = g_strsplit(text, "\n", -1);
+	for (gchar **line = lines; *line; line++)
+		{
+		gchar *value = strchr(*line, '=');
+		if (!value) continue;
+		*value++ = '\0';
+		if (strcmp(*line, "width") == 0) *width = atoi(value);
+		else if (strcmp(*line, "height") == 0) *height = atoi(value);
+		else if (strcmp(*line, "rotation") == 0) *rotation = atoi(value);
+		}
+
+	return *width > 0 && *height > 0;
+}
+
+static void video_animation_start_decoder(VideoAnimationData *video, gint source_width, gint source_height, gint rotation)
+{
+	gint normalized_rotation = rotation % 360;
+	if (normalized_rotation < 0) normalized_rotation += 360;
+	const gboolean transpose = normalized_rotation == 90 || normalized_rotation == 270;
+	gint width = transpose ? source_height : source_width;
+	gint height = transpose ? source_width : source_height;
+	const gint largest_dimension = std::max(width, height);
+	if (largest_dimension > VIDEO_PREVIEW_MAX_DIMENSION)
+		{
+		width = std::max(2, static_cast<gint>((static_cast<gint64>(width) * VIDEO_PREVIEW_MAX_DIMENSION / largest_dimension) & ~1));
+		height = std::max(2, static_cast<gint>((static_cast<gint64>(height) * VIDEO_PREVIEW_MAX_DIMENSION / largest_dimension) & ~1));
+		}
+
+	const gsize rowstride = static_cast<gsize>(width) * 3;
+	if (rowstride > G_MAXSIZE / static_cast<gsize>(height))
+		{
+		DEBUG_1("Video preview dimensions are too large");
+		video_animation_finish(video);
+		return;
+		}
+
+	video->width = width;
+	video->height = height;
+	video->frame_size = rowstride * height;
+
+	g_autofree gchar *filter = nullptr;
+	if (normalized_rotation == 90)
+		filter = g_strdup_printf("fps=%d,transpose=1,scale=%d:%d:flags=bilinear", VIDEO_PREVIEW_FPS, width, height);
+	else if (normalized_rotation == 180)
+		filter = g_strdup_printf("fps=%d,hflip,vflip,scale=%d:%d:flags=bilinear", VIDEO_PREVIEW_FPS, width, height);
+	else if (normalized_rotation == 270)
+		filter = g_strdup_printf("fps=%d,transpose=2,scale=%d:%d:flags=bilinear", VIDEO_PREVIEW_FPS, width, height);
+	else
+		filter = g_strdup_printf("fps=%d,scale=%d:%d:flags=bilinear", VIDEO_PREVIEW_FPS, width, height);
+
+	const gchar *const argv[] = {"ffmpeg", "-hide_banner", "-loglevel", "error", "-stream_loop", "-1",
+	                             "-noautorotate", "-i", video->fd->path, "-map", "0:v:0", "-an", "-sn", "-dn",
+	                             "-vf", filter, "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1", nullptr};
+	g_autoptr(GError) error = nullptr;
+	video->process = g_subprocess_newv(argv,
+	                                  static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE),
+	                                  &error);
+	if (!video->process)
+		{
+		DEBUG_1("Could not start ffmpeg video preview: %s", error->message);
+		video_animation_finish(video);
+		return;
+		}
+	video->stream = static_cast<GInputStream *>(g_object_ref(g_subprocess_get_stdout_pipe(video->process)));
+	video_animation_read_next(video);
+}
+
+static void video_animation_probe_cb(GObject *source, GAsyncResult *result, gpointer data)
+{
+	auto video = static_cast<VideoAnimationData *>(data);
+	gchar *stdout_text = nullptr;
+	gchar *stderr_text = nullptr;
+	GError *error = nullptr;
+	const gboolean complete = g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result,
+	                                                               &stdout_text, &stderr_text, &error);
+	const gboolean successful = complete && g_subprocess_get_successful(G_SUBPROCESS(source));
+	video->operation = VideoAnimationOperation::NONE;
+	if (video->process)
+		{
+		g_object_unref(video->process);
+		video->process = nullptr;
+		}
+
+	if (!video->valid)
+		{
+		g_free(stdout_text);
+		g_free(stderr_text);
+		g_clear_error(&error);
+		video_animation_free(video);
+		return;
+		}
+
+	gint width = 0;
+	gint height = 0;
+	gint rotation = 0;
+	const gboolean parsed = successful && stdout_text && video_animation_parse_probe(stdout_text, &width, &height, &rotation);
+	if (!parsed)
+		{
+		if (error && !g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+			DEBUG_1("Could not probe video preview: %s", error->message);
+		else if (stderr_text && *stderr_text)
+			DEBUG_1("Could not probe video preview: %s", stderr_text);
+		g_free(stdout_text);
+		g_free(stderr_text);
+		g_clear_error(&error);
+		video_animation_finish(video);
+		return;
+		}
+	g_free(stdout_text);
+	g_free(stderr_text);
+	g_clear_error(&error);
+
+	video_animation_start_decoder(video, width, height, rotation);
+}
+
+static gboolean video_animation_new_file(LayoutWindow *lw)
+{
+	g_autofree gchar *ffmpeg = g_find_program_in_path("ffmpeg");
+	g_autofree gchar *ffprobe = g_find_program_in_path("ffprobe");
+	if (!ffmpeg || !ffprobe)
+		{
+		DEBUG_1("ffmpeg and ffprobe are required for video previews");
+		return FALSE;
+		}
+
+	auto video = g_new0(VideoAnimationData, 1);
+	lw->video_animation = video;
+	video->lw = lw;
+	video->fd = file_data_ref(lw->image->image_fd);
+	video->cancellable = g_cancellable_new();
+	video->valid = TRUE;
+	video->operation = VideoAnimationOperation::PROBING;
+
+	const gchar *const argv[] = {"ffprobe", "-v", "error", "-select_streams", "v:0",
+	                             "-show_entries", "stream=width,height:stream_side_data=rotation",
+	                             "-of", "default=noprint_wrappers=1", video->fd->path, nullptr};
+	g_autoptr(GError) error = nullptr;
+	video->process = g_subprocess_newv(argv,
+	                                  static_cast<GSubprocessFlags>(G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_PIPE),
+	                                  &error);
+	if (!video->process)
+		{
+		DEBUG_1("Could not start ffprobe video preview: %s", error->message);
+		video_animation_finish(video);
+		return FALSE;
+		}
+	g_subprocess_communicate_utf8_async(video->process, nullptr, video->cancellable,
+	                                   video_animation_probe_cb, video);
+	return TRUE;
+}
 
 /*
  *----------------------------------------------------------------------------
@@ -221,21 +536,35 @@ static gboolean show_next_frame(gpointer data)
 	return TRUE;
 }
 
+void layout_image_animate_stop(LayoutWindow *lw)
+{
+	if (!lw) return;
+
+	if (lw->animation)
+		{
+		lw->animation->valid = FALSE;
+		if (lw->animation->cancellable)
+			{
+			g_cancellable_cancel(lw->animation->cancellable);
+			}
+		lw->animation = nullptr;
+		}
+	video_animation_stop(lw);
+}
+
 static gboolean layout_image_animate_check(LayoutWindow *lw)
 {
 	if (!layout_valid(&lw)) return FALSE;
 
-	if(!lw->options.animate || lw->image->image_fd == nullptr || lw->image->image_fd->extension == nullptr || (g_ascii_strcasecmp(lw->image->image_fd->extension,".GIF")!=0 && g_ascii_strcasecmp(lw->image->image_fd->extension,".WEBP")!=0))
+	const gboolean image_animation = lw->image->image_fd && lw->image->image_fd->extension &&
+	                                 (g_ascii_strcasecmp(lw->image->image_fd->extension, ".GIF") == 0 ||
+	                                  g_ascii_strcasecmp(lw->image->image_fd->extension, ".WEBP") == 0);
+	const gboolean video_preview = lw->image->image_fd &&
+	                              lw->image->image_fd->format_class == FORMAT_CLASS_VIDEO;
+
+	if (!lw->options.animate || (!image_animation && !video_preview))
 		{
-		if(lw->animation)
-			{
-			lw->animation->valid = FALSE;
-			if (lw->animation->cancellable)
-				{
-				g_cancellable_cancel(lw->animation->cancellable);
-				}
-			lw->animation = nullptr;
-			}
+		layout_image_animate_stop(lw);
 		return FALSE;
 		}
 
@@ -252,6 +581,13 @@ static void layout_image_animate_update_image(LayoutWindow *lw)
 			lw->animation->iw = lw->full_screen->imd;
 		else
 			lw->animation->iw = lw->image;
+		}
+	if (lw->options.animate && lw->video_animation)
+		{
+		if (lw->full_screen && lw->image != lw->full_screen->imd)
+			lw->video_animation->iw = lw->full_screen->imd;
+		else
+			lw->video_animation->iw = lw->image;
 		}
 }
 
@@ -309,11 +645,11 @@ static gboolean layout_image_animate_new_file(LayoutWindow *lw)
 
 	if(!layout_image_animate_check(lw)) return FALSE;
 
-	if(lw->animation) lw->animation->valid = FALSE;
+	layout_image_animate_stop(lw);
 
-	if (lw->animation)
+	if (lw->image->image_fd->format_class == FORMAT_CLASS_VIDEO)
 		{
-		g_cancellable_cancel(lw->animation->cancellable);
+		return video_animation_new_file(lw);
 		}
 
 	animation = g_new0(AnimationData, 1);
@@ -559,7 +895,7 @@ static GtkWidget *layout_image_pop_menu(LayoutWindow *lw)
 		menu_item_add_icon(menu, _("Exit _full screen"), GQ_ICON_LEAVE_FULLSCREEN, G_CALLBACK(li_pop_menu_full_screen_cb), lw);
 		}
 
-	menu_item_add_check(menu, _("GIF _animation"), lw->options.animate, G_CALLBACK(li_pop_menu_animate_cb), lw);
+	menu_item_add_check(menu, _("_Animation"), lw->options.animate, G_CALLBACK(li_pop_menu_animate_cb), lw);
 
 	return menu;
 }
