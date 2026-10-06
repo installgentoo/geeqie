@@ -376,6 +376,27 @@ static gboolean video_animation_new_file(LayoutWindow *lw)
 	return TRUE;
 }
 
+/**
+ * Starts or stops a video preview to match fullscreen, the other half of the rule in layout_image_animate_check.
+ *
+ * Only a video is touched here: an animated image plays in either mode, and restarting one would drop it back to
+ * its first frame every time fullscreen is entered.
+ */
+static void layout_image_video_animate_sync(LayoutWindow *lw)
+{
+	if (!layout_valid(&lw)) return;
+	if (!lw->image->image_fd || lw->image->image_fd->format_class != FORMAT_CLASS_VIDEO) return;
+
+	if (lw->full_screen)
+		{
+		layout_image_animate_new_file(lw);
+		}
+	else
+		{
+		video_animation_stop(lw);
+		}
+}
+
 /*
  *----------------------------------------------------------------------------
  * full screen
@@ -391,6 +412,12 @@ static void layout_image_full_screen_stop_func(FullScreenData *fs, gpointer data
 		lw->image = fs->normal_imd;
 
 	lw->full_screen = nullptr;
+
+	/* closing the fullscreen window from the window manager reaches here without layout_image_full_screen_stop,
+	 * and the fullscreen ImageWindow is destroyed straight after, so an animation still aimed at it would draw
+	 * into freed memory */
+	layout_image_animate_update_image(lw);
+	layout_image_video_animate_sync(lw);
 }
 
 void layout_image_full_screen_start(LayoutWindow *lw)
@@ -412,6 +439,7 @@ void layout_image_full_screen_start(LayoutWindow *lw)
 
 	image_osd_copy_status(lw->full_screen->normal_imd, lw->image);
 	layout_image_animate_update_image(lw);
+	layout_image_video_animate_sync(lw);
 
 	/** @FIXME This is a hack to fix #1037 Fullscreen loads black
 	 * The problem occurs when zoom is set to Original Size.
@@ -431,8 +459,6 @@ void layout_image_full_screen_stop(LayoutWindow *lw)
 		image_osd_copy_status(lw->image, lw->full_screen->normal_imd);
 
 	fullscreen_stop(lw->full_screen);
-
-	layout_image_animate_update_image(lw);
 }
 
 void layout_image_full_screen_toggle(LayoutWindow *lw)
@@ -559,7 +585,9 @@ static gboolean layout_image_animate_check(LayoutWindow *lw)
 	const gboolean image_animation = lw->image->image_fd && lw->image->image_fd->extension &&
 	                                 (g_ascii_strcasecmp(lw->image->image_fd->extension, ".GIF") == 0 ||
 	                                  g_ascii_strcasecmp(lw->image->image_fd->extension, ".WEBP") == 0);
-	const gboolean video_preview = lw->image->image_fd &&
+	/* a video preview holds an ffmpeg open for as long as it runs, which is too much to spend on a file that is
+	 * merely selected in the list, so it is confined to fullscreen */
+	const gboolean video_preview = lw->full_screen && lw->image->image_fd &&
 	                              lw->image->image_fd->format_class == FORMAT_CLASS_VIDEO;
 
 	if (!lw->options.animate || (!image_animation && !video_preview))
