@@ -111,6 +111,7 @@ struct DupeWindow
 	gint setup_n;			/**< Set to zero on start/reset. These are merely for speed optimization */
 	GList *setup_point;		/**< these are merely for speed optimization */
 	DupeMatchType setup_mask;	/**< these are merely for speed optimization */
+	GHashTable *name_key_candidates; /**< set of #DupeItem-s sharing a name key with a possible partner; in the name-key modes only these get similarity data */
 	guint64 setup_time; /**< Time in µsec since Epoch, restored at each phase of operation */
 	guint64 setup_time_count; /**< Time in µsec since time-to-go status display was updated */
 

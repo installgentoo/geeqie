@@ -498,6 +498,66 @@ static gboolean dupe_match_name_keys(const DupeItem *a, const DupeItem *b, DupeM
 	return dupe_name_key(a, mask).len > 0 && dupe_compare_name_keys(a, b, mask) == 0;
 }
 
+constexpr gint DUPE_MATCH_NAME_KEYS = DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID;
+
+/* A shared name key alone is not trusted: ids get reused across sites and names get mislabelled, so the pair must also be this similar. */
+constexpr DupeMatchType DUPE_NAME_KEY_CONFIRM = DUPE_MATCH_SIM_MED;
+
+/* Calls fn(a, b) once per unordered pair sharing a name key: within the one set, or across the two when a second set is in use. */
+template <typename F>
+static void dupe_name_key_pairs(DupeWindow *dw, F fn)
+{
+	DupeMatchType mask = dw->match_mask;
+	GPtrArray *items = g_ptr_array_new();
+	for (GList *work = dw->list; work; work = work->next) g_ptr_array_add(items, work->data);
+	if (dw->second_set)
+		{
+		for (GList *work = dw->second_list; work; work = work->next) g_ptr_array_add(items, work->data);
+		}
+
+	g_ptr_array_sort_with_data(items, [](gconstpointer a, gconstpointer b, gpointer data)
+		{
+		return dupe_compare_name_keys(*static_cast<const DupeItem *const *>(a), *static_cast<const DupeItem *const *>(b),
+		                              *static_cast<DupeMatchType *>(data));
+		}, &mask);
+
+	const auto item = [items](guint i) { return static_cast<DupeItem *>(g_ptr_array_index(items, i)); };
+	for (guint start = 0, end; start < items->len; start = end)
+		{
+		end = start + 1;
+		while (end < items->len && dupe_match_name_keys(item(start), item(end), mask)) end++;
+
+		for (guint i = start; i < end; i++)
+			{
+			for (guint j = i + 1; j < end; j++)
+				{
+				if (!dw->second_set || item(i)->second != item(j)->second) fn(item(i), item(j));
+				}
+			}
+		}
+
+	g_ptr_array_free(items, TRUE);
+}
+
+static void dupe_name_key_candidates_clear(DupeWindow *dw)
+{
+	if (dw->name_key_candidates) g_hash_table_destroy(dw->name_key_candidates);
+	dw->name_key_candidates = nullptr;
+}
+
+/* Kept until the next check starts; a removed item left in the set costs at most one needless similarity load if its address is reused. */
+static void dupe_name_key_candidates_build(DupeWindow *dw)
+{
+	dupe_name_key_candidates_clear(dw);
+	GHashTable *candidates = g_hash_table_new(nullptr, nullptr);
+	dupe_name_key_pairs(dw, [candidates](DupeItem *a, DupeItem *b)
+		{
+		g_hash_table_add(candidates, a);
+		g_hash_table_add(candidates, b);
+		});
+	dw->name_key_candidates = candidates;
+}
+
 static DupeItem *dupe_item_new(FileData *fd)
 {
 	DupeItem *di;
@@ -671,7 +731,7 @@ static gboolean dupe_sim_load_fill(DupeWindow *dw)
 		auto di = static_cast<DupeItem *>(dw->setup_point->data);
 		dw->setup_point = dupe_setup_point_step(dw, dw->setup_point);
 
-		if (di->simd)
+		if (di->simd || (dw->name_key_candidates && !g_hash_table_contains(dw->name_key_candidates, di)))
 			{
 			dw->setup_n++;
 			continue;
@@ -1378,9 +1438,8 @@ static GList *dupe_match_unlink_by_rank(DupeItem *child, DupeItem *parent, GList
 			if (orphan != child && g_list_length(orphan->group) < 2)
 				{
 				dupe_match_link_clear(orphan, TRUE);
-				if (!dw->second_set || orphan->second)
+				if ((!dw->second_set || orphan->second) && dupe_match(orphan, child, dw->match_mask, &rank, FALSE))
 					{
-					dupe_match(orphan, child, dw->match_mask, &rank, FALSE);
 					dupe_match_link(orphan, child, rank);
 					}
 				list = g_list_remove(list, orphan);
@@ -1618,6 +1677,8 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 
 	if (a->fd->path == b->fd->path) return FALSE;
 
+	if (mask & DUPE_MATCH_NAME_KEYS) mask = static_cast<DupeMatchType>(mask | DUPE_NAME_KEY_CONFIRM);
+
 	if (mask & DUPE_MATCH_NAME)
 		{
 		if (filelist_compare_names(a->fd->name, b->fd->name, TRUE, FALSE) != 0) return FALSE;
@@ -1626,7 +1687,7 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 		{
 		if (dupe_compare_loose_names(a->fd, b->fd) != 0) return FALSE;
 		}
-	if (mask & (DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID))
+	if (mask & DUPE_MATCH_NAME_KEYS)
 		{
 		if (!dupe_match_name_keys(a, b, mask)) return FALSE;
 		}
@@ -1645,6 +1706,7 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 		{
 		gdouble f;
 		gdouble m;
+		if (!a->simd || !b->simd) return FALSE;
 		const gboolean isometries = image_sim_isometries_allowed(a->fd->format_class, b->fd->format_class);
 
 		if (mask & DUPE_MATCH_SIM_HIGH) m = 0.95;
@@ -1702,13 +1764,6 @@ static gboolean dupe_match_check(DupeItem *di1, DupeItem *di2, gpointer data)
 			return FALSE;
 			}
 		}
-	if (mask & (DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID))
-		{
-		if (!dupe_match_name_keys(di1, di2, mask))
-			{
-			return FALSE;
-			}
-		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		if (g_strcmp0(di1->md5sum, di2->md5sum) != 0)
@@ -1747,10 +1802,6 @@ static gint dupe_match_binary_search_cb(gconstpointer a, gconstpointer b)
 		{
 		return dupe_compare_loose_names(di1->fd, di2->fd);
 		}
-	if (mask & (DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID))
-		{
-		return dupe_compare_name_keys(di1, di2, mask);
-		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		return g_strcmp0(di1->md5sum, di2->md5sum);
@@ -1783,10 +1834,6 @@ static gint dupe_match_sort_cb(gconstpointer a, gconstpointer b, gpointer data)
 		{
 		return dupe_compare_loose_names(di1->fd, di2->fd);
 		}
-	if (mask & (DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID))
-		{
-		return dupe_compare_name_keys(di1, di2, mask);
-		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		if (di1->md5sum[0] == '\0' || di2->md5sum[0] == '\0')
@@ -1814,6 +1861,19 @@ static gint dupe_match_sort_cb(gconstpointer a, gconstpointer b, gpointer data)
  * If two file sets, steps down the first set and for each value
  * does a binary search for matches in the second set.
  */
+/* Unlike dupe_array_check, links every qualifying pair with its rank and leaves grouping to dupe_match_rank: a key-sharing run can mix similar and dissimilar images, so adjacency in the sort does not imply a match. */
+static void dupe_name_key_check(DupeWindow *dw)
+{
+	dupe_match_reset_list(dw->list);
+	dupe_match_reset_list(dw->second_list);
+
+	dupe_name_key_pairs(dw, [dw](DupeItem *a, DupeItem *b)
+		{
+		gdouble rank;
+		if (dupe_match(a, b, dw->match_mask, &rank, FALSE)) dupe_match_link(a, b, rank);
+		});
+}
+
 static void dupe_array_check(DupeWindow *dw )
 {
 	GArray *array_set1;
@@ -2302,10 +2362,12 @@ static gboolean dupe_check_cb(gpointer data)
 		if ((dw->match_mask & DUPE_MATCH_SIM_HIGH ||
 		     dw->match_mask & DUPE_MATCH_SIM_MED ||
 		     dw->match_mask & DUPE_MATCH_SIM_LOW ||
-		     dw->match_mask & DUPE_MATCH_SIM_CUSTOM) &&
+		     dw->match_mask & DUPE_MATCH_SIM_CUSTOM ||
+		     dw->match_mask & DUPE_MATCH_NAME_KEYS) &&
 		    !(dw->setup_mask & DUPE_MATCH_SIM_MED) )
 			{
 			/* Similarity only: the loaders drive this phase; the last one to finish re-adds dupe_check_cb */
+			if ((dw->match_mask & DUPE_MATCH_NAME_KEYS) && !dw->name_key_candidates) dupe_name_key_candidates_build(dw);
 			dw->setup_point = dw->list;
 			if (dupe_sim_load_fill(dw))
 				{
@@ -2426,7 +2488,14 @@ static gboolean dupe_check_cb(gpointer data)
 		*/
 		dw->working = nullptr;
 		dupe_window_update_progress(dw, _("Comparing..."), 0.0, FALSE);
-		dupe_array_check(dw);
+		if (dw->match_mask & DUPE_MATCH_NAME_KEYS)
+			{
+			dupe_name_key_check(dw);
+			}
+		else
+			{
+			dupe_array_check(dw);
+			}
 		}
 
 	return G_SOURCE_CONTINUE;
@@ -2436,6 +2505,7 @@ static void dupe_check_start(DupeWindow *dw)
 {
 	/* a restart resets setup_point; a loader finishing afterwards would schedule a second dupe_check_cb */
 	dupe_sim_load_cancel_all(dw);
+	dupe_name_key_candidates_clear(dw);
 
 	dw->setup_done = FALSE;
 
@@ -3501,7 +3571,7 @@ static void dupe_menu_type_cb(GtkWidget *combo, gpointer data)
 
 	options->duplicates_match = dw->match_mask;
 
-	if (dw->match_mask & (DUPE_MATCH_SIM_HIGH | DUPE_MATCH_SIM_MED | DUPE_MATCH_SIM_LOW | DUPE_MATCH_SIM_CUSTOM))
+	if (dw->match_mask & (DUPE_MATCH_SIM_HIGH | DUPE_MATCH_SIM_MED | DUPE_MATCH_SIM_LOW | DUPE_MATCH_SIM_CUSTOM | DUPE_MATCH_NAME_KEYS))
 		{
 		dupe_listview_show_rank(dw->listview, TRUE);
 		}
@@ -3988,6 +4058,7 @@ void dupe_window_close(DupeWindow *dw)
 	g_thread_pool_free(dw->dupe_comparison_thread_pool, TRUE, TRUE);
 	g_mutex_clear(&dw->thread_count_mutex);
 	g_mutex_clear(&dw->search_matches_mutex);
+	dupe_name_key_candidates_clear(dw);
 
 	g_free(dw);
 }
