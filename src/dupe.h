@@ -42,7 +42,10 @@ enum DupeMatchType
 	DUPE_MATCH_SIM_MED  = 1 << 3,
 	DUPE_MATCH_SIM_LOW  = 1 << 4,
 	DUPE_MATCH_SIM_CUSTOM = 1 << 5,
-	DUPE_MATCH_NAME_LOOSE = 1 << 6,	/**< name ignoring case and extension; the highest value, rcfile.cc clamps to it */
+	DUPE_MATCH_NAME_LOOSE = 1 << 6,	/**< name ignoring case and extension */
+	DUPE_MATCH_NAME_MD5 = 1 << 7,	/**< a 32-hex-digit run in the name, ignoring case */
+	DUPE_MATCH_NAME_ID = 1 << 8,	/**< a -NNNNN- or -NNNNN_N- run in the name, at least 5 leading digits */
+	DUPE_MATCH_HIGHEST = DUPE_MATCH_NAME_ID,
 };
 
 enum DupeSelectType

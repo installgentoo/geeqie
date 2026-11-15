@@ -438,6 +438,66 @@ static gint dupe_compare_loose_names(const FileData *a, const FileData *b)
 	return (pa < ea) - (pb < eb);
 }
 
+/* A view into a file name; len == 0 when the name carries no key, and such names match nothing. */
+struct DupeNameKey
+{
+	const gchar *str;
+	gsize len;
+};
+
+/* The first run of exactly 32 hex digits: a longer run is some other hash (sha1, sha256), not an md5. */
+static DupeNameKey dupe_name_key_md5(const gchar *name)
+{
+	const gchar *p = name;
+	while (*p)
+		{
+		const gchar *start = p;
+		while (g_ascii_isxdigit(*p)) p++;
+		if (p - start == 32) return {start, 32};
+		if (p == start) p++;
+		}
+	return {nullptr, 0};
+}
+
+/* The first "-DDDDD-" or "-DDDDD_D[_D...]-" with at least 5 leading digits; the key excludes the dashes. */
+static DupeNameKey dupe_name_key_id(const gchar *name)
+{
+	for (const gchar *dash = strchr(name, '-'); dash; dash = strchr(dash + 1, '-'))
+		{
+		const gchar *start = dash + 1;
+		const gchar *p = start;
+		while (g_ascii_isdigit(*p)) p++;
+		if (p - start < 5) continue;
+		while (*p == '_' && g_ascii_isdigit(p[1]))
+			{
+			p++;
+			while (g_ascii_isdigit(*p)) p++;
+			}
+		if (*p == '-') return {start, static_cast<gsize>(p - start)};
+		}
+	return {nullptr, 0};
+}
+
+static DupeNameKey dupe_name_key(const DupeItem *di, DupeMatchType mask)
+{
+	return (mask & DUPE_MATCH_NAME_MD5) ? dupe_name_key_md5(di->fd->name) : dupe_name_key_id(di->fd->name);
+}
+
+/* Keyless names sort first and compare equal to each other; callers testing for a match must also require a key. */
+static gint dupe_compare_name_keys(const DupeItem *a, const DupeItem *b, DupeMatchType mask)
+{
+	const DupeNameKey ka = dupe_name_key(a, mask);
+	const DupeNameKey kb = dupe_name_key(b, mask);
+	const gint c = g_ascii_strncasecmp(ka.str ? ka.str : "", kb.str ? kb.str : "", MIN(ka.len, kb.len));
+	if (c != 0) return c;
+	return (ka.len > kb.len) - (ka.len < kb.len);
+}
+
+static gboolean dupe_match_name_keys(const DupeItem *a, const DupeItem *b, DupeMatchType mask)
+{
+	return dupe_name_key(a, mask).len > 0 && dupe_compare_name_keys(a, b, mask) == 0;
+}
+
 static DupeItem *dupe_item_new(FileData *fd)
 {
 	DupeItem *di;
@@ -1566,6 +1626,10 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 		{
 		if (dupe_compare_loose_names(a->fd, b->fd) != 0) return FALSE;
 		}
+	if (mask & (DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID))
+		{
+		if (!dupe_match_name_keys(a, b, mask)) return FALSE;
+		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		if (!a->md5sum) a->md5sum = md5_text_from_file_utf8(a->fd->path, "");
@@ -1638,6 +1702,13 @@ static gboolean dupe_match_check(DupeItem *di1, DupeItem *di2, gpointer data)
 			return FALSE;
 			}
 		}
+	if (mask & (DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID))
+		{
+		if (!dupe_match_name_keys(di1, di2, mask))
+			{
+			return FALSE;
+			}
+		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		if (g_strcmp0(di1->md5sum, di2->md5sum) != 0)
@@ -1676,6 +1747,10 @@ static gint dupe_match_binary_search_cb(gconstpointer a, gconstpointer b)
 		{
 		return dupe_compare_loose_names(di1->fd, di2->fd);
 		}
+	if (mask & (DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID))
+		{
+		return dupe_compare_name_keys(di1, di2, mask);
+		}
 	if (mask & DUPE_MATCH_SUM)
 		{
 		return g_strcmp0(di1->md5sum, di2->md5sum);
@@ -1707,6 +1782,10 @@ static gint dupe_match_sort_cb(gconstpointer a, gconstpointer b, gpointer data)
 	if (mask & DUPE_MATCH_NAME_LOOSE)
 		{
 		return dupe_compare_loose_names(di1->fd, di2->fd);
+		}
+	if (mask & (DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID))
+		{
+		return dupe_compare_name_keys(di1, di2, mask);
 		}
 	if (mask & DUPE_MATCH_SUM)
 		{
@@ -2666,7 +2745,7 @@ void dupe_window_add_files(DupeWindow *dw, GList *list, gboolean recurse)
 
 static void dupe_item_update(DupeWindow *dw, DupeItem *di)
 {
-	if (dw->match_mask & (DUPE_MATCH_NAME | DUPE_MATCH_NAME_LOOSE))
+	if (dw->match_mask & (DUPE_MATCH_NAME | DUPE_MATCH_NAME_LOOSE | DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID))
 		{
 		dupe_check_start(dw);
 		}
@@ -3460,6 +3539,8 @@ static void dupe_menu_setup(DupeWindow *dw)
 
 	dupe_menu_add_item(store, _("Name"), DUPE_MATCH_NAME, dw);
 	dupe_menu_add_item(store, _("Name (loose)"), DUPE_MATCH_NAME_LOOSE, dw);
+	dupe_menu_add_item(store, _("Name (md5)"), DUPE_MATCH_NAME_MD5, dw);
+	dupe_menu_add_item(store, _("Name (id)"), DUPE_MATCH_NAME_ID, dw);
 	dupe_menu_add_item(store, _("Checksum"), DUPE_MATCH_SUM, dw);
 	dupe_menu_add_item(store, _("Similarity (high - 95)"), DUPE_MATCH_SIM_HIGH, dw);
 	dupe_menu_add_item(store, _("Similarity (med. - 90)"), DUPE_MATCH_SIM_MED, dw);
@@ -4065,6 +4146,8 @@ DupeWindow *dupe_window_new()
 	if (options->duplicates_match == DUPE_MATCH_SIM_LOW) dw->match_mask = DUPE_MATCH_SIM_LOW;
 	if (options->duplicates_match == DUPE_MATCH_SIM_CUSTOM) dw->match_mask = DUPE_MATCH_SIM_CUSTOM;
 	if (options->duplicates_match == DUPE_MATCH_NAME_LOOSE) dw->match_mask = DUPE_MATCH_NAME_LOOSE;
+	if (options->duplicates_match == DUPE_MATCH_NAME_MD5) dw->match_mask = DUPE_MATCH_NAME_MD5;
+	if (options->duplicates_match == DUPE_MATCH_NAME_ID) dw->match_mask = DUPE_MATCH_NAME_ID;
 
 	dw->window = window_new("dupe", nullptr, nullptr, _("Find duplicates"));
 	DEBUG_NAME(dw->window);
