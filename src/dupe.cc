@@ -503,6 +503,12 @@ constexpr gint DUPE_MATCH_NAME_KEYS = DUPE_MATCH_NAME_MD5 | DUPE_MATCH_NAME_ID;
 /* A shared name key alone is not trusted: ids get reused across sites and names get mislabelled, so the pair must also be this similar. */
 constexpr DupeMatchType DUPE_NAME_KEY_CONFIRM = DUPE_MATCH_SIM_MED;
 
+/* Videos are trusted on the key alone: their similarity data needs an ffmpeg thumbnail per file, too slow to pay for a check. */
+static gboolean dupe_name_key_needs_confirm(const DupeItem *a, const DupeItem *b)
+{
+	return a->fd->format_class != FORMAT_CLASS_VIDEO && b->fd->format_class != FORMAT_CLASS_VIDEO;
+}
+
 /* Calls fn(a, b) once per unordered pair sharing a name key: within the one set, or across the two when a second set is in use. */
 template <typename F>
 static void dupe_name_key_pairs(DupeWindow *dw, F fn)
@@ -552,6 +558,7 @@ static void dupe_name_key_candidates_build(DupeWindow *dw)
 	GHashTable *candidates = g_hash_table_new(nullptr, nullptr);
 	dupe_name_key_pairs(dw, [candidates](DupeItem *a, DupeItem *b)
 		{
+		if (!dupe_name_key_needs_confirm(a, b)) return;
 		g_hash_table_add(candidates, a);
 		g_hash_table_add(candidates, b);
 		});
@@ -1677,7 +1684,7 @@ static gboolean dupe_match(DupeItem *a, DupeItem *b, DupeMatchType mask, gdouble
 
 	if (a->fd->path == b->fd->path) return FALSE;
 
-	if (mask & DUPE_MATCH_NAME_KEYS) mask = static_cast<DupeMatchType>(mask | DUPE_NAME_KEY_CONFIRM);
+	if ((mask & DUPE_MATCH_NAME_KEYS) && dupe_name_key_needs_confirm(a, b)) mask = static_cast<DupeMatchType>(mask | DUPE_NAME_KEY_CONFIRM);
 
 	if (mask & DUPE_MATCH_NAME)
 		{
