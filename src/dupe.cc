@@ -459,7 +459,11 @@ static DupeNameKey dupe_name_key_md5(const gchar *name)
 	return {nullptr, 0};
 }
 
-/* "DDDDD-" or "DDDDD_D[_D...]-" at start, with at least 5 leading digits; the key excludes the closing dash. */
+static constexpr const gchar *DUPE_NAME_ID_DELIMITERS = "-_ ";
+
+/* "DDDDD" or "DDDDD_D[_D...]" at start, with at least 5 leading digits, then a delimiter, which the key excludes.
+ * The _D groups are taken greedily with no backtracking: "123456_7.jpg" has no key rather than "123456",
+ * which would wrongly pair it with every other "123456_N". */
 static DupeNameKey dupe_name_key_id_at(const gchar *start)
 {
 	const gchar *p = start;
@@ -470,16 +474,16 @@ static DupeNameKey dupe_name_key_id_at(const gchar *start)
 		p++;
 		while (g_ascii_isdigit(*p)) p++;
 		}
-	if (*p == '-') return {start, static_cast<gsize>(p - start)};
+	if (*p && strchr(DUPE_NAME_ID_DELIMITERS, *p)) return {start, static_cast<gsize>(p - start)};
 	return {nullptr, 0};
 }
 
-/* The first id that opens the name or follows a dash: "DDDDD-..." or "...-DDDDD-...". */
+/* The first id that opens the name or follows a delimiter. */
 static DupeNameKey dupe_name_key_id(const gchar *name)
 {
 	DupeNameKey key = dupe_name_key_id_at(name);
-	for (const gchar *dash = strchr(name, '-'); !key.len && dash; dash = strchr(dash + 1, '-'))
-		key = dupe_name_key_id_at(dash + 1);
+	for (const gchar *d = strpbrk(name, DUPE_NAME_ID_DELIMITERS); !key.len && d; d = strpbrk(d + 1, DUPE_NAME_ID_DELIMITERS))
+		key = dupe_name_key_id_at(d + 1);
 	return key;
 }
 
