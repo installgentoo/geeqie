@@ -459,23 +459,28 @@ static DupeNameKey dupe_name_key_md5(const gchar *name)
 	return {nullptr, 0};
 }
 
-/* The first "-DDDDD-" or "-DDDDD_D[_D...]-" with at least 5 leading digits; the key excludes the dashes. */
+/* "DDDDD-" or "DDDDD_D[_D...]-" at start, with at least 5 leading digits; the key excludes the closing dash. */
+static DupeNameKey dupe_name_key_id_at(const gchar *start)
+{
+	const gchar *p = start;
+	while (g_ascii_isdigit(*p)) p++;
+	if (p - start < 5) return {nullptr, 0};
+	while (*p == '_' && g_ascii_isdigit(p[1]))
+		{
+		p++;
+		while (g_ascii_isdigit(*p)) p++;
+		}
+	if (*p == '-') return {start, static_cast<gsize>(p - start)};
+	return {nullptr, 0};
+}
+
+/* The first id that opens the name or follows a dash: "DDDDD-..." or "...-DDDDD-...". */
 static DupeNameKey dupe_name_key_id(const gchar *name)
 {
-	for (const gchar *dash = strchr(name, '-'); dash; dash = strchr(dash + 1, '-'))
-		{
-		const gchar *start = dash + 1;
-		const gchar *p = start;
-		while (g_ascii_isdigit(*p)) p++;
-		if (p - start < 5) continue;
-		while (*p == '_' && g_ascii_isdigit(p[1]))
-			{
-			p++;
-			while (g_ascii_isdigit(*p)) p++;
-			}
-		if (*p == '-') return {start, static_cast<gsize>(p - start)};
-		}
-	return {nullptr, 0};
+	DupeNameKey key = dupe_name_key_id_at(name);
+	for (const gchar *dash = strchr(name, '-'); !key.len && dash; dash = strchr(dash + 1, '-'))
+		key = dupe_name_key_id_at(dash + 1);
+	return key;
 }
 
 static DupeNameKey dupe_name_key(const DupeItem *di, DupeMatchType mask)
